@@ -647,7 +647,6 @@ class ProcessingLog(Base):
         """
         if self.status == "manual_review":
             return True
-        
         # Check confidence thresholds
         if self.ocr_confidence and self.ocr_confidence < 0.7:
             return True
@@ -655,6 +654,125 @@ class ProcessingLog(Base):
             return True
         
         return False
+
+
+# ============================================================================
+# Recipe Model
+# ============================================================================
+
+class SavedRecipe(Base):
+    """Saved recipes in recipe box.
+    
+    Stores user's favorite recipes generated from pantry items.
+    Allows users to save and revisit recipes they like.
+    
+    Attributes:
+        id: Primary key
+        name: Recipe name
+        description: Recipe description
+        cuisine: Cuisine type
+        difficulty: Difficulty level (easy/medium/hard)
+        prep_time: Preparation time in minutes
+        cook_time: Cooking time in minutes
+        servings: Number of servings
+        ingredients: JSON list of ingredients with amounts
+        instructions: JSON list of step-by-step instructions
+        notes: User's personal notes about the recipe
+        rating: User rating (1-5 stars, nullable)
+        tags: JSON list of tags (e.g., ["quick", "vegetarian"])
+        created_at: When recipe was saved
+        updated_at: Last update timestamp
+    """
+    
+    __tablename__ = "saved_recipes"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Recipe information
+    name = Column(String(255), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    cuisine = Column(String(100), nullable=True, index=True)
+    difficulty = Column(String(50), nullable=True, index=True)
+    prep_time = Column(Integer, nullable=True)  # minutes
+    cook_time = Column(Integer, nullable=True)  # minutes
+    servings = Column(Integer, nullable=True)
+    
+    # Recipe content (stored as JSON)
+    ingredients = Column(Text, nullable=False)  # JSON: List of ingredient dicts
+    instructions = Column(Text, nullable=False)  # JSON: List of instruction strings
+    
+    # User customization
+    notes = Column(Text, nullable=True)
+    rating = Column(Integer, nullable=True)  # 1-5 stars
+    tags = Column(Text, nullable=True)  # JSON: List of tag strings
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+    
+    # Indexes
+    __table_args__ = (
+        Index("ix_saved_recipes_name", "name"),
+        Index("ix_saved_recipes_cuisine", "cuisine"),
+        Index("ix_saved_recipes_difficulty", "difficulty"),
+        Index("ix_saved_recipes_created_at", "created_at"),
+    )
+    
+    def __repr__(self) -> str:
+        """String representation."""
+        return f"<SavedRecipe(id={self.id}, name='{self.name}')>"
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary.
+        
+        Returns:
+            Dictionary representation of saved recipe
+        """
+        import json
+        
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "cuisine": self.cuisine,
+            "difficulty": self.difficulty,
+            "prep_time": self.prep_time,
+            "cook_time": self.cook_time,
+            "servings": self.servings,
+            "ingredients": json.loads(self.ingredients) if self.ingredients else [],
+            "instructions": json.loads(self.instructions) if self.instructions else [],
+            "notes": self.notes,
+            "rating": self.rating,
+            "tags": json.loads(self.tags) if self.tags else [],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
+    @property
+    def total_time(self) -> Optional[int]:
+        """Calculate total time (prep + cook).
+        
+        Returns:
+            Total time in minutes, or None if either time is missing
+        """
+        if self.prep_time is not None and self.cook_time is not None:
+            return self.prep_time + self.cook_time
+        return None
+    
+    @property
+    def has_rating(self) -> bool:
+        """Check if recipe has a rating.
+        
+        Returns:
+            True if rating is set
+        """
+        return self.rating is not None and 1 <= self.rating <= 5
 
 
 # ============================================================================

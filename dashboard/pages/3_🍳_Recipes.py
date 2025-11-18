@@ -234,6 +234,30 @@ if generate_button or refresh_button or ('recipes' in st.session_state and st.se
                         if missing:
                             st.warning(f"⚠️ Needs {len(missing)} additional items")
                 
+                # Save Recipe Button
+                col1, col2, col3 = st.columns([2, 2, 1])
+                with col3:
+                    if st.button("💾 Save Recipe", key=f"save_{idx}", use_container_width=True):
+                        try:
+                            # Prepare recipe data for saving
+                            save_data = {
+                                "name": recipe.get('name', 'Unnamed Recipe'),
+                                "description": recipe.get('description', ''),
+                                "cuisine": recipe.get('cuisine', ''),
+                                "difficulty": recipe.get('difficulty', 'medium'),
+                                "prep_time": recipe.get('prep_time', 0),
+                                "cook_time": recipe.get('cook_time', 0),
+                                "servings": recipe.get('servings', 4),
+                                "ingredients": recipe.get('ingredients', []),
+                                "instructions": recipe.get('instructions', [])
+                            }
+                            
+                            api.save_recipe(save_data)
+                            st.success(f"✅ Saved '{recipe.get('name')}' to recipe box!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to save recipe: {e}")
+                
                 st.markdown("---")
                 st.markdown("")
 

@@ -114,7 +114,7 @@ st.markdown("---")
 # Quick Actions
 st.subheader("🚀 Quick Actions")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("➕ Add New Item", use_container_width=True, type="primary"):
@@ -125,8 +125,12 @@ with col2:
         st.switch_page("pages/2_⚠️_Expiring.py")
 
 with col3:
-    if st.button("📊 View Statistics", use_container_width=True):
-        st.switch_page("pages/4_📊_Statistics.py")
+    if st.button("🍳 Generate Recipes", use_container_width=True):
+        st.switch_page("pages/3_🍳_Recipes.py")
+
+with col4:
+    if st.button("📚 Recipe Box", use_container_width=True):
+        st.switch_page("pages/5_📚_Recipe_Box.py")
 
 st.markdown("---")
 

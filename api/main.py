@@ -25,7 +25,8 @@ from .models import (
     ProductCreate, ProductUpdate, ProductResponse,
     InventoryItemCreate, InventoryItemUpdate, InventoryItemResponse,
     ConsumeRequest, StatisticsResponse, MessageResponse,
-    HealthResponse, ErrorResponse, RecipeRequest, RecipeResponse
+    HealthResponse, ErrorResponse, RecipeRequest, RecipeResponse,
+    SavedRecipeCreate, SavedRecipeUpdate, SavedRecipeResponse
 )
 from src.db_service import PantryService
 from src.database import Product, InventoryItem
@@ -860,6 +861,182 @@ def _parse_time(time_str: str) -> int:
         return 0
     except:
         return 0
+
+
+# ============================================================================
+# Saved Recipe Endpoints (Recipe Box)
+# ============================================================================
+
+@app.post("/api/recipes/save", response_model=SavedRecipeResponse, status_code=status.HTTP_201_CREATED, tags=["Recipes"])
+def save_recipe(
+    recipe_data: SavedRecipeCreate,
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """
+    Save a recipe to the recipe box.
+    
+    Saves a recipe for later viewing. Can be a generated recipe or custom recipe.
+    """
+    try:
+        recipe = service.save_recipe(
+            name=recipe_data.name,
+            description=recipe_data.description,
+            cuisine=recipe_data.cuisine,
+            difficulty=recipe_data.difficulty,
+            prep_time=recipe_data.prep_time,
+            cook_time=recipe_data.cook_time,
+            servings=recipe_data.servings,
+            ingredients=recipe_data.ingredients,
+            instructions=recipe_data.instructions,
+            notes=recipe_data.notes,
+            rating=recipe_data.rating,
+            tags=recipe_data.tags
+        )
+        
+        logger.info(f"Saved recipe: {recipe.name} (ID: {recipe.id})")
+        return recipe.to_dict()
+        
+    except Exception as e:
+        logger.error(f"Error saving recipe: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save recipe: {str(e)}"
+        )
+
+
+@app.get("/api/recipes/saved", response_model=List[SavedRecipeResponse], tags=["Recipes"])
+def get_saved_recipes(
+    cuisine: Optional[str] = Query(None, description="Filter by cuisine"),
+    difficulty: Optional[str] = Query(None, description="Filter by difficulty"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum recipes to return"),
+    service: PantryService = Depends(get_pantry_service)
+) -> List[Dict]:
+    """
+    Get all saved recipes from recipe box.
+    
+    - **cuisine**: Optional cuisine filter
+    - **difficulty**: Optional difficulty filter
+    - **limit**: Maximum number of recipes to return
+    """
+    try:
+        recipes = service.get_saved_recipes(
+            cuisine=cuisine,
+            difficulty=difficulty,
+            limit=limit
+        )
+        
+        result = [recipe.to_dict() for recipe in recipes]
+        logger.info(f"Retrieved {len(result)} saved recipes")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error retrieving saved recipes: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve saved recipes"
+        )
+
+
+@app.get("/api/recipes/saved/{recipe_id}", response_model=SavedRecipeResponse, tags=["Recipes"])
+def get_saved_recipe(
+    recipe_id: int,
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """
+    Get a specific saved recipe by ID.
+    
+    - **recipe_id**: Recipe ID to retrieve
+    """
+    try:
+        recipe = service.get_saved_recipe(recipe_id)
+        if not recipe:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Recipe with ID {recipe_id} not found"
+            )
+        
+        return recipe.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving recipe {recipe_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve recipe"
+        )
+
+
+@app.put("/api/recipes/saved/{recipe_id}", response_model=SavedRecipeResponse, tags=["Recipes"])
+def update_saved_recipe(
+    recipe_id: int,
+    recipe_data: SavedRecipeUpdate,
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """
+    Update a saved recipe (notes, rating, tags).
+    
+    - **recipe_id**: Recipe ID to update
+    """
+    try:
+        recipe = service.update_saved_recipe(
+            recipe_id=recipe_id,
+            notes=recipe_data.notes,
+            rating=recipe_data.rating,
+            tags=recipe_data.tags
+        )
+        
+        if not recipe:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Recipe with ID {recipe_id} not found"
+            )
+        
+        logger.info(f"Updated recipe ID {recipe_id}")
+        return recipe.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating recipe {recipe_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update recipe"
+        )
+
+
+@app.delete("/api/recipes/saved/{recipe_id}", response_model=MessageResponse, tags=["Recipes"])
+def delete_saved_recipe(
+    recipe_id: int,
+    service: PantryService = Depends(get_pantry_service)
+) -> MessageResponse:
+    """
+    Delete a saved recipe.
+    
+    - **recipe_id**: Recipe ID to delete
+    """
+    try:
+        deleted = service.delete_saved_recipe(recipe_id)
+        
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Recipe with ID {recipe_id} not found"
+            )
+        
+        logger.info(f"Deleted recipe ID {recipe_id}")
+        return MessageResponse(
+            message=f"Recipe {recipe_id} deleted successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting recipe {recipe_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete recipe"
+        )
 
 
 # ============================================================================

@@ -39,6 +39,7 @@ from src.database import (
     InventoryItem,
     ProcessingLog,
     Product,
+    SavedRecipe,
     get_db_session,
     get_or_create_product,
     init_database,
@@ -575,6 +576,167 @@ class PantryService:
         
         logger.info(f"Import complete: {stats}")
         return stats
+    
+    # ========================================================================
+    # Recipe Box Operations
+    # ========================================================================
+    
+    def save_recipe(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        cuisine: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        prep_time: Optional[int] = None,
+        cook_time: Optional[int] = None,
+        servings: Optional[int] = None,
+        ingredients: List[Dict] = None,
+        instructions: List[str] = None,
+        notes: Optional[str] = None,
+        rating: Optional[int] = None,
+        tags: Optional[List[str]] = None
+    ) -> SavedRecipe:
+        """Save a recipe to the recipe box.
+        
+        Args:
+            name: Recipe name
+            description: Recipe description
+            cuisine: Cuisine type
+            difficulty: Difficulty level
+            prep_time: Preparation time in minutes
+            cook_time: Cooking time in minutes
+            servings: Number of servings
+            ingredients: List of ingredient dictionaries
+            instructions: List of instruction strings
+            notes: User notes
+            rating: Rating (1-5 stars)
+            tags: List of tags
+            
+        Returns:
+            Saved recipe object
+        """
+        import json
+        
+        recipe = SavedRecipe(
+            name=name,
+            description=description,
+            cuisine=cuisine,
+            difficulty=difficulty,
+            prep_time=prep_time,
+            cook_time=cook_time,
+            servings=servings,
+            ingredients=json.dumps(ingredients or []),
+            instructions=json.dumps(instructions or []),
+            notes=notes,
+            rating=rating,
+            tags=json.dumps(tags or []) if tags else None
+        )
+        
+        self.session.add(recipe)
+        self.session.commit()
+        self.session.refresh(recipe)
+        
+        logger.info(f"Saved recipe: {name} (ID: {recipe.id})")
+        return recipe
+    
+    def get_saved_recipes(
+        self,
+        cuisine: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        limit: Optional[int] = None
+    ) -> List[SavedRecipe]:
+        """Get saved recipes with optional filtering.
+        
+        Args:
+            cuisine: Filter by cuisine type
+            difficulty: Filter by difficulty
+            limit: Maximum number of recipes to return
+            
+        Returns:
+            List of saved recipes
+        """
+        query = self.session.query(SavedRecipe)
+        
+        if cuisine:
+            query = query.filter(SavedRecipe.cuisine == cuisine)
+        if difficulty:
+            query = query.filter(SavedRecipe.difficulty == difficulty)
+        
+        query = query.order_by(SavedRecipe.created_at.desc())
+        
+        if limit:
+            query = query.limit(limit)
+        
+        return query.all()
+    
+    def get_saved_recipe(self, recipe_id: int) -> Optional[SavedRecipe]:
+        """Get a specific saved recipe by ID.
+        
+        Args:
+            recipe_id: Recipe ID
+            
+        Returns:
+            Saved recipe or None if not found
+        """
+        return self.session.query(SavedRecipe).filter(
+            SavedRecipe.id == recipe_id
+        ).first()
+    
+    def update_saved_recipe(
+        self,
+        recipe_id: int,
+        notes: Optional[str] = None,
+        rating: Optional[int] = None,
+        tags: Optional[List[str]] = None
+    ) -> Optional[SavedRecipe]:
+        """Update a saved recipe (notes, rating, tags).
+        
+        Args:
+            recipe_id: Recipe ID
+            notes: Updated notes
+            rating: Updated rating (1-5)
+            tags: Updated tags
+            
+        Returns:
+            Updated recipe or None if not found
+        """
+        import json
+        
+        recipe = self.get_saved_recipe(recipe_id)
+        if not recipe:
+            return None
+        
+        if notes is not None:
+            recipe.notes = notes
+        if rating is not None:
+            recipe.rating = rating
+        if tags is not None:
+            recipe.tags = json.dumps(tags)
+        
+        self.session.commit()
+        self.session.refresh(recipe)
+        
+        logger.info(f"Updated recipe ID {recipe_id}")
+        return recipe
+    
+    def delete_saved_recipe(self, recipe_id: int) -> bool:
+        """Delete a saved recipe.
+        
+        Args:
+            recipe_id: Recipe ID to delete
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        recipe = self.get_saved_recipe(recipe_id)
+        if not recipe:
+            return False
+        
+        self.session.delete(recipe)
+        self.session.commit()
+        
+        logger.info(f"Deleted recipe ID {recipe_id}")
+        return True
 
 
 def initialize_database():

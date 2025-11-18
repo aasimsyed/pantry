@@ -192,6 +192,54 @@ class RecipeResponse(BaseModel):
 
 
 # ============================================================================
+# Saved Recipe Models
+# ============================================================================
+
+class SavedRecipeCreate(BaseModel):
+    """Request model for saving a recipe."""
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    cuisine: Optional[str] = Field(None, max_length=100)
+    difficulty: Optional[str] = Field(None, max_length=50)
+    prep_time: Optional[int] = Field(None, ge=0)
+    cook_time: Optional[int] = Field(None, ge=0)
+    servings: Optional[int] = Field(None, ge=1)
+    ingredients: List[Dict[str, Any]] = Field(default_factory=list)
+    instructions: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+    rating: Optional[int] = Field(None, ge=1, le=5)
+    tags: Optional[List[str]] = None
+
+
+class SavedRecipeUpdate(BaseModel):
+    """Request model for updating a saved recipe."""
+    notes: Optional[str] = None
+    rating: Optional[int] = Field(None, ge=1, le=5)
+    tags: Optional[List[str]] = None
+
+
+class SavedRecipeResponse(BaseModel):
+    """Response model for saved recipe."""
+    id: int
+    name: str
+    description: Optional[str] = None
+    cuisine: Optional[str] = None
+    difficulty: Optional[str] = None
+    prep_time: Optional[int] = None
+    cook_time: Optional[int] = None
+    servings: Optional[int] = None
+    ingredients: List[Dict[str, Any]]
+    instructions: List[str]
+    notes: Optional[str] = None
+    rating: Optional[int] = None
+    tags: List[str]
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
 # Search Models
 # ============================================================================
 

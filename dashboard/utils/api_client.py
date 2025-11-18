@@ -193,6 +193,37 @@ class APIClient:
         timeout = max(300, max_recipes * 30 + 60)
         
         return self._request("POST", "/api/recipes/generate", json=json_data, timeout=timeout)
+    
+    # Saved Recipes (Recipe Box)
+    def save_recipe(self, recipe_data: Dict) -> Dict:
+        """Save a recipe to the recipe box."""
+        return self._request("POST", "/api/recipes/save", json=recipe_data)
+    
+    def get_saved_recipes(
+        self,
+        cuisine: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict]:
+        """Get all saved recipes."""
+        params = {"limit": limit}
+        if cuisine:
+            params["cuisine"] = cuisine
+        if difficulty:
+            params["difficulty"] = difficulty
+        return self._request("GET", "/api/recipes/saved", params=params)
+    
+    def get_saved_recipe(self, recipe_id: int) -> Dict:
+        """Get a specific saved recipe."""
+        return self._request("GET", f"/api/recipes/saved/{recipe_id}")
+    
+    def update_saved_recipe(self, recipe_id: int, recipe_data: Dict) -> Dict:
+        """Update a saved recipe."""
+        return self._request("PUT", f"/api/recipes/saved/{recipe_id}", json=recipe_data)
+    
+    def delete_saved_recipe(self, recipe_id: int) -> Dict:
+        """Delete a saved recipe."""
+        return self._request("DELETE", f"/api/recipes/saved/{recipe_id}")
 
 
 @st.cache_resource(ttl=3600)  # Cache for 1 hour, but will refresh on server restart
