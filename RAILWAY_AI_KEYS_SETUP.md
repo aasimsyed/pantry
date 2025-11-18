@@ -21,7 +21,22 @@ You need to set these environment variables on Railway:
 
 4. **ANTHROPIC_API_KEY** - Your Anthropic API key (only if using Claude)
 
-## Method 1: Using Railway CLI (Recommended)
+## Method 1: Using Automated Script (Easiest)
+
+```bash
+# Make sure you're logged in
+railway login
+
+# Run the script (it reads from your .env file)
+./set_railway_ai_keys.sh
+```
+
+This script will:
+- ✅ Read your API keys from `.env`
+- ✅ Set them on Railway automatically
+- ✅ Handle all the variables (OPENAI_API_KEY, AI_PROVIDER, AI_MODEL, etc.)
+
+## Method 2: Using Railway CLI (Manual)
 
 ```bash
 # Make sure you're logged in
@@ -30,7 +45,7 @@ railway login
 # Link to your project (if not already linked)
 railway link
 
-# Set the variables
+# Set the variables (replace with your actual keys)
 railway variables --set "OPENAI_API_KEY=your-actual-openai-key-here"
 railway variables --set "AI_PROVIDER=openai"
 railway variables --set "AI_MODEL=gpt-4-turbo-preview"
