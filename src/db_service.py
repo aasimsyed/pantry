@@ -292,6 +292,86 @@ class PantryService:
         logger.info(f"Updated quantity for item {item_id}: {new_quantity}")
         return item
     
+    def update_inventory_item(
+        self,
+        item_id: int,
+        **kwargs
+    ) -> Optional[InventoryItem]:
+        """Update inventory item with any provided fields.
+        
+        Args:
+            item_id: Item ID
+            **kwargs: Fields to update (quantity, unit, storage_location, status, etc.)
+            
+        Returns:
+            Updated item or None
+        """
+        from datetime import datetime as dt, date as date_type
+        
+        item = self.get_inventory_item(item_id)
+        if not item:
+            return None
+        
+        # Update provided fields
+        if 'quantity' in kwargs:
+            item.quantity = kwargs['quantity']
+        if 'unit' in kwargs:
+            item.unit = kwargs['unit']
+        if 'storage_location' in kwargs:
+            item.storage_location = kwargs['storage_location']
+        if 'status' in kwargs:
+            item.status = kwargs['status']
+        if 'purchase_date' in kwargs:
+            if kwargs['purchase_date']:
+                if isinstance(kwargs['purchase_date'], str):
+                    # Handle date string (YYYY-MM-DD format)
+                    try:
+                        # Try parsing as date first
+                        from datetime import date as date_type
+                        date_obj = date_type.fromisoformat(kwargs['purchase_date'])
+                        item.purchase_date = dt.combine(date_obj, dt.min.time())
+                    except (ValueError, AttributeError):
+                        # Fallback to datetime parsing
+                        item.purchase_date = dt.fromisoformat(kwargs['purchase_date'].replace('Z', '+00:00'))
+                elif isinstance(kwargs['purchase_date'], date_type):
+                    item.purchase_date = dt.combine(kwargs['purchase_date'], dt.min.time())
+                else:
+                    item.purchase_date = kwargs['purchase_date']
+            else:
+                item.purchase_date = None
+        if 'expiration_date' in kwargs:
+            if kwargs['expiration_date']:
+                if isinstance(kwargs['expiration_date'], str):
+                    # Handle date string (YYYY-MM-DD format)
+                    try:
+                        from datetime import date as date_type
+                        date_obj = date_type.fromisoformat(kwargs['expiration_date'])
+                        item.expiration_date = dt.combine(date_obj, dt.min.time())
+                    except (ValueError, AttributeError):
+                        # Fallback to datetime parsing
+                        item.expiration_date = dt.fromisoformat(kwargs['expiration_date'].replace('Z', '+00:00'))
+                elif isinstance(kwargs['expiration_date'], date_type):
+                    item.expiration_date = dt.combine(kwargs['expiration_date'], dt.min.time())
+                else:
+                    item.expiration_date = kwargs['expiration_date']
+            else:
+                item.expiration_date = None
+        if 'notes' in kwargs:
+            item.notes = kwargs['notes']
+        if 'image_path' in kwargs:
+            item.image_path = kwargs['image_path']
+        if 'product_id' in kwargs:
+            item.product_id = kwargs['product_id']
+        
+        # Update status based on expiration
+        item.update_status()
+        
+        self.session.commit()
+        self.session.refresh(item)
+        
+        logger.info(f"Updated inventory item {item_id}")
+        return item
+    
     def consume_item(
         self,
         item_id: int,

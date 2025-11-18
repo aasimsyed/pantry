@@ -718,6 +718,14 @@ def update_inventory_item(
         # Update only provided fields
         update_data = item_data.model_dump(exclude_unset=True)
         
+        # Convert date objects to strings for the service method
+        if 'purchase_date' in update_data and update_data['purchase_date']:
+            if isinstance(update_data['purchase_date'], date):
+                update_data['purchase_date'] = update_data['purchase_date'].isoformat()
+        if 'expiration_date' in update_data and update_data['expiration_date']:
+            if isinstance(update_data['expiration_date'], date):
+                update_data['expiration_date'] = update_data['expiration_date'].isoformat()
+        
         # If product_id is being updated, verify it exists
         if 'product_id' in update_data:
             product = service.get_product_by_id(update_data['product_id'])
