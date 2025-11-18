@@ -56,8 +56,8 @@ else
     JSON_CONTENT=$(cat "$GOOGLE_CREDS" | tr -d '\n' | tr -d ' ')
 fi
 
-# Set on Railway
-if railway variables --set "GOOGLE_APPLICATION_CREDENTIALS=$JSON_CONTENT" 2>&1; then
+# Set on Railway web service
+if railway variables --service web --set "GOOGLE_APPLICATION_CREDENTIALS=$JSON_CONTENT" 2>&1; then
     echo ""
     echo "✅ Google Cloud Vision credentials set successfully!"
     echo ""
