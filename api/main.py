@@ -1680,6 +1680,7 @@ def _parse_time(time_str: str) -> int:
 @app.post("/api/recipes/save", response_model=SavedRecipeResponse, status_code=status.HTTP_201_CREATED, tags=["Recipes"])
 def save_recipe(
     recipe_data: SavedRecipeCreate,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> Dict:
     """
