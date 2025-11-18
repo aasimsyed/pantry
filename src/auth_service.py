@@ -27,7 +27,13 @@ from src.database import User, RefreshToken
 logger = logging.getLogger(__name__)
 
 # Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Configure bcrypt with proper settings
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__ident="2b",  # Use bcrypt version 2b
+    bcrypt__rounds=12,   # Number of rounds
+)
 
 # JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
