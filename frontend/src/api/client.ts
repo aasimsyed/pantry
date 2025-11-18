@@ -9,11 +9,16 @@ import type {
   SourceDirectory,
   ProcessImageResult,
   RefreshInventoryResult,
+  TokenResponse,
+  RegisterRequest,
+  LoginRequest,
+  User,
 } from '../types';
 
 class APIClient {
   private client: AxiosInstance;
   private baseTimeout: number = 10;
+  private accessToken: string | null = null;
 
   constructor(baseURL: string = 'http://localhost:8000') {
     this.client = axios.create({
@@ -24,14 +29,162 @@ class APIClient {
       },
     });
 
-    // Add response interceptor for error handling
+    // Load token from localStorage on initialization
+    this.loadToken();
+
+    // Add request interceptor to include auth token
+    this.client.interceptors.request.use(
+      (config) => {
+        if (this.accessToken) {
+          config.headers.Authorization = `Bearer ${this.accessToken}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Add response interceptor for error handling and token refresh
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
+      async (error) => {
+        if (error.response?.status === 401 && this.accessToken) {
+          // Token expired, try to refresh
+          try {
+            await this.refreshAccessToken();
+            // Retry original request
+            if (error.config) {
+              error.config.headers.Authorization = `Bearer ${this.accessToken}`;
+              return this.client.request(error.config);
+            }
+          } catch (refreshError) {
+            // Refresh failed, clear tokens
+            this.clearTokens();
+            window.location.href = '/login';
+          }
+        }
         console.error('API request failed:', error);
         throw error;
       }
     );
+  }
+
+  // Token management
+  private loadToken(): void {
+    if (typeof window !== 'undefined') {
+      this.accessToken = localStorage.getItem('access_token');
+    }
+  }
+
+  setToken(token: string): void {
+    this.accessToken = token;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('access_token', token);
+    }
+  }
+
+  setRefreshToken(token: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('refresh_token', token);
+    }
+  }
+
+  clearTokens(): void {
+    this.accessToken = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    }
+  }
+
+  getToken(): string | null {
+    return this.accessToken;
+  }
+
+  getRefreshToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('refresh_token');
+    }
+    return null;
+  }
+
+  // Authentication methods
+  async register(data: RegisterRequest): Promise<{ message: string; details: { user_id: number; email: string } }> {
+    const formData = new FormData();
+    formData.append('email', data.email);
+    formData.append('password', data.password);
+    if (data.full_name) {
+      formData.append('full_name', data.full_name);
+    }
+
+    const response = await this.client.post('/api/auth/register', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  async login(data: LoginRequest): Promise<TokenResponse> {
+    const formData = new FormData();
+    formData.append('email', data.email);
+    formData.append('password', data.password);
+
+    const response = await this.client.post<TokenResponse>('/api/auth/login', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    // Store tokens
+    this.setToken(response.data.access_token);
+    this.setRefreshToken(response.data.refresh_token);
+
+    return response.data;
+  }
+
+  async logout(): Promise<void> {
+    const refreshToken = this.getRefreshToken();
+    if (refreshToken) {
+      try {
+        const formData = new FormData();
+        formData.append('refresh_token', refreshToken);
+        await this.client.post('/api/auth/logout', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
+    this.clearTokens();
+  }
+
+  async refreshAccessToken(): Promise<string> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const formData = new FormData();
+    formData.append('refresh_token', refreshToken);
+
+    const response = await this.client.post<TokenResponse>('/api/auth/refresh', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    this.setToken(response.data.access_token);
+    if (response.data.refresh_token) {
+      this.setRefreshToken(response.data.refresh_token);
+    }
+
+    return response.data.access_token;
+  }
+
+  async getCurrentUser(): Promise<User> {
+    return this.request<User>('GET', '/api/auth/me');
   }
 
   private async request<T>(

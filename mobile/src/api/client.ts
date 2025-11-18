@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import * as SecureStore from 'expo-secure-store';
 import type {
   Product,
   InventoryItem,
@@ -9,6 +10,10 @@ import type {
   SourceDirectory,
   ProcessImageResult,
   RefreshInventoryResult,
+  TokenResponse,
+  RegisterRequest,
+  LoginRequest,
+  User,
 } from '../types';
 
 // API Base URL Configuration
@@ -40,6 +45,7 @@ const API_BASE_URL = getApiBaseUrl();
 class APIClient {
   private client: AxiosInstance;
   private baseTimeout: number = 10;
+  private accessToken: string | null = null;
 
   constructor(baseURL: string = API_BASE_URL) {
     this.client = axios.create({
@@ -50,14 +56,171 @@ class APIClient {
       },
     });
 
-    // Add response interceptor for error handling
+    // Load token on initialization
+    this.loadToken();
+
+    // Add request interceptor to include auth token
+    this.client.interceptors.request.use(
+      async (config) => {
+        if (this.accessToken) {
+          config.headers.Authorization = `Bearer ${this.accessToken}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Add response interceptor for error handling and token refresh
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
+      async (error) => {
+        if (error.response?.status === 401 && this.accessToken) {
+          // Token expired, try to refresh
+          try {
+            await this.refreshAccessToken();
+            // Retry original request
+            if (error.config) {
+              error.config.headers.Authorization = `Bearer ${this.accessToken}`;
+              return this.client.request(error.config);
+            }
+          } catch (refreshError) {
+            // Refresh failed, clear tokens
+            this.clearTokens();
+          }
+        }
         console.error('API request failed:', error);
         throw error;
       }
     );
+  }
+
+  // Token management
+  private async loadToken(): Promise<void> {
+    try {
+      this.accessToken = await SecureStore.getItemAsync('access_token');
+    } catch (error) {
+      console.error('Error loading token:', error);
+    }
+  }
+
+  private async setToken(token: string): Promise<void> {
+    this.accessToken = token;
+    try {
+      await SecureStore.setItemAsync('access_token', token);
+    } catch (error) {
+      console.error('Error storing token:', error);
+    }
+  }
+
+  private async setRefreshToken(token: string): Promise<void> {
+    try {
+      await SecureStore.setItemAsync('refresh_token', token);
+    } catch (error) {
+      console.error('Error storing refresh token:', error);
+    }
+  }
+
+  private async clearTokens(): Promise<void> {
+    this.accessToken = null;
+    try {
+      await SecureStore.deleteItemAsync('access_token');
+      await SecureStore.deleteItemAsync('refresh_token');
+    } catch (error) {
+      console.error('Error clearing tokens:', error);
+    }
+  }
+
+  getToken(): string | null {
+    return this.accessToken;
+  }
+
+  private async getRefreshToken(): Promise<string | null> {
+    try {
+      return await SecureStore.getItemAsync('refresh_token');
+    } catch (error) {
+      console.error('Error getting refresh token:', error);
+      return null;
+    }
+  }
+
+  // Authentication methods
+  async register(data: RegisterRequest): Promise<{ message: string; details: { user_id: number; email: string } }> {
+    const formData = new FormData();
+    formData.append('email', data.email);
+    formData.append('password', data.password);
+    if (data.full_name) {
+      formData.append('full_name', data.full_name);
+    }
+
+    const response = await this.client.post('/api/auth/register', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  async login(data: LoginRequest): Promise<TokenResponse> {
+    const formData = new FormData();
+    formData.append('email', data.email);
+    formData.append('password', data.password);
+
+    const response = await this.client.post<TokenResponse>('/api/auth/login', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    // Store tokens
+    await this.setToken(response.data.access_token);
+    await this.setRefreshToken(response.data.refresh_token);
+
+    return response.data;
+  }
+
+  async logout(): Promise<void> {
+    const refreshToken = await this.getRefreshToken();
+    if (refreshToken) {
+      try {
+        const formData = new FormData();
+        formData.append('refresh_token', refreshToken);
+        await this.client.post('/api/auth/logout', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
+    await this.clearTokens();
+  }
+
+  async refreshAccessToken(): Promise<string> {
+    const refreshToken = await this.getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const formData = new FormData();
+    formData.append('refresh_token', refreshToken);
+
+    const response = await this.client.post<TokenResponse>('/api/auth/refresh', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    await this.setToken(response.data.access_token);
+    if (response.data.refresh_token) {
+      await this.setRefreshToken(response.data.refresh_token);
+    }
+
+    return response.data.access_token;
+  }
+
+  async getCurrentUser(): Promise<User> {
+    return this.request<User>('GET', '/api/auth/me');
   }
 
   private async request<T>(
