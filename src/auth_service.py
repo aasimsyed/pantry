@@ -53,11 +53,17 @@ def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt.
     
     Args:
-        password: Plain text password
+        password: Plain text password (will be truncated to 72 bytes if longer)
         
     Returns:
         Bcrypt hashed password
     """
+    # Bcrypt has a 72-byte limit, truncate if necessary
+    if isinstance(password, str):
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+            password = password_bytes.decode('utf-8', errors='ignore')
     return pwd_context.hash(password)
 
 
