@@ -31,8 +31,26 @@ This guide covers **completely free** options to deploy your FastAPI backend, ex
    - Railway automatically sets `$PORT` environment variable
 
 4. **Add PostgreSQL database:**
-   - Click "New" → "Database" → "Add PostgreSQL"
-   - Railway provides `DATABASE_URL` automatically
+   
+   **Option A: From the project dashboard:**
+   - In your Railway project, look for a "+ New" button (usually at the top or bottom of the service list)
+   - Click "+ New" or "Add Service"
+   - Select "Database" from the dropdown
+   - Choose "Add PostgreSQL"
+   
+   **Option B: From the service menu:**
+   - Click on your project name in the left sidebar
+   - Click the "+" button or "New" button
+   - Select "Database" → "PostgreSQL"
+   
+   **Option C: Using the command palette:**
+   - Press `Cmd+K` (Mac) or `Ctrl+K` (Windows/Linux) to open the command palette
+   - Type "PostgreSQL" and select "Add PostgreSQL Database"
+   
+   Once added, Railway automatically:
+   - Creates the PostgreSQL database
+   - Sets the `DATABASE_URL` environment variable
+   - Links it to your service
 
 5. **Set environment variables:**
    - Go to Variables tab

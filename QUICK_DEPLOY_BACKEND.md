@@ -17,9 +17,30 @@ The fastest way to deploy your FastAPI backend for free.
 
 ## Step 3: Add PostgreSQL Database (1 minute)
 
-1. In your project, click "New"
-2. Select "Database" → "Add PostgreSQL"
-3. Railway automatically provides `DATABASE_URL` environment variable
+**How to add PostgreSQL in Railway:**
+
+1. **In your Railway project dashboard**, look for one of these:
+   - A **"+ New"** button (usually at the top right or bottom of the services list)
+   - A **"New"** button in the project view
+   - A **"+"** icon next to your service
+
+2. **Click it and you'll see options like:**
+   - "Empty Service"
+   - "Database"
+   - "GitHub Repo"
+   - etc.
+
+3. **Select "Database"** → **"PostgreSQL"**
+
+4. **Railway will automatically:**
+   - Create the PostgreSQL database
+   - Set the `DATABASE_URL` environment variable
+   - Link it to your service
+
+**Alternative:** If you can't find the button, try:
+- Looking in the left sidebar for a "+" or "New" option
+- Using the command palette: Press `Cmd+K` (Mac) or `Ctrl+K` (Windows) and type "PostgreSQL"
+- Checking if there's a "Resources" or "Add Resource" section
 
 ## Step 4: Configure Environment Variables (1 minute)
 
