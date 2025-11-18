@@ -11,6 +11,9 @@ import {
   Chip,
   Menu,
   Divider,
+  Portal,
+  Dialog,
+  Searchbar,
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +37,8 @@ export default function RecipesScreen() {
   const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
   const [cuisineMenuVisible, setCuisineMenuVisible] = useState(false);
   const [difficultyMenuVisible, setDifficultyMenuVisible] = useState(false);
+  const [requiredIngredientsDialogVisible, setRequiredIngredientsDialogVisible] = useState(false);
+  const [excludedIngredientsDialogVisible, setExcludedIngredientsDialogVisible] = useState(false);
 
   useEffect(() => {
     loadAvailableIngredients();
@@ -114,6 +119,16 @@ export default function RecipesScreen() {
       setList([...list, ingredient]);
     }
   };
+
+  const [requiredSearchQuery, setRequiredSearchQuery] = useState('');
+  const [excludedSearchQuery, setExcludedSearchQuery] = useState('');
+
+  const filteredRequiredIngredients = availableIngredients.filter((ing) =>
+    ing.toLowerCase().includes(requiredSearchQuery.toLowerCase())
+  );
+  const filteredExcludedIngredients = availableIngredients.filter((ing) =>
+    ing.toLowerCase().includes(excludedSearchQuery.toLowerCase())
+  );
 
   if (availableIngredients.length === 0) {
     return (
@@ -253,34 +268,58 @@ export default function RecipesScreen() {
           <Text variant="titleSmall" style={styles.sectionTitle}>
             Required Ingredients
           </Text>
-          <View style={styles.chipContainer}>
-            {availableIngredients.map((ing) => (
-              <Chip
-                key={ing}
-                selected={requiredIngredients.includes(ing)}
-                onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
-                style={styles.chip}
-              >
-                {ing}
-              </Chip>
-            ))}
-          </View>
+          <Button
+            mode="outlined"
+            onPress={() => {
+              setRequiredSearchQuery('');
+              setRequiredIngredientsDialogVisible(true);
+            }}
+            style={styles.selectButton}
+          >
+            {requiredIngredients.length > 0
+              ? `${requiredIngredients.length} selected`
+              : 'Select required ingredients'}
+          </Button>
+          {requiredIngredients.length > 0 && (
+            <View style={styles.selectedChips}>
+              {requiredIngredients.slice(0, 3).map((ing) => (
+                <Chip key={ing} style={styles.selectedChip} onClose={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}>
+                  {ing}
+                </Chip>
+              ))}
+              {requiredIngredients.length > 3 && (
+                <Chip style={styles.selectedChip}>+{requiredIngredients.length - 3} more</Chip>
+              )}
+            </View>
+          )}
 
           <Text variant="titleSmall" style={styles.sectionTitle}>
             Excluded Ingredients
           </Text>
-          <View style={styles.chipContainer}>
-            {availableIngredients.map((ing) => (
-              <Chip
-                key={ing}
-                selected={excludedIngredients.includes(ing)}
-                onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
-                style={styles.chip}
-              >
-                {ing}
-              </Chip>
-            ))}
-          </View>
+          <Button
+            mode="outlined"
+            onPress={() => {
+              setExcludedSearchQuery('');
+              setExcludedIngredientsDialogVisible(true);
+            }}
+            style={styles.selectButton}
+          >
+            {excludedIngredients.length > 0
+              ? `${excludedIngredients.length} selected`
+              : 'Select excluded ingredients'}
+          </Button>
+          {excludedIngredients.length > 0 && (
+            <View style={styles.selectedChips}>
+              {excludedIngredients.slice(0, 3).map((ing) => (
+                <Chip key={ing} style={styles.selectedChip} onClose={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}>
+                  {ing}
+                </Chip>
+              ))}
+              {excludedIngredients.length > 3 && (
+                <Chip style={styles.selectedChip}>+{excludedIngredients.length - 3} more</Chip>
+              )}
+            </View>
+          )}
 
           <Button
             mode="contained"
@@ -461,6 +500,41 @@ const styles = StyleSheet.create({
   difficulty: {
     marginTop: 4,
     color: '#6b7280',
+  },
+  selectedChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  selectedChip: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  dialog: {
+    maxHeight: '80%',
+  },
+  dialogScrollArea: {
+    maxHeight: 400,
+    paddingHorizontal: 0,
+  },
+  searchbar: {
+    margin: 8,
+    marginBottom: 0,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  checkboxText: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  noResults: {
+    textAlign: 'center',
+    color: '#6b7280',
+    padding: 16,
   },
 });
 
