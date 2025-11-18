@@ -64,28 +64,38 @@ def get_password_hash(password: str) -> str:
     Returns:
         Bcrypt hashed password
     """
-    # Ensure password is a string
+    # Ensure password is a string and not None
+    if password is None:
+        raise ValueError("Password cannot be None")
     if not isinstance(password, str):
         password = str(password)
     
     # Bcrypt has a strict 72-byte limit - truncate BEFORE hashing
-    # Convert to bytes to check actual length
+    # Convert to bytes to check actual length (bcrypt works with bytes)
     password_bytes = password.encode('utf-8')
     original_length = len(password_bytes)
     
     if original_length > 72:
         logger.warning(f"Password exceeds 72 bytes ({original_length}), truncating to 72")
-        # Truncate bytes, then decode back to string
         password_bytes = password_bytes[:72]
-        password = password_bytes.decode('utf-8', errors='ignore')
-    elif original_length == 0:
+    
+    if len(password_bytes) == 0:
         raise ValueError("Password cannot be empty")
     
-    # Log for debugging (remove in production)
-    logger.debug(f"Hashing password of {len(password_bytes)} bytes")
+    # Use bcrypt directly to avoid passlib encoding issues
+    # Convert back to string for passlib compatibility
+    password_str = password_bytes.decode('utf-8', errors='ignore')
     
-    # Hash the (possibly truncated) password
-    return pwd_context.hash(password)
+    # Hash using passlib (which will handle bcrypt internally)
+    try:
+        return pwd_context.hash(password_str)
+    except (ValueError, TypeError) as e:
+        # Fallback: if passlib fails, use bcrypt directly
+        import bcrypt
+        logger.warning(f"Passlib failed, using bcrypt directly: {e}")
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        return hashed.decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
