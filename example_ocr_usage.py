@@ -36,8 +36,9 @@ def example_basic_usage():
         print("   Please update the path to your test images")
         return
     
-    # Get first image from directory
-    images = list(test_images_dir.glob("*.jpg"))[:1]
+    # Get first image from directory (support both .jpg and .jpeg)
+    images = list(test_images_dir.glob("*.jpg")) + list(test_images_dir.glob("*.jpeg"))
+    images = images[:1]
     if not images:
         print("⚠️  No JPEG images found in test directory")
         return
@@ -111,7 +112,9 @@ def example_batch_processing():
         print(f"⚠️  Test directory not found: {test_images_dir}")
         return
     
-    images = list(test_images_dir.glob("*.jpg"))[:5]  # Process first 5
+    # Support both .jpg and .jpeg extensions
+    images = list(test_images_dir.glob("*.jpg")) + list(test_images_dir.glob("*.jpeg"))
+    images = images[:5]  # Process first 5
     if not images:
         print("⚠️  No JPEG images found in test directory")
         return
@@ -169,7 +172,9 @@ def example_caching():
         print(f"⚠️  Test directory not found: {test_images_dir}")
         return
     
-    images = list(test_images_dir.glob("*.jpg"))[:1]
+    # Support both .jpg and .jpeg extensions
+    images = list(test_images_dir.glob("*.jpg")) + list(test_images_dir.glob("*.jpeg"))
+    images = images[:1]
     if not images:
         print("⚠️  No JPEG images found in test directory")
         return
