@@ -193,10 +193,24 @@ def init_database():
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
         print(f"✅ Database initialized: {get_database_url()}")
-    except OperationalError as e:
-        # Handle case where indexes already exist
-        if "already exists" in str(e).lower():
-            print(f"⚠️  Some database objects already exist (this is OK)")
+    except Exception as e:
+        # Handle case where indexes/tables already exist (common in PostgreSQL)
+        error_str = str(e).lower()
+        if "already exists" in error_str or "duplicate" in error_str:
+            # Try to create tables without indexes first
+            from sqlalchemy import event
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Some database objects already exist, attempting individual table creation: {e}")
+            
+            # Create tables one by one, skipping index creation errors
+            for table in Base.metadata.sorted_tables:
+                try:
+                    table.create(engine, checkfirst=True)
+                except Exception as table_error:
+                    if "already exists" not in str(table_error).lower() and "duplicate" not in str(table_error).lower():
+                        logger.warning(f"Error creating table {table.name}: {table_error}")
+            print(f"⚠️  Database initialization completed with warnings (some objects may already exist)")
             print(f"✅ Database schema is up to date: {get_database_url()}")
         else:
             raise
