@@ -647,6 +647,14 @@ Create a test dataset with:
 - 2 images of non-food items (expect rejection)
 - 1 image of already-inventoried product (test deduplication)
 
+### Test Data Location
+**Primary Test Images**: `~/Pictures/Pantry`
+- Contains 64 JPEG images of pantry/product items
+- Images range from 1.5-2.8MB each
+- Used for testing image preprocessing and OCR accuracy
+- **Important**: Test scripts should NEVER modify this directory
+- Always copy images to a temporary location before processing
+
 ### Test Categories
 
 1. **Unit Tests**: Test each class/function in isolation

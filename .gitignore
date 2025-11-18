@@ -55,6 +55,7 @@ venv.bak/
 # Images and processed files
 images/
 processed/
+test_results/
 
 # OS
 .DS_Store
