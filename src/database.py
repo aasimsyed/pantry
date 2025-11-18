@@ -386,6 +386,12 @@ class InventoryItem(Base):
         nullable=False,
         index=True
     )
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,  # Allow NULL for backward compatibility
+        index=True
+    )
     
     # Quantity information
     quantity = Column(Float, nullable=False, default=1.0)
@@ -424,6 +430,7 @@ class InventoryItem(Base):
     
     # Relationships
     product = relationship("Product", back_populates="inventory_items")
+    user = relationship("User", back_populates="inventory_items")
     processing_logs = relationship(
         "ProcessingLog",
         back_populates="inventory_item",
@@ -785,6 +792,159 @@ class SavedRecipe(Base):
             True if rating is set
         """
         return self.rating is not None and 1 <= self.rating <= 5
+
+
+# ============================================================================
+# User Model - Authentication & Authorization
+# ============================================================================
+
+class User(Base):
+    """User account for authentication and authorization.
+    
+    Stores user credentials, roles, and account status.
+    Each user can have multiple inventory items and saved recipes.
+    
+    Attributes:
+        id: Primary key
+        email: User email (unique, indexed)
+        password_hash: Hashed password (bcrypt)
+        full_name: User's full name
+        role: User role (user/admin)
+        email_verified: Whether email is verified
+        is_active: Whether account is active
+        created_at: Account creation timestamp
+        updated_at: Last update timestamp
+        last_login: Last login timestamp
+    
+    Relationships:
+        inventory_items: User's inventory items
+        refresh_tokens: User's refresh tokens
+    """
+    
+    __tablename__ = "users"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    
+    # User information
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=True)
+    role = Column(String(50), default="user", nullable=False)  # user, admin
+    
+    # Account status
+    email_verified = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+    last_login = Column(DateTime, nullable=True)
+    
+    # Relationships
+    inventory_items = relationship("InventoryItem", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    
+    # Indexes
+    __table_args__ = (
+        Index("ix_users_email", "email"),
+        Index("ix_users_role", "role"),
+    )
+    
+    def __repr__(self) -> str:
+        """String representation."""
+        return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary (excludes sensitive data)."""
+        return {
+            "id": self.id,
+            "email": self.email,
+            "full_name": self.full_name,
+            "role": self.role,
+            "email_verified": self.email_verified,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
+    
+    @property
+    def is_admin(self) -> bool:
+        """Check if user is admin."""
+        return self.role == "admin"
+
+
+# ============================================================================
+# RefreshToken Model - JWT Refresh Token Storage
+# ============================================================================
+
+class RefreshToken(Base):
+    """Refresh token for JWT authentication.
+    
+    Stores hashed refresh tokens to enable token rotation and revocation.
+    
+    Attributes:
+        id: Primary key
+        user_id: Foreign key to users table
+        token_hash: SHA-256 hash of refresh token
+        expires_at: Token expiration timestamp
+        created_at: Token creation timestamp
+        revoked: Whether token is revoked
+    
+    Relationships:
+        user: Associated user
+    """
+    
+    __tablename__ = "refresh_tokens"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    
+    # Foreign keys
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    
+    # Token information
+    token_hash = Column(String(255), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    revoked = Column(Boolean, default=False, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="refresh_tokens")
+    
+    # Indexes
+    __table_args__ = (
+        Index("ix_refresh_tokens_user_expires", "user_id", "expires_at"),
+        Index("ix_refresh_tokens_revoked", "revoked"),
+    )
+    
+    def __repr__(self) -> str:
+        """String representation."""
+        return (
+            f"<RefreshToken(id={self.id}, user_id={self.user_id}, "
+            f"expires_at={self.expires_at}, revoked={self.revoked})>"
+        )
+    
+    @property
+    def is_expired(self) -> bool:
+        """Check if token is expired."""
+        return datetime.utcnow() > self.expires_at
+    
+    @property
+    def is_valid(self) -> bool:
+        """Check if token is valid (not revoked and not expired)."""
+        return not self.revoked and not self.is_expired
 
 
 # ============================================================================

@@ -7,33 +7,42 @@ Provides CRUD operations, search, filtering, and statistics.
 
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-from fastapi import FastAPI, Depends, HTTPException, Query, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, Query, status, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 import tempfile
 import shutil
 
 from .config import config
-from .dependencies import get_pantry_service, get_db
+from .dependencies import get_pantry_service, get_db, get_current_user, get_current_admin_user
 from .models import (
     ProductCreate, ProductUpdate, ProductResponse,
     InventoryItemCreate, InventoryItemUpdate, InventoryItemResponse,
     ConsumeRequest, StatisticsResponse, MessageResponse,
     HealthResponse, ErrorResponse, RecipeRequest, SingleRecipeRequest, RecipeResponse,
-    SavedRecipeCreate, SavedRecipeUpdate, SavedRecipeResponse
+    SavedRecipeCreate, SavedRecipeUpdate, SavedRecipeResponse,
+    RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest, RefreshTokenResponse, UserResponse
 )
 from src.db_service import PantryService
-from src.database import Product, InventoryItem
+from src.database import Product, InventoryItem, User
 from src.ai_analyzer import create_ai_analyzer
 from src.ocr_service import create_ocr_service
+from src.auth_service import (
+    authenticate_user, create_user, create_access_token, create_refresh_token,
+    verify_token, store_refresh_token, revoke_refresh_token, hash_refresh_token,
+    get_valid_refresh_token
+)
 from recipe_generator import RecipeGenerator
 from pathlib import Path
 import os
@@ -63,6 +72,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add rate limiting
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
 
 # ============================================================================
 # Root & Health Endpoints
@@ -86,6 +113,162 @@ def health_check() -> HealthResponse:
         service="Smart Pantry API",
         version=config.api_version
     )
+
+
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+@app.post("/api/auth/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED, tags=["Authentication"])
+@limiter.limit("10/minute")
+def register(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(..., min_length=8),
+    full_name: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+) -> MessageResponse:
+    """
+    Register a new user account.
+    
+    - **email**: User email address (must be unique)
+    - **password**: Password (minimum 8 characters)
+    - **full_name**: Optional full name
+    """
+    try:
+        user = create_user(db, email, password, full_name)
+        return MessageResponse(
+            message="User registered successfully",
+            details={"user_id": user.id, "email": user.email}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration failed"
+        )
+
+
+@app.post("/api/auth/login", response_model=TokenResponse, tags=["Authentication"])
+@limiter.limit("5/minute")
+def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+) -> TokenResponse:
+    """
+    Login and get access/refresh tokens.
+    
+    - **email**: User email address
+    - **password**: User password
+    
+    Returns JWT access token and refresh token.
+    """
+    user = authenticate_user(db, email, password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    # Update last login
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    # Create tokens
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email, "role": user.role})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    
+    # Store refresh token
+    store_refresh_token(db, user.id, refresh_token)
+    
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=user.to_dict()
+    )
+
+
+@app.post("/api/auth/refresh", response_model=RefreshTokenResponse, tags=["Authentication"])
+@limiter.limit("10/minute")
+def refresh_token_endpoint(
+    request: Request,
+    refresh_token: str = Form(...),
+    db: Session = Depends(get_db)
+) -> RefreshTokenResponse:
+    """
+    Refresh access token using refresh token.
+    
+    - **refresh_token**: Valid refresh token
+    
+    Returns new access token.
+    """
+    # Verify refresh token
+    payload = verify_token(refresh_token, token_type="refresh")
+    user_id = int(payload.get("sub"))
+    
+    # Check if token is valid in database
+    token_hash = hash_refresh_token(refresh_token)
+    token_record = get_valid_refresh_token(db, token_hash)
+    
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+    
+    # Get user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive"
+        )
+    
+    # Create new access token
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email, "role": user.role})
+    
+    return RefreshTokenResponse(
+        access_token=access_token,
+        token_type="bearer"
+    )
+
+
+@app.post("/api/auth/logout", response_model=MessageResponse, tags=["Authentication"])
+@limiter.limit("10/minute")
+def logout(
+    request: Request,
+    refresh_token: str = Form(...),
+    db: Session = Depends(get_db)
+) -> MessageResponse:
+    """
+    Logout and revoke refresh token.
+    
+    - **refresh_token**: Refresh token to revoke
+    """
+    token_hash = hash_refresh_token(refresh_token)
+    if revoke_refresh_token(db, token_hash):
+        return MessageResponse(message="Logged out successfully")
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid refresh token"
+    )
+
+
+@app.get("/api/auth/me", response_model=UserResponse, tags=["Authentication"])
+def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+) -> UserResponse:
+    """
+    Get current authenticated user information.
+    
+    Returns user details for the authenticated user.
+    """
+    return UserResponse.model_validate(current_user)
 
 
 # ============================================================================
@@ -346,11 +529,14 @@ def enrich_inventory_item(item: InventoryItem) -> Dict:
 # ============================================================================
 
 @app.get("/api/inventory", response_model=List[InventoryItemResponse], tags=["Inventory"])
+@limiter.limit("100/minute")
 def get_inventory(
+    request: Request,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum records to return"),
     location: Optional[str] = Query(None, description="Filter by storage location"),
     status: Optional[str] = Query(None, description="Filter by status"),
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> List[Dict]:
     """
@@ -362,7 +548,10 @@ def get_inventory(
     - **status**: Filter by item status (in_stock/low/expired/consumed)
     """
     try:
+        # Filter by user_id if authenticated
         items = service.get_all_inventory()
+        if current_user:
+            items = [i for i in items if i.user_id is None or i.user_id == current_user.id]
         
         # Apply filters
         if location:
@@ -418,8 +607,11 @@ def get_inventory_item(
 
 
 @app.post("/api/inventory", response_model=InventoryItemResponse, status_code=status.HTTP_201_CREATED, tags=["Inventory"])
+@limiter.limit("20/minute")
 def create_inventory_item(
+    request: Request,
     item_data: InventoryItemCreate,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> Dict:
     """
@@ -451,7 +643,8 @@ def create_inventory_item(
             storage_location=item_data.storage_location,
             image_path=item_data.image_path,
             notes=item_data.notes,
-            status=item_data.status
+            status=item_data.status,
+            user_id=current_user.id
         )
         logger.info(f"Created inventory item ID {item.id}")
         return enrich_inventory_item(item)
@@ -781,9 +974,12 @@ def set_source_directory(request: Dict) -> Dict:
 
 
 @app.post("/api/inventory/process-image", tags=["Inventory"])
+@limiter.limit("10/minute")
 def process_single_image(
+    request: Request,
     file: UploadFile = File(...),
     storage_location: str = Form("pantry"),
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> Dict:
     """Process a single uploaded image through OCR and AI analysis."""
@@ -862,7 +1058,6 @@ def process_single_image(
             exp_date = None
             if product_data.expiration_date:
                 try:
-                    from datetime import datetime
                     # Handle different date formats
                     date_str = str(product_data.expiration_date)
                     if "Z" in date_str:
@@ -880,7 +1075,8 @@ def process_single_image(
                 storage_location=storage_location,
                 expiration_date=exp_date,
                 image_path=file.filename,
-                notes=f"Processed from uploaded image"
+                notes=f"Processed from uploaded image",
+                user_id=current_user.id
             )
             
             # Create processing log

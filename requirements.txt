@@ -55,4 +55,10 @@ pylint>=3.0.0  # Python code analyzer
 python-magic>=0.4.27  # File type detection
 python-dateutil>=2.8.0  # Flexible date parsing for AI extraction
 
+# Security & Authentication
+python-jose[cryptography]>=3.3.0  # JWT token handling
+passlib[bcrypt]>=1.7.4  # Password hashing
+slowapi>=0.1.9  # Rate limiting
+email-validator>=2.1.0  # Email validation
+
 

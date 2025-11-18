@@ -7,7 +7,7 @@ Provides automatic validation and serialization/deserialization.
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
 
 
 # ============================================================================
@@ -298,4 +298,55 @@ class HealthResponse(BaseModel):
     service: str
     version: str
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# ============================================================================
+# Authentication Models
+# ============================================================================
+
+class RegisterRequest(BaseModel):
+    """Request model for user registration."""
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=8, description="Password (minimum 8 characters)")
+    full_name: Optional[str] = Field(None, max_length=255, description="User's full name")
+
+
+class LoginRequest(BaseModel):
+    """Request model for user login."""
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., description="User password")
+
+
+class TokenResponse(BaseModel):
+    """Response model for authentication tokens."""
+    access_token: str = Field(..., description="JWT access token")
+    refresh_token: str = Field(..., description="JWT refresh token")
+    token_type: str = Field(default="bearer", description="Token type")
+    user: Dict[str, Any] = Field(..., description="User information")
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request model for refreshing access token."""
+    refresh_token: str = Field(..., description="Refresh token")
+
+
+class RefreshTokenResponse(BaseModel):
+    """Response model for refreshed access token."""
+    access_token: str = Field(..., description="New JWT access token")
+    token_type: str = Field(default="bearer", description="Token type")
+
+
+class UserResponse(BaseModel):
+    """Response model for user information."""
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    role: str
+    email_verified: bool
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    last_login: Optional[datetime] = None
+    
+    model_config = ConfigDict(from_attributes=True)
 
