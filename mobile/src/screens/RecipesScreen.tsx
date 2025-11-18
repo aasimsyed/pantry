@@ -23,6 +23,7 @@ export default function RecipesScreen() {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [numRecipes, setNumRecipes] = useState(5);
+  const [numRecipesText, setNumRecipesText] = useState('5');
   const [requiredIngredients, setRequiredIngredients] = useState<string[]>([]);
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>([]);
   const [allowMissing, setAllowMissing] = useState(false);
@@ -126,16 +127,23 @@ export default function RecipesScreen() {
 
           <TextInput
             label="Number of Recipes"
-            value={numRecipes.toString()}
+            value={numRecipesText}
             onChangeText={(text) => {
               // Allow empty text for clearing
+              setNumRecipesText(text);
               if (text === '' || text === null || text === undefined) {
-                setNumRecipes(0);
-              } else {
-                const num = parseInt(text, 10);
-                if (!isNaN(num) && num > 0) {
-                  setNumRecipes(num);
-                }
+                // Keep text empty, but don't update numRecipes yet
+                return;
+              }
+              const num = parseInt(text, 10);
+              if (!isNaN(num) && num > 0) {
+                setNumRecipes(num);
+              }
+            }}
+            onBlur={() => {
+              // When field loses focus, ensure we have a valid number
+              if (numRecipesText === '' || isNaN(parseInt(numRecipesText, 10)) || parseInt(numRecipesText, 10) <= 0) {
+                setNumRecipesText(numRecipes.toString());
               }
             }}
             keyboardType="numeric"
