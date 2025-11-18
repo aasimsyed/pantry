@@ -1688,6 +1688,7 @@ def get_saved_recipes(
     cuisine: Optional[str] = Query(None, description="Filter by cuisine"),
     difficulty: Optional[str] = Query(None, description="Filter by difficulty"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum recipes to return"),
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> List[Dict]:
     """
@@ -1704,15 +1705,30 @@ def get_saved_recipes(
             limit=limit
         )
         
-        result = [recipe.to_dict() for recipe in recipes]
+        # Convert recipes to dict, handling any serialization issues
+        result = []
+        for recipe in recipes:
+            try:
+                recipe_dict = recipe.to_dict()
+                result.append(recipe_dict)
+            except Exception as e:
+                logger.warning(f"Error serializing recipe {recipe.id}: {e}")
+                # Try alternative serialization
+                try:
+                    result.append(SavedRecipeResponse.model_validate(recipe).model_dump())
+                except Exception as e2:
+                    logger.error(f"Failed to serialize recipe {recipe.id}: {e2}")
+                    # Skip this recipe
+                    continue
+        
         logger.info(f"Retrieved {len(result)} saved recipes")
         return result
         
     except Exception as e:
-        logger.error(f"Error retrieving saved recipes: {e}")
+        logger.error(f"Error retrieving saved recipes: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve saved recipes"
+            detail=f"Failed to retrieve saved recipes: {str(e)}"
         )
 
 
