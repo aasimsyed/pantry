@@ -27,10 +27,13 @@ class APIConfig(BaseSettings):
     """
     
     # CORS Configuration
+    # Note: Mobile apps (React Native) don't use CORS, but web frontends do
     cors_origins: List[str] = [
         "http://localhost:8501",  # Streamlit default
         "http://localhost:3000",  # React default
         "http://localhost:5173",  # Vite dev server default
+        # Add your production frontend URL here when deployed
+        # "https://your-frontend.vercel.app",
     ]
     
     # Database Configuration

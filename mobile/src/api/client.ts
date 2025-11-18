@@ -19,7 +19,7 @@ const getApiBaseUrl = () => {
   if (!__DEV__) {
     // In production, use environment variable or your deployed backend URL
     // Set this via EAS Secrets or app.json extra config
-    return process.env.EXPO_PUBLIC_API_URL || 'https://your-production-api.com';
+    return process.env.EXPO_PUBLIC_API_URL || 'https://pantry.up.railway.app';
   }
   
   // Development: Use local IP for physical devices, localhost for simulators
