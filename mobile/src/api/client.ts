@@ -88,7 +88,16 @@ class APIClient {
             this.clearTokens();
           }
         }
-        console.error('API request failed:', error);
+        // Log error with more details for debugging
+        if (error.response) {
+          console.error(`API request failed: ${error.response.status} ${error.response.statusText}`, {
+            url: error.config?.url,
+            method: error.config?.method,
+            data: error.response.data,
+          });
+        } else {
+          console.error('API request failed:', error.message || error);
+        }
         throw error;
       }
     );

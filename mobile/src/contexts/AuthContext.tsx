@@ -32,20 +32,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userData = await apiClient.getCurrentUser();
           setUser(userData);
         } catch (error: any) {
-          // If it's a network/timeout error, keep the token but don't set user
-          // User will need to retry when network is available
-          if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-            console.warn('Network timeout checking auth, keeping token for retry');
-            // Don't clear token on timeout - might just be network issue
+          // Handle different error types
+          const status = error.response?.status;
+          const isNetworkError = error.code === 'ECONNABORTED' || 
+                                 error.message?.includes('timeout') ||
+                                 error.message?.includes('Network Error');
+          
+          if (isNetworkError) {
+            // Network/timeout error - keep token but don't set user
+            // User will need to retry when network is available
+            console.warn('Network error checking auth, keeping token for retry');
+            setUser(null); // Show login screen but keep token
+          } else if (status === 401 || status === 403) {
+            // Unauthorized/Forbidden - token is invalid
+            console.warn('Token invalid, clearing auth');
+            await apiClient.logout();
+            setUser(null);
+          } else if (status === 500) {
+            // Server error - could be database issue, invalid token, etc.
+            // Clear token and show login to be safe
+            console.warn('Server error checking auth, clearing token:', error.response?.data);
+            await apiClient.logout();
+            setUser(null);
           } else {
-            // Other errors (401, etc.) mean token is invalid
+            // Other errors - clear token to be safe
+            console.warn('Auth check error, clearing token:', error);
             await apiClient.logout();
             setUser(null);
           }
         }
       }
     } catch (error) {
-      // Not authenticated or network error
+      // Not authenticated or unexpected error
       console.warn('Auth check failed:', error);
       setUser(null);
     } finally {
