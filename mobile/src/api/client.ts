@@ -37,7 +37,8 @@ const getApiBaseUrl = () => {
   // Default development URL (update with your local IP)
   // For iOS Simulator: localhost works
   // For physical devices: use your computer's local IP
-  return 'http://192.168.69.61:8000';  // Update this to your computer's local IP
+  // Default to Railway production backend (has API keys configured)
+  return 'https://pantry.up.railway.app';
 };
 
 const API_BASE_URL = getApiBaseUrl();
