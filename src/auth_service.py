@@ -52,7 +52,20 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    import bcrypt
+    
+    # Truncate password to 72 bytes if needed
+    password_bytes = plain_password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    
+    # Verify using bcrypt directly
+    try:
+        return bcrypt.checkpw(password_bytes, hashed_password.encode('utf-8'))
+    except Exception as e:
+        logger.error(f"Password verification error: {e}")
+        # Fallback to passlib for compatibility
+        return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
@@ -64,6 +77,8 @@ def get_password_hash(password: str) -> str:
     Returns:
         Bcrypt hashed password
     """
+    import bcrypt
+    
     # Ensure password is a string and not None
     if password is None:
         raise ValueError("Password cannot be None")
@@ -83,19 +98,9 @@ def get_password_hash(password: str) -> str:
         raise ValueError("Password cannot be empty")
     
     # Use bcrypt directly to avoid passlib encoding issues
-    # Convert back to string for passlib compatibility
-    password_str = password_bytes.decode('utf-8', errors='ignore')
-    
-    # Hash using passlib (which will handle bcrypt internally)
-    try:
-        return pwd_context.hash(password_str)
-    except (ValueError, TypeError) as e:
-        # Fallback: if passlib fails, use bcrypt directly
-        import bcrypt
-        logger.warning(f"Passlib failed, using bcrypt directly: {e}")
-        salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password_bytes, salt)
-        return hashed.decode('utf-8')
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
