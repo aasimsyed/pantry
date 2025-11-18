@@ -1048,13 +1048,35 @@ def process_single_image(
             )
         
         try:
-            # Initialize services
-            ocr_service = create_ocr_service()
-            ai_analyzer = create_ai_analyzer()
+            # Initialize services with error handling
+            try:
+                ocr_service = create_ocr_service()
+            except Exception as e:
+                logger.error(f"Failed to initialize OCR service: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"OCR service unavailable: {str(e)}"
+                )
+            
+            try:
+                ai_analyzer = create_ai_analyzer()
+            except Exception as e:
+                logger.error(f"Failed to initialize AI analyzer: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"AI analyzer unavailable: {str(e)}"
+                )
             
             # Run OCR
             logger.info(f"Processing image: {file.filename}")
-            ocr_result = ocr_service.extract_text(str(tmp_path))
+            try:
+                ocr_result = ocr_service.extract_text(str(tmp_path))
+            except Exception as e:
+                logger.error(f"OCR extraction failed: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"OCR extraction failed: {str(e)}"
+                )
             ocr_confidence = ocr_result.get("confidence", 0)
             
             if not ocr_result.get("raw_text", "").strip():
@@ -1064,8 +1086,15 @@ def process_single_image(
                 )
             
             # Run AI analysis
-            product_data = ai_analyzer.analyze_product(ocr_result)
-            ai_confidence = product_data.confidence
+            try:
+                product_data = ai_analyzer.analyze_product(ocr_result)
+                ai_confidence = product_data.confidence
+            except Exception as e:
+                logger.error(f"AI analysis failed: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"AI analysis failed: {str(e)}"
+                )
             
             if not product_data.product_name:
                 raise HTTPException(
