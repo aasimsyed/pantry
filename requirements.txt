@@ -33,6 +33,9 @@ streamlit>=1.28.0  # Web dashboard
 click>=8.1.0  # Command-line interface framework
 rich>=13.7.0  # Rich text and beautiful formatting in terminal
 
+# Caching
+diskcache>=5.6.0  # Disk-based caching for OCR results
+
 # Development Dependencies
 pytest>=7.4.0  # Testing framework
 pytest-cov>=4.1.0  # Test coverage
@@ -41,7 +44,9 @@ pytest-mock>=3.12.0  # Mocking for tests
 black>=23.11.0  # Code formatter
 ruff>=0.1.6  # Fast Python linter
 mypy>=1.7.0  # Static type checker
+pylint>=3.0.0  # Python code analyzer
 
 # Utilities
 python-magic>=0.4.27  # File type detection
+
 
