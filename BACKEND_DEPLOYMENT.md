@@ -65,7 +65,37 @@ This guide covers **completely free** options to deploy your FastAPI backend, ex
 
 6. **Deploy:**
    - Railway auto-deploys on git push
-   - Get your URL: `https://your-app.railway.app`
+   
+7. **Get your Railway URL:**
+   
+   **Option A: From the service settings:**
+   - Click on your service name in the Railway dashboard
+   - Go to the **"Settings"** tab
+   - Scroll down to **"Networking"** or **"Domains"** section
+   - You'll see your Railway-generated domain (e.g., `your-app-production.up.railway.app`)
+   - Click **"Generate Domain"** if you don't see one
+   
+   **Option B: From the service overview:**
+   - Click on your service
+   - Look at the top of the service page
+   - You should see a URL or "Open" button next to your service name
+   - The URL format is usually: `https://[service-name]-[random].up.railway.app`
+   
+   **Option C: From the deployments tab:**
+   - Click on your service
+   - Go to **"Deployments"** tab
+   - Click on the latest deployment
+   - The URL should be visible in the deployment details
+   
+   **Option D: Check environment variables:**
+   - Go to **"Variables"** tab in your service
+   - Railway may have set a `RAILWAY_PUBLIC_DOMAIN` variable
+   
+   **To get a custom domain:**
+   - In Settings → Networking/Domains
+   - Click **"Custom Domain"** or **"Add Domain"**
+   - Enter your domain name
+   - Follow the DNS configuration instructions
 
 **Cost**: Free (with $5 monthly credit)
 

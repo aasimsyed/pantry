@@ -73,9 +73,40 @@ Railway automatically deploys when you:
 
 ## Step 7: Get Your URL
 
-1. Click on your service → "Settings"
-2. Under "Domains", you'll see your URL:
-   - Example: `https://your-app.railway.app`
+**How to find your Railway URL:**
+
+1. **Click on your service** in the Railway dashboard
+
+2. **Look for the URL in one of these places:**
+   
+   **Method 1: Settings Tab**
+   - Click **"Settings"** tab
+   - Scroll to **"Networking"** or **"Domains"** section
+   - You'll see your Railway domain (e.g., `your-app-production-abc123.up.railway.app`)
+   - If you don't see one, click **"Generate Domain"**
+   
+   **Method 2: Service Overview**
+   - On the main service page, look at the top
+   - There may be a URL displayed or an **"Open"** button
+   - The URL format is: `https://[service-name]-[random-id].up.railway.app`
+   
+   **Method 3: Deployments Tab**
+   - Click **"Deployments"** tab
+   - Click on the latest (top) deployment
+   - The URL should be shown in the deployment details
+   
+   **Method 4: Check the service header**
+   - Sometimes the URL is shown right at the top of the service page
+   - Look for a clickable link or "Visit" button
+
+3. **Your URL will look like:**
+   ```
+   https://your-service-name-production-abc123.up.railway.app
+   ```
+
+4. **Test it:**
+   - Visit `https://your-url/docs` to see the API documentation
+   - Visit `https://your-url/health` to check if it's running
 
 ## Step 8: Update Mobile App
 
