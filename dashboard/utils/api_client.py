@@ -30,7 +30,8 @@ class APIClient:
         method: str,
         endpoint: str,
         params: Optional[Dict] = None,
-        json: Optional[Dict] = None
+        json: Optional[Dict] = None,
+        timeout: Optional[int] = None
     ) -> Any:
         """
         Make HTTP request with error handling.
@@ -40,6 +41,7 @@ class APIClient:
             endpoint: API endpoint path
             params: Query parameters
             json: Request body
+            timeout: Request timeout in seconds (uses default if None)
             
         Returns:
             Response data
@@ -48,6 +50,7 @@ class APIClient:
             requests.RequestException: On API error
         """
         url = f"{self.base_url}{endpoint}"
+        request_timeout = timeout if timeout is not None else self.timeout
         
         try:
             response = requests.request(
@@ -55,7 +58,7 @@ class APIClient:
                 url=url,
                 params=params,
                 json=json,
-                timeout=self.timeout
+                timeout=request_timeout
             )
             response.raise_for_status()
             return response.json()
@@ -167,7 +170,11 @@ class APIClient:
         difficulty: Optional[str] = None,
         dietary_restrictions: Optional[List[str]] = None
     ) -> List[Dict]:
-        """Generate AI-powered recipes."""
+        """
+        Generate AI-powered recipes.
+        
+        Uses extended timeout (5 minutes) since AI generation can take 30+ seconds per recipe.
+        """
         json_data = {
             "max_recipes": max_recipes
         }
@@ -180,10 +187,15 @@ class APIClient:
         if dietary_restrictions:
             json_data["dietary_restrictions"] = dietary_restrictions
         
-        return self._request("POST", "/api/recipes/generate", json=json_data)
+        # Use extended timeout: 30 seconds per recipe + 60 seconds buffer
+        # For 5 recipes: ~150 seconds + 60 = 210 seconds (3.5 minutes)
+        # Set to 5 minutes (300 seconds) to be safe
+        timeout = max(300, max_recipes * 30 + 60)
+        
+        return self._request("POST", "/api/recipes/generate", json=json_data, timeout=timeout)
 
 
-@st.cache_resource
+@st.cache_resource(ttl=3600)  # Cache for 1 hour, but will refresh on server restart
 def get_api_client() -> APIClient:
     """
     Get cached API client instance.
