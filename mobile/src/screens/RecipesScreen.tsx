@@ -422,7 +422,11 @@ export default function RecipesScreen() {
                 value={requiredSearchQuery}
                 style={styles.searchbar}
               />
-              {filteredRequiredIngredients.length > 0 ? (
+              {availableIngredients.length === 0 ? (
+                <Text variant="bodyMedium" style={styles.noResults}>
+                  Loading ingredients...
+                </Text>
+              ) : filteredRequiredIngredients.length > 0 ? (
                 filteredRequiredIngredients.map((ing) => (
                   <View key={ing} style={styles.checkboxRow}>
                     <Checkbox
