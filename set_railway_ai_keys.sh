@@ -37,22 +37,22 @@ fi
 echo "📝 Setting variables on Railway..."
 echo ""
 
-# Set OpenAI API key
-echo "Setting OPENAI_API_KEY..."
-railway variables --set "OPENAI_API_KEY=$OPENAI_KEY"
+# Set OpenAI API key on WEB service
+echo "Setting OPENAI_API_KEY on web service..."
+railway variables --service web --set "OPENAI_API_KEY=$OPENAI_KEY"
 
-# Set AI provider
-echo "Setting AI_PROVIDER=$AI_PROVIDER..."
-railway variables --set "AI_PROVIDER=$AI_PROVIDER"
+# Set AI provider on WEB service
+echo "Setting AI_PROVIDER=$AI_PROVIDER on web service..."
+railway variables --service web --set "AI_PROVIDER=$AI_PROVIDER"
 
-# Set AI model
-echo "Setting AI_MODEL=$AI_MODEL..."
-railway variables --set "AI_MODEL=$AI_MODEL"
+# Set AI model on WEB service
+echo "Setting AI_MODEL=$AI_MODEL on web service..."
+railway variables --service web --set "AI_MODEL=$AI_MODEL"
 
-# Set Anthropic key if present (optional)
+# Set Anthropic key if present (optional) on WEB service
 if [ -n "$ANTHROPIC_KEY" ]; then
-    echo "Setting ANTHROPIC_API_KEY..."
-    railway variables --set "ANTHROPIC_API_KEY=$ANTHROPIC_KEY"
+    echo "Setting ANTHROPIC_API_KEY on web service..."
+    railway variables --service web --set "ANTHROPIC_API_KEY=$ANTHROPIC_KEY"
 else
     echo "⚠️  ANTHROPIC_API_KEY not found in .env (optional, skipping)"
 fi
