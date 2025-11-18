@@ -758,12 +758,16 @@ class SavedRecipe(Base):
         onupdate=datetime.utcnow
     )
     
+    # Relationships
+    user = relationship("User", back_populates="saved_recipes")
+    
     # Indexes
     __table_args__ = (
         Index("ix_saved_recipes_name", "name"),
         Index("ix_saved_recipes_cuisine", "cuisine"),
         Index("ix_saved_recipes_difficulty", "difficulty"),
         Index("ix_saved_recipes_created_at", "created_at"),
+        Index("ix_saved_recipes_user_id", "user_id"),
     )
     
     def __repr__(self) -> str:
