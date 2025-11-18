@@ -8,6 +8,10 @@ Provides CRUD operations, search, filtering, and statistics.
 import logging
 from typing import List, Optional, Dict, Any
 from datetime import date, timedelta
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
