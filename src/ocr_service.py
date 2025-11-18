@@ -518,6 +518,24 @@ class GoogleVisionOCR(OCRBackend):
         
         if self.is_available():
             try:
+                # Handle credentials: file path (local) or JSON content (Railway)
+                creds_value = self.config.google_credentials_path
+                if creds_value and creds_value.startswith('{'):
+                    # JSON content in environment variable (Railway)
+                    import json
+                    import tempfile
+                    creds_dict = json.loads(creds_value)
+                    # Create temporary file for credentials
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                        json.dump(creds_dict, f)
+                        temp_creds_path = f.name
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_creds_path
+                    logger.info("Using Google credentials from environment variable (JSON content)")
+                elif creds_value and os.path.exists(creds_value):
+                    # File path (local development)
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_value
+                    logger.info(f"Using Google credentials from file: {creds_value}")
+                
                 self.client = vision.ImageAnnotatorClient()
                 logger.info("Google Vision OCR backend initialized")
             except Exception as e:
@@ -525,9 +543,27 @@ class GoogleVisionOCR(OCRBackend):
                 self.client = None
     
     def is_available(self) -> bool:
-        """Check if Google Vision is configured."""
-        return self.config.google_credentials_path is not None and \
-               os.path.exists(self.config.google_credentials_path or "")
+        """Check if Google Vision is configured.
+        
+        Supports both:
+        - File path (local): /path/to/credentials.json
+        - JSON content (Railway): {"type":"service_account",...}
+        """
+        creds_value = self.config.google_credentials_path
+        if not creds_value:
+            return False
+        
+        # Check if it's JSON content (starts with {)
+        if creds_value.strip().startswith('{'):
+            try:
+                import json
+                json.loads(creds_value)  # Validate JSON
+                return True
+            except (json.JSONDecodeError, ValueError):
+                return False
+        
+        # Check if it's a valid file path
+        return os.path.exists(creds_value)
     
     def get_name(self) -> str:
         """Get backend name."""
