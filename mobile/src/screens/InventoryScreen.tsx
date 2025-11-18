@@ -11,6 +11,7 @@ import {
   Portal,
   TextInput,
   ActivityIndicator,
+  IconButton,
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +28,17 @@ export default function InventoryScreen() {
   const [locationFilter, setLocationFilter] = useState<string>('All');
   const [dialogVisible, setDialogVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [editDialogVisible, setEditDialogVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    quantity: 1,
+    unit: 'count',
+    storage_location: 'pantry' as 'pantry' | 'fridge' | 'freezer',
+    status: 'in_stock' as 'in_stock' | 'low',
+    expiration_date: '',
+    purchase_date: '',
+    notes: '',
+  });
 
   useEffect(() => {
     loadInventory();
@@ -115,6 +127,65 @@ export default function InventoryScreen() {
     }
   };
 
+  const handleEditItem = (item: InventoryItem) => {
+    setEditingItem(item);
+    setEditFormData({
+      quantity: item.quantity,
+      unit: item.unit,
+      storage_location: item.storage_location || 'pantry',
+      status: item.status as 'in_stock' | 'low',
+      expiration_date: item.expiration_date ? item.expiration_date.split('T')[0] : '',
+      purchase_date: item.purchase_date ? item.purchase_date.split('T')[0] : '',
+      notes: item.notes || '',
+    });
+    setEditDialogVisible(true);
+  };
+
+  const handleUpdateItem = async () => {
+    if (!editingItem) return;
+
+    try {
+      await apiClient.updateInventoryItem(editingItem.id, {
+        quantity: editFormData.quantity,
+        unit: editFormData.unit,
+        storage_location: editFormData.storage_location,
+        status: editFormData.status,
+        expiration_date: editFormData.expiration_date || undefined,
+        purchase_date: editFormData.purchase_date || undefined,
+        notes: editFormData.notes || undefined,
+      });
+
+      Alert.alert('Success', 'Item updated successfully!');
+      setEditDialogVisible(false);
+      setEditingItem(null);
+      await loadInventory();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update item');
+    }
+  };
+
+  const handleDeleteItem = async (itemId: number) => {
+    Alert.alert(
+      'Delete Item',
+      'Are you sure you want to delete this item?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.deleteInventoryItem(itemId);
+              await loadInventory();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete item');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const filteredItems = items.filter((item) => {
     if (searchQuery) {
       const name = item.product_name?.toLowerCase() || '';
@@ -161,12 +232,21 @@ export default function InventoryScreen() {
         {filteredItems.map((item) => (
           <Card key={item.id} style={styles.card}>
             <Card.Content>
-              <Text variant="titleMedium">{item.product_name || 'Unknown'}</Text>
-              {item.brand && (
-                <Text variant="bodySmall" style={styles.brand}>
-                  Brand: {item.brand}
-                </Text>
-              )}
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitle}>
+                  <Text variant="titleMedium">{item.product_name || 'Unknown'}</Text>
+                  {item.brand && (
+                    <Text variant="bodySmall" style={styles.brand}>
+                      Brand: {item.brand}
+                    </Text>
+                  )}
+                </View>
+                <IconButton
+                  icon="pencil"
+                  size={20}
+                  onPress={() => handleEditItem(item)}
+                />
+              </View>
               <View style={styles.details}>
                 <Text variant="bodyMedium">
                   {item.quantity} {item.unit}
@@ -229,6 +309,113 @@ export default function InventoryScreen() {
           </Dialog>
         </Portal>
       )}
+
+      {/* Edit Item Dialog */}
+      <Portal>
+        <Dialog
+          visible={editDialogVisible}
+          onDismiss={() => setEditDialogVisible(false)}
+          style={styles.editDialog}
+        >
+          <Dialog.Title>Edit Item: {editingItem?.product_name}</Dialog.Title>
+          <Dialog.ScrollArea>
+            <Dialog.Content>
+              <TextInput
+                label="Quantity"
+                value={editFormData.quantity.toString()}
+                onChangeText={(text) =>
+                  setEditFormData({
+                    ...editFormData,
+                    quantity: parseFloat(text) || 0,
+                  })
+                }
+                keyboardType="numeric"
+                style={styles.input}
+              />
+              <TextInput
+                label="Unit"
+                value={editFormData.unit}
+                onChangeText={(text) =>
+                  setEditFormData({ ...editFormData, unit: text })
+                }
+                style={styles.input}
+              />
+              <View style={styles.locationContainer}>
+                <Text variant="bodyMedium" style={styles.label}>
+                  Location *
+                </Text>
+                <View style={styles.locationButtons}>
+                  {(['pantry', 'fridge', 'freezer'] as const).map((loc) => (
+                    <Chip
+                      key={loc}
+                      selected={editFormData.storage_location === loc}
+                      onPress={() =>
+                        setEditFormData({ ...editFormData, storage_location: loc })
+                      }
+                      style={styles.locationChip}
+                    >
+                      {loc.charAt(0).toUpperCase() + loc.slice(1)}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.locationContainer}>
+                <Text variant="bodyMedium" style={styles.label}>
+                  Status
+                </Text>
+                <View style={styles.locationButtons}>
+                  {(['in_stock', 'low'] as const).map((stat) => (
+                    <Chip
+                      key={stat}
+                      selected={editFormData.status === stat}
+                      onPress={() =>
+                        setEditFormData({ ...editFormData, status: stat })
+                      }
+                      style={styles.locationChip}
+                    >
+                      {stat === 'in_stock' ? 'In Stock' : 'Low'}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
+              <TextInput
+                label="Expiration Date (YYYY-MM-DD)"
+                value={editFormData.expiration_date}
+                onChangeText={(text) =>
+                  setEditFormData({ ...editFormData, expiration_date: text })
+                }
+                style={styles.input}
+                placeholder="2024-12-31"
+              />
+              <TextInput
+                label="Purchase Date (YYYY-MM-DD)"
+                value={editFormData.purchase_date}
+                onChangeText={(text) =>
+                  setEditFormData({ ...editFormData, purchase_date: text })
+                }
+                style={styles.input}
+                placeholder="2024-11-18"
+              />
+              <TextInput
+                label="Notes"
+                value={editFormData.notes}
+                onChangeText={(text) =>
+                  setEditFormData({ ...editFormData, notes: text })
+                }
+                multiline
+                numberOfLines={3}
+                style={styles.input}
+              />
+            </Dialog.Content>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setEditDialogVisible(false)}>Cancel</Button>
+            <Button mode="contained" onPress={handleUpdateItem}>
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -294,6 +481,35 @@ const styles = StyleSheet.create({
   processingText: {
     marginTop: 16,
     textAlign: 'center',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardTitle: {
+    flex: 1,
+  },
+  editDialog: {
+    maxHeight: '80%',
+  },
+  input: {
+    marginBottom: 12,
+  },
+  locationContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  locationButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  locationChip: {
+    marginRight: 8,
+    marginBottom: 8,
   },
 });
 

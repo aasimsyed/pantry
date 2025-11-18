@@ -264,6 +264,21 @@ class APIClient {
     return this.request<InventoryItem[]>('GET', '/api/inventory', { params });
   }
 
+  async getInventoryItem(itemId: number): Promise<InventoryItem> {
+    return this.request<InventoryItem>('GET', `/api/inventory/${itemId}`);
+  }
+
+  async updateInventoryItem(
+    itemId: number,
+    data: Partial<InventoryItem>
+  ): Promise<InventoryItem> {
+    return this.request<InventoryItem>('PUT', `/api/inventory/${itemId}`, { data });
+  }
+
+  async deleteInventoryItem(itemId: number): Promise<void> {
+    return this.request<void>('DELETE', `/api/inventory/${itemId}`);
+  }
+
   async getExpiringItems(days: number = 7): Promise<InventoryItem[]> {
     return this.request<InventoryItem[]>('GET', '/api/expiring', {
       params: { days },
