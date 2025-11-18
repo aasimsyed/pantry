@@ -445,6 +445,7 @@ class InventoryItem(Base):
     # Relationships
     product = relationship("Product", back_populates="inventory_items")
     user = relationship("User", back_populates="inventory_items")
+    saved_recipes = relationship("SavedRecipe", back_populates="user", cascade="all, delete-orphan")
     processing_logs = relationship(
         "ProcessingLog",
         back_populates="inventory_item",
@@ -721,6 +722,14 @@ class SavedRecipe(Base):
     
     # Primary key
     id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Foreign key to user
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
     
     # Recipe information
     name = Column(String(255), nullable=False, index=True)

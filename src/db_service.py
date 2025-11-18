@@ -584,6 +584,7 @@ class PantryService:
     def save_recipe(
         self,
         name: str,
+        user_id: int,
         description: Optional[str] = None,
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
@@ -619,6 +620,7 @@ class PantryService:
         
         recipe = SavedRecipe(
             name=name,
+            user_id=user_id,
             description=description,
             cuisine=cuisine,
             difficulty=difficulty,

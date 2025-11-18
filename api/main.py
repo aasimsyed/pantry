@@ -1690,6 +1690,7 @@ def save_recipe(
     try:
         recipe = service.save_recipe(
             name=recipe_data.name,
+            user_id=current_user.id,
             description=recipe_data.description,
             cuisine=recipe_data.cuisine,
             difficulty=recipe_data.difficulty,
