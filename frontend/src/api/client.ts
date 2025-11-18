@@ -47,8 +47,8 @@ class APIClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
+        // Handle 401 (Unauthorized) - token expired, try to refresh
         if (error.response?.status === 401 && this.accessToken) {
-          // Token expired, try to refresh
           try {
             await this.refreshAccessToken();
             // Retry original request
@@ -57,8 +57,17 @@ class APIClient {
               return this.client.request(error.config);
             }
           } catch (refreshError) {
-            // Refresh failed, clear tokens
+            // Refresh failed, clear tokens and redirect
             this.clearTokens();
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+          }
+        }
+        // Handle 403 (Forbidden) - no token or invalid token, redirect to login
+        if (error.response?.status === 403) {
+          this.clearTokens();
+          if (typeof window !== 'undefined') {
             window.location.href = '/login';
           }
         }

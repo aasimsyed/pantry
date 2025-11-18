@@ -70,11 +70,11 @@ def get_pantry_service(db: Session = Depends(get_db)) -> PantryService:
 # Authentication Dependencies
 # ============================================================================
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
     """
@@ -95,6 +95,14 @@ async def get_current_user(
     import logging
     logger = logging.getLogger(__name__)
     
+    # Check if credentials were provided
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     try:
         token = credentials.credentials
         payload = verify_token(token, token_type="access")
@@ -113,8 +121,8 @@ async def get_current_user(
     except Exception as e:
         logger.error(f"Error in get_current_user: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Authentication error: {str(e)}"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Authentication failed: {str(e)}"
         )
 
 
