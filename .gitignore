@@ -34,7 +34,6 @@ env.bak/
 venv.bak/
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -70,3 +69,4 @@ htmlcov/
 credentials.json
 *_credentials.json
 
+reports/

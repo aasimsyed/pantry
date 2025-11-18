@@ -67,6 +67,12 @@ ignore = [
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]  # Unused imports in __init__.py
+"tests/**/*.py" = [
+    "D",      # Ignore all docstring rules in tests
+    "ANN",    # Ignore type annotation rules in tests  
+    "SLF001", # Allow accessing protected members (for testing)
+    "PLR2004", # Allow magic values in tests
+]
 
 [tool.mypy]
 python_version = "3.10"
@@ -87,6 +93,13 @@ module = [
     "PIL",
     "pytesseract",
     "anthropic",
+    "pytest",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
 

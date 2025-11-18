@@ -1,0 +1,23 @@
+{
+  "include": ["src"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    ".venv",
+    "test_results"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "pythonVersion": "3.10",
+  "pythonPlatform": "Darwin",
+  "typeCheckingMode": "basic",
+  "ignore": ["tests/**"],
+  "reportPrivateUsage": false,
+  "reportUnusedVariable": "warning",
+  "reportGeneralTypeIssues": "warning",
+  "reportOptionalMemberAccess": "warning"
+}
+
+

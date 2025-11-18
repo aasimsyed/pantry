@@ -1,0 +1,19 @@
+[MESSAGES CONTROL]
+# Disable specific warnings for test files
+disable=
+    missing-function-docstring,
+    missing-class-docstring,
+    redefined-outer-name,  # Common in pytest fixtures
+    protected-access,       # Intentional for testing private methods
+    too-many-public-methods,
+    too-many-arguments,
+    duplicate-code
+
+[DESIGN]
+max-args=10  # Pytest fixtures can have many arguments
+
+[BASIC]
+# Allow fixture names that don't follow normal naming
+good-names=i,j,k,ex,Run,_,id,db,config,tmp_path
+
+

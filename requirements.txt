@@ -48,5 +48,6 @@ pylint>=3.0.0  # Python code analyzer
 
 # Utilities
 python-magic>=0.4.27  # File type detection
+python-dateutil>=2.8.0  # Flexible date parsing for AI extraction
 
 

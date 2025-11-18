@@ -13,6 +13,16 @@ Run:
 
 import os
 import sys
+from pathlib import Path
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent / ".env"
+    load_dotenv(dotenv_path=env_path)
+except ImportError:
+    print("⚠️  python-dotenv not installed. Install with: pip install python-dotenv")
+    print("    Trying to use existing environment variables...\n")
 
 
 def test_environment():
