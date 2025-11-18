@@ -285,11 +285,13 @@ def get_current_user_info(
     Returns user details for the authenticated user.
     """
     try:
-        # Convert User model to dict first, then validate
-        user_dict = current_user.to_dict()
-        return UserResponse.model_validate(user_dict)
+        # Use from_attributes=True to convert SQLAlchemy model directly
+        # This is more efficient than converting to dict first
+        return UserResponse.model_validate(current_user)
     except Exception as e:
         logger.error(f"Error getting current user info: {e}", exc_info=True)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve user information: {str(e)}"
