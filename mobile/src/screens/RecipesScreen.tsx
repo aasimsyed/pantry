@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   ProgressBar,
   Chip,
+  Menu,
+  Divider,
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +29,11 @@ export default function RecipesScreen() {
   const [requiredIngredients, setRequiredIngredients] = useState<string[]>([]);
   const [excludedIngredients, setExcludedIngredients] = useState<string[]>([]);
   const [allowMissing, setAllowMissing] = useState(false);
+  const [cuisine, setCuisine] = useState('');
+  const [difficulty, setDifficulty] = useState('');
+  const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
+  const [cuisineMenuVisible, setCuisineMenuVisible] = useState(false);
+  const [difficultyMenuVisible, setDifficultyMenuVisible] = useState(false);
 
   useEffect(() => {
     loadAvailableIngredients();
@@ -60,6 +67,9 @@ export default function RecipesScreen() {
         const recipe = await apiClient.generateSingleRecipe({
           required_ingredients: requiredIngredients.length > 0 ? requiredIngredients : undefined,
           excluded_ingredients: excludedIngredients.length > 0 ? excludedIngredients : undefined,
+          cuisine: cuisine || undefined,
+          difficulty: difficulty ? difficulty.toLowerCase() : undefined,
+          dietary_restrictions: dietaryRestrictions.length > 0 ? dietaryRestrictions : undefined,
           avoid_names: avoidNames,
           allow_missing_ingredients: allowMissing,
         });
@@ -164,6 +174,81 @@ export default function RecipesScreen() {
               Allow Missing Ingredients
             </Text>
           </View>
+
+          <Text variant="titleSmall" style={styles.sectionTitle}>
+            Cuisine Type (Optional)
+          </Text>
+          <Menu
+            visible={cuisineMenuVisible}
+            onDismiss={() => setCuisineMenuVisible(false)}
+            anchor={
+              <Button
+                mode="outlined"
+                onPress={() => setCuisineMenuVisible(true)}
+                style={styles.selectButton}
+              >
+                {cuisine || 'Any Cuisine'}
+              </Button>
+            }
+          >
+            <Menu.Item onPress={() => { setCuisine(''); setCuisineMenuVisible(false); }} title="Any" />
+            <Menu.Item onPress={() => { setCuisine('Italian'); setCuisineMenuVisible(false); }} title="Italian" />
+            <Menu.Item onPress={() => { setCuisine('Mexican'); setCuisineMenuVisible(false); }} title="Mexican" />
+            <Menu.Item onPress={() => { setCuisine('Asian'); setCuisineMenuVisible(false); }} title="Asian" />
+            <Menu.Item onPress={() => { setCuisine('American'); setCuisineMenuVisible(false); }} title="American" />
+            <Menu.Item onPress={() => { setCuisine('Mediterranean'); setCuisineMenuVisible(false); }} title="Mediterranean" />
+            <Menu.Item onPress={() => { setCuisine('Indian'); setCuisineMenuVisible(false); }} title="Indian" />
+            <Menu.Item onPress={() => { setCuisine('French'); setCuisineMenuVisible(false); }} title="French" />
+            <Menu.Item onPress={() => { setCuisine('Thai'); setCuisineMenuVisible(false); }} title="Thai" />
+            <Menu.Item onPress={() => { setCuisine('Japanese'); setCuisineMenuVisible(false); }} title="Japanese" />
+            <Menu.Item onPress={() => { setCuisine('Chinese'); setCuisineMenuVisible(false); }} title="Chinese" />
+          </Menu>
+
+          <Text variant="titleSmall" style={styles.sectionTitle}>
+            Difficulty (Optional)
+          </Text>
+          <Menu
+            visible={difficultyMenuVisible}
+            onDismiss={() => setDifficultyMenuVisible(false)}
+            anchor={
+              <Button
+                mode="outlined"
+                onPress={() => setDifficultyMenuVisible(true)}
+                style={styles.selectButton}
+              >
+                {difficulty || 'Any Difficulty'}
+              </Button>
+            }
+          >
+            <Menu.Item onPress={() => { setDifficulty(''); setDifficultyMenuVisible(false); }} title="Any" />
+            <Menu.Item onPress={() => { setDifficulty('Easy'); setDifficultyMenuVisible(false); }} title="Easy" />
+            <Menu.Item onPress={() => { setDifficulty('Medium'); setDifficultyMenuVisible(false); }} title="Medium" />
+            <Menu.Item onPress={() => { setDifficulty('Hard'); setDifficultyMenuVisible(false); }} title="Hard" />
+          </Menu>
+
+          <Text variant="titleSmall" style={styles.sectionTitle}>
+            Dietary Restrictions (Optional)
+          </Text>
+          <View style={styles.chipContainer}>
+            {['Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Nut-Free', 'Keto', 'Paleo'].map((diet) => (
+              <Chip
+                key={diet}
+                selected={dietaryRestrictions.includes(diet)}
+                onPress={() => {
+                  if (dietaryRestrictions.includes(diet)) {
+                    setDietaryRestrictions(dietaryRestrictions.filter((d) => d !== diet));
+                  } else {
+                    setDietaryRestrictions([...dietaryRestrictions, diet]);
+                  }
+                }}
+                style={styles.chip}
+              >
+                {diet}
+              </Chip>
+            ))}
+          </View>
+
+          <Divider style={styles.divider} />
 
           <Text variant="titleSmall" style={styles.sectionTitle}>
             Required Ingredients
@@ -352,6 +437,20 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
+  },
+  selectButton: {
+    marginBottom: 12,
+  },
+  divider: {
+    marginVertical: 12,
+  },
+  cuisine: {
+    marginTop: 4,
+    color: '#6b7280',
+  },
+  difficulty: {
+    marginTop: 4,
+    color: '#6b7280',
   },
 });
 
