@@ -319,6 +319,16 @@ export default function RecipesScreen() {
               <Text variant="bodySmall">🔥 {recipe.cook_time} min cook</Text>
               <Text variant="bodySmall">👥 {recipe.servings} servings</Text>
             </View>
+            {recipe.cuisine && (
+              <Text variant="bodySmall" style={styles.cuisine}>
+                🌍 {recipe.cuisine} Cuisine
+              </Text>
+            )}
+            {recipe.difficulty && (
+              <Text variant="bodySmall" style={styles.difficulty}>
+                {recipe.difficulty === 'easy' ? '🟢' : recipe.difficulty === 'medium' ? '🟡' : '🔴'} {recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1)}
+              </Text>
+            )}
             {recipe.missing_ingredients && recipe.missing_ingredients.length > 0 && (
               <View style={styles.missingContainer}>
                 <Text variant="bodySmall" style={styles.missingTitle}>
