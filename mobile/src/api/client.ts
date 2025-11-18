@@ -44,7 +44,7 @@ const API_BASE_URL = getApiBaseUrl();
 
 class APIClient {
   private client: AxiosInstance;
-  private baseTimeout: number = 10;
+  private baseTimeout: number = 30; // Increased to 30 seconds
   private accessToken: string | null = null;
 
   constructor(baseURL: string = API_BASE_URL) {

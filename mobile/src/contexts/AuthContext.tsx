@@ -27,12 +27,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = apiClient.getToken();
       if (token) {
-        const userData = await apiClient.getCurrentUser();
-        setUser(userData);
+        // Try to get user data, but don't fail hard if network is unreachable
+        try {
+          const userData = await apiClient.getCurrentUser();
+          setUser(userData);
+        } catch (error: any) {
+          // If it's a network/timeout error, keep the token but don't set user
+          // User will need to retry when network is available
+          if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+            console.warn('Network timeout checking auth, keeping token for retry');
+            // Don't clear token on timeout - might just be network issue
+          } else {
+            // Other errors (401, etc.) mean token is invalid
+            await apiClient.logout();
+            setUser(null);
+          }
+        }
       }
     } catch (error) {
-      // Not authenticated
-      await apiClient.logout();
+      // Not authenticated or network error
+      console.warn('Auth check failed:', error);
       setUser(null);
     } finally {
       setLoading(false);
