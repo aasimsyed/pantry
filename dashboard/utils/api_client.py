@@ -162,13 +162,51 @@ class APIClient:
         return self._request("GET", "/api/statistics/by-location")
     
     # Recipe Generation
+    def generate_single_recipe(
+        self,
+        required_ingredients: Optional[List[str]] = None,
+        excluded_ingredients: Optional[List[str]] = None,
+        cuisine: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        dietary_restrictions: Optional[List[str]] = None,
+        avoid_names: Optional[List[str]] = None,
+        allow_missing_ingredients: bool = False
+    ) -> Dict:
+        """
+        Generate a single recipe (for incremental display).
+        
+        Uses extended timeout (60 seconds) since AI generation can take 30+ seconds.
+        """
+        json_data = {"allow_missing_ingredients": allow_missing_ingredients}
+        if required_ingredients:
+            json_data["required_ingredients"] = required_ingredients
+        if excluded_ingredients:
+            json_data["excluded_ingredients"] = excluded_ingredients
+        if cuisine:
+            json_data["cuisine"] = cuisine
+        if difficulty:
+            json_data["difficulty"] = difficulty
+        if dietary_restrictions:
+            json_data["dietary_restrictions"] = dietary_restrictions
+        if avoid_names:
+            json_data["avoid_names"] = avoid_names
+        
+        return self._request(
+            "POST",
+            "/api/recipes/generate-one",
+            json=json_data,
+            timeout=60  # 1 minute for single recipe
+        )
+    
     def generate_recipes(
         self,
-        ingredients: Optional[List[str]] = None,
+        required_ingredients: Optional[List[str]] = None,
+        excluded_ingredients: Optional[List[str]] = None,
         max_recipes: int = 5,
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
-        dietary_restrictions: Optional[List[str]] = None
+        dietary_restrictions: Optional[List[str]] = None,
+        allow_missing_ingredients: bool = False
     ) -> List[Dict]:
         """
         Generate AI-powered recipes.
@@ -176,10 +214,13 @@ class APIClient:
         Uses extended timeout (5 minutes) since AI generation can take 30+ seconds per recipe.
         """
         json_data = {
-            "max_recipes": max_recipes
+            "max_recipes": max_recipes,
+            "allow_missing_ingredients": allow_missing_ingredients
         }
-        if ingredients:
-            json_data["ingredients"] = ingredients
+        if required_ingredients:
+            json_data["required_ingredients"] = required_ingredients
+        if excluded_ingredients:
+            json_data["excluded_ingredients"] = excluded_ingredients
         if cuisine:
             json_data["cuisine"] = cuisine
         if difficulty:
@@ -193,6 +234,81 @@ class APIClient:
         timeout = max(300, max_recipes * 30 + 60)
         
         return self._request("POST", "/api/recipes/generate", json=json_data, timeout=timeout)
+    
+    # Image Processing & Source Directory
+    def get_source_directory(self) -> Dict:
+        """Get the configured source images directory."""
+        return self._request("GET", "/api/config/source-directory")
+    
+    def set_source_directory(self, directory: str) -> Dict:
+        """Set the source images directory."""
+        return self._request("POST", "/api/config/source-directory", json={"directory": directory})
+    
+    def process_image(
+        self,
+        file_data: bytes,
+        filename: str,
+        storage_location: str = "pantry",
+        timeout: int = 120
+    ) -> Dict:
+        """
+        Process a single image file through OCR and AI analysis.
+        
+        Args:
+            file_data: Image file data (bytes)
+            filename: Name of the file
+            storage_location: Where to store the item (pantry/fridge/freezer)
+            timeout: Request timeout in seconds (default 120 for image processing)
+        """
+        import io
+        files = {'file': (filename, io.BytesIO(file_data), 'image/jpeg')}
+        data = {'storage_location': storage_location}
+        url = f"{self.base_url}/api/inventory/process-image"
+        request_timeout = timeout if timeout is not None else self.timeout
+        
+        try:
+            import requests
+            response = requests.post(
+                url,
+                files=files,
+                data=data,
+                timeout=request_timeout
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"API request failed: {e}")
+            raise
+    
+    def refresh_inventory(
+        self,
+        source_directory: Optional[str] = None,
+        storage_location: str = "pantry",
+        min_confidence: float = 0.6,
+        timeout: int = 600
+    ) -> Dict:
+        """
+        Refresh inventory by processing all images in source directory.
+        
+        Args:
+            source_directory: Optional source directory path (uses default if None)
+            storage_location: Where to store items (pantry/fridge/freezer)
+            min_confidence: Minimum AI confidence threshold (0.0-1.0)
+            timeout: Request timeout in seconds (default 600 for batch processing)
+        """
+        json_data = {
+            "storage_location": storage_location,
+            "min_confidence": min_confidence
+        }
+        if source_directory:
+            json_data["source_directory"] = source_directory
+        
+        return self._request(
+            "POST",
+            "/api/inventory/refresh",
+            json=json_data,
+            timeout=timeout
+        )
     
     # Saved Recipes (Recipe Box)
     def save_recipe(self, recipe_data: Dict) -> Dict:

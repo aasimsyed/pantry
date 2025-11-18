@@ -169,11 +169,31 @@ class LocationStatisticsResponse(BaseModel):
 
 class RecipeRequest(BaseModel):
     """Request model for recipe generation."""
-    ingredients: Optional[List[str]] = Field(None, description="List of ingredient names to use. If empty, uses all available ingredients.")
+    required_ingredients: Optional[List[str]] = Field(None, description="Required ingredients that must be included in recipes. Recipes can also use other available ingredients.")
+    excluded_ingredients: Optional[List[str]] = Field(None, description="Ingredients to exclude from recipes.")
     max_recipes: int = Field(default=5, ge=1, le=20, description="Maximum number of recipes")
     cuisine: Optional[str] = Field(None, description="Preferred cuisine type")
     difficulty: Optional[str] = Field(None, description="Difficulty level (easy/medium/hard)")
     dietary_restrictions: Optional[List[str]] = Field(None, description="Dietary restrictions")
+    allow_missing_ingredients: bool = Field(default=False, description="Allow recipes to include 2-4 ingredients not in pantry (will be listed as missing)")
+
+
+class SingleRecipeRequest(BaseModel):
+    """Request model for single recipe generation (incremental display)."""
+    required_ingredients: Optional[List[str]] = Field(None, description="Required ingredients that must be included in recipes. Recipes can also use other available ingredients.")
+    excluded_ingredients: Optional[List[str]] = Field(None, description="Ingredients to exclude from recipes.")
+    cuisine: Optional[str] = Field(None, description="Preferred cuisine type")
+    difficulty: Optional[str] = Field(None, description="Difficulty level (easy/medium/hard)")
+    dietary_restrictions: Optional[List[str]] = Field(None, description="Dietary restrictions")
+    avoid_names: Optional[List[str]] = Field(None, description="List of recipe names to avoid (for variety)")
+    allow_missing_ingredients: bool = Field(default=False, description="Allow recipes to include 2-4 ingredients not in pantry (will be listed as missing)")
+
+
+class FlavorPairing(BaseModel):
+    """Model for flavor pairing information."""
+    ingredients: List[str] = Field(..., description="Ingredients that pair together")
+    compounds: str = Field(..., description="Shared chemical compounds (e.g., vanillin, eugenol, terpenes)")
+    effect: str = Field(..., description="Description of how these flavors work together")
 
 
 class RecipeResponse(BaseModel):
@@ -189,6 +209,7 @@ class RecipeResponse(BaseModel):
     instructions: List[str]
     available_ingredients: List[str]
     missing_ingredients: List[str]
+    flavor_pairings: Optional[List[FlavorPairing]] = Field(None, description="Flavor pairings based on shared chemical compounds")
 
 
 # ============================================================================

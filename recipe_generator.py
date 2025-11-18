@@ -35,6 +35,57 @@ from src.ai_analyzer import AIConfig, create_ai_analyzer
 class RecipeGenerator:
     """Generate recipes from available pantry items."""
     
+    # Flavor pairing database based on shared chemical compounds
+    FLAVOR_PAIRINGS = {
+        # Shared compounds: vanillin, eugenol
+        "vanilla": ["chocolate", "coffee", "cinnamon", "nutmeg", "cloves", "strawberry", "banana"],
+        "chocolate": ["vanilla", "coffee", "mint", "orange", "raspberry", "peanut", "caramel"],
+        "coffee": ["chocolate", "vanilla", "cinnamon", "cardamom", "nutmeg", "caramel"],
+        
+        # Shared compounds: sulfur compounds
+        "garlic": ["onion", "tomato", "basil", "parsley", "lemon", "olive oil", "mushroom"],
+        "onion": ["garlic", "tomato", "bell pepper", "thyme", "rosemary", "butter"],
+        "tomato": ["garlic", "onion", "basil", "oregano", "olive oil", "mozzarella", "parmesan"],
+        
+        # Shared compounds: esters (fruity notes)
+        "lemon": ["garlic", "herbs", "olive oil", "fish", "chicken", "honey", "thyme"],
+        "lime": ["cilantro", "chili", "coconut", "ginger", "mint", "fish"],
+        "orange": ["chocolate", "cinnamon", "cloves", "vanilla", "cranberry"],
+        
+        # Shared compounds: aldehydes
+        "cinnamon": ["apple", "pear", "vanilla", "nutmeg", "cloves", "chocolate", "coffee"],
+        "nutmeg": ["cinnamon", "vanilla", "pumpkin", "sweet potato", "spinach", "cream"],
+        "cloves": ["cinnamon", "nutmeg", "orange", "apple", "ham", "pork"],
+        
+        # Shared compounds: terpenes
+        "basil": ["tomato", "garlic", "mozzarella", "olive oil", "pine nuts", "parmesan"],
+        "mint": ["chocolate", "lamb", "peas", "cucumber", "lime", "yogurt"],
+        "rosemary": ["chicken", "lamb", "potato", "onion", "garlic", "lemon"],
+        "thyme": ["chicken", "mushroom", "lemon", "garlic", "onion", "tomato"],
+        
+        # Shared compounds: capsaicin
+        "chili": ["lime", "cilantro", "garlic", "ginger", "cumin", "coriander", "tomato"],
+        "ginger": ["chili", "garlic", "soy sauce", "sesame", "lime", "coconut"],
+        
+        # Shared compounds: umami (glutamates)
+        "mushroom": ["garlic", "thyme", "butter", "cream", "parmesan", "wine"],
+        "soy sauce": ["ginger", "garlic", "sesame", "honey", "rice vinegar"],
+        "parmesan": ["tomato", "basil", "garlic", "olive oil", "mushroom", "pasta"],
+        
+        # Shared compounds: lactones (creamy, buttery)
+        "butter": ["garlic", "herbs", "lemon", "onion", "mushroom", "bread"],
+        "cream": ["vanilla", "chocolate", "coffee", "mushroom", "nutmeg", "cinnamon"],
+        
+        # Shared compounds: pyrazines (nutty, roasted)
+        "peanut": ["chocolate", "soy sauce", "ginger", "lime", "cilantro", "chili"],
+        "sesame": ["soy sauce", "ginger", "garlic", "honey", "rice vinegar"],
+        
+        # Shared compounds: aldehydes (green, fresh)
+        "cilantro": ["lime", "chili", "ginger", "cumin", "coriander", "fish"],
+        "cumin": ["chili", "coriander", "garlic", "onion", "tomato", "lamb"],
+        "coriander": ["cumin", "chili", "cilantro", "lime", "garlic"],
+    }
+    
     def __init__(self, ai_analyzer):
         """Initialize recipe generator.
         
@@ -42,6 +93,59 @@ class RecipeGenerator:
             ai_analyzer: AI analyzer instance for recipe generation
         """
         self.analyzer = ai_analyzer
+    
+    def _identify_flavor_pairings(self, ingredients: List[str]) -> Dict[str, List[str]]:
+        """Identify potential flavor pairings based on ingredient names.
+        
+        Args:
+            ingredients: List of ingredient names (may include brand names)
+            
+        Returns:
+            Dictionary mapping ingredients to their compatible pairings
+        """
+        pairings = {}
+        ingredient_lower = [ing.lower() for ing in ingredients]
+        
+        for ingredient in ingredient_lower:
+            # Extract base ingredient name (remove brand, common words)
+            base_name = self._extract_base_ingredient(ingredient)
+            
+            # Find pairings for this ingredient
+            compatible = []
+            for key, values in self.FLAVOR_PAIRINGS.items():
+                if key in base_name:
+                    # Add all compatible pairings that are also in our ingredient list
+                    for pairing in values:
+                        pairing_lower = pairing.lower()
+                        # Check if any ingredient contains this pairing
+                        for ing in ingredient_lower:
+                            if pairing_lower in ing and ing != ingredient:
+                                compatible.append(pairing)
+                    break
+            
+            if compatible:
+                pairings[ingredient] = list(set(compatible))  # Remove duplicates
+        
+        return pairings
+    
+    def _extract_base_ingredient(self, ingredient: str) -> str:
+        """Extract base ingredient name from full ingredient string.
+        
+        Args:
+            ingredient: Full ingredient string (may include brand, etc.)
+            
+        Returns:
+            Base ingredient name
+        """
+        # Remove common brand indicators and extra words
+        words_to_remove = ['organic', 'natural', 'fresh', 'dried', 'ground', 'whole', 
+                          'extra', 'virgin', 'pure', 'premium', 'classic', 'original']
+        
+        words = ingredient.lower().split()
+        base_words = [w for w in words if w not in words_to_remove]
+        
+        # Return first few meaningful words (usually brand + ingredient)
+        return ' '.join(base_words[-2:]) if len(base_words) > 2 else ' '.join(base_words)
     
     def load_pantry(self, json_file: Path) -> List[Dict]:
         """Load pantry items from JSON report.
@@ -64,6 +168,9 @@ class RecipeGenerator:
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
         dietary_restrictions: Optional[List[str]] = None,
+        required_ingredients: Optional[List[str]] = None,
+        excluded_ingredients: Optional[List[str]] = None,
+        allow_missing_ingredients: bool = False,
     ) -> List[Dict]:
         """Generate recipes using available ingredients.
         
@@ -73,6 +180,9 @@ class RecipeGenerator:
             cuisine: Cuisine type (italian, mexican, asian, etc.)
             difficulty: Difficulty level (easy, medium, hard)
             dietary_restrictions: List of dietary restrictions
+            required_ingredients: Ingredients that must be included in recipes
+            excluded_ingredients: Ingredients that must NOT be included in recipes
+            allow_missing_ingredients: If True, allow recipes to include 2-4 ingredients not in pantry
             
         Returns:
             List of generated recipes
@@ -95,6 +205,12 @@ class RecipeGenerator:
         print(f"{'='*70}")
         print(f"📦 Available Ingredients: {len(ingredients)}")
         print(f"👨‍🍳 Recipes to Generate: {num_recipes}")
+        if required_ingredients:
+            print(f"✅ Required: {', '.join(required_ingredients)}")
+        if excluded_ingredients:
+            print(f"❌ Excluded: {', '.join(excluded_ingredients)}")
+        if allow_missing_ingredients:
+            print(f"✨ Missing ingredients allowed (2-4 items)")
         if cuisine:
             print(f"🌍 Cuisine: {cuisine}")
         if difficulty:
@@ -114,7 +230,10 @@ class RecipeGenerator:
                     cuisine=cuisine,
                     difficulty=difficulty,
                     dietary_restrictions=dietary_restrictions,
-                    avoid_previous=[r.get('name') for r in recipes]
+                    avoid_previous=[r.get('name') for r in recipes],
+                    required_ingredients=required_ingredients,
+                    excluded_ingredients=excluded_ingredients,
+                    allow_missing_ingredients=allow_missing_ingredients
                 )
                 
                 if recipe:
@@ -139,6 +258,9 @@ class RecipeGenerator:
         difficulty: Optional[str] = None,
         dietary_restrictions: Optional[List[str]] = None,
         avoid_previous: Optional[List[str]] = None,
+        required_ingredients: Optional[List[str]] = None,
+        excluded_ingredients: Optional[List[str]] = None,
+        allow_missing_ingredients: bool = False,
     ) -> Dict:
         """Generate a single recipe using AI.
         
@@ -148,6 +270,9 @@ class RecipeGenerator:
             difficulty: Difficulty level
             dietary_restrictions: Dietary restrictions
             avoid_previous: Recipe names to avoid (for variety)
+            required_ingredients: Ingredients that must be included in the recipe
+            excluded_ingredients: Ingredients that must NOT be included in the recipe
+            allow_missing_ingredients: If True, allow recipes to include 2-4 ingredients not in pantry
             
         Returns:
             Recipe dictionary
@@ -158,7 +283,10 @@ class RecipeGenerator:
             cuisine,
             difficulty,
             dietary_restrictions,
-            avoid_previous
+            avoid_previous,
+            required_ingredients,
+            excluded_ingredients,
+            allow_missing_ingredients
         )
         
         # Get backend and call directly
@@ -205,21 +333,82 @@ class RecipeGenerator:
         difficulty: Optional[str] = None,
         dietary_restrictions: Optional[List[str]] = None,
         avoid_previous: Optional[List[str]] = None,
+        required_ingredients: Optional[List[str]] = None,
+        excluded_ingredients: Optional[List[str]] = None,
+        allow_missing_ingredients: bool = False,
     ) -> str:
         """Build prompt for recipe generation."""
         
-        prompt = f"""You are a creative chef. Generate a delicious recipe using ONLY ingredients from this pantry list.
+        # Identify flavor pairings
+        flavor_pairings = self._identify_flavor_pairings(ingredients)
+        
+        if allow_missing_ingredients:
+            prompt = f"""You are a creative chef with expertise in molecular gastronomy and flavor chemistry. Generate a delicious recipe using ingredients from this pantry list. You may also suggest additional ingredients that are not in the pantry to complete the recipe.
 
 AVAILABLE PANTRY INGREDIENTS:
 {chr(10).join(f"- {ing}" for ing in ingredients)}
 
-CONSTRAINTS:
+IMPORTANT: Prioritize using ingredients from the pantry list above. You may include a few additional ingredients (2-4 items) that are not in the pantry if they are essential for the recipe. Clearly mark which ingredients are from the pantry and which are missing.
+
+"""
+        else:
+            prompt = f"""You are a creative chef with expertise in molecular gastronomy and flavor chemistry. Generate a delicious recipe using ONLY ingredients from this pantry list.
+
+AVAILABLE PANTRY INGREDIENTS:
+{chr(10).join(f"- {ing}" for ing in ingredients)}
+
+"""
+
+        prompt += """FLAVOR PAIRING GUIDANCE (based on shared chemical compounds):
+Use these scientifically-proven flavor pairings to create harmonious, complex flavors:
+
+"""
+        
+        # Add flavor pairing information
+        if flavor_pairings:
+            for ingredient, pairings in flavor_pairings.items():
+                if pairings:
+                    prompt += f"- {ingredient.title()}: Pairs well with {', '.join(p.title() for p in pairings[:5])} (shared volatile compounds create complementary flavors)\n"
+            prompt += "\n"
+        else:
+            prompt += """Common flavor pairing principles:
+- Ingredients with shared volatile compounds create harmonious flavors
+- Umami-rich ingredients (mushrooms, tomatoes, soy sauce) enhance savory depth
+- Acidic ingredients (lemon, lime, vinegar) brighten and balance rich flavors
+- Aromatic herbs and spices share terpenes that create complex layers
+- Sweet and savory combinations (chocolate + salt, fruit + herbs) create contrast
+- Complementary textures and temperatures enhance the eating experience
+
+"""
+        
+        if allow_missing_ingredients:
+            prompt += """CONSTRAINTS:
+- Prioritize using ingredients from the pantry list above
+- You can assume basic staples: water, salt, pepper (if not in list)
+- You may include 2-4 additional ingredients NOT in the pantry if essential for the recipe
+- Clearly distinguish between pantry ingredients and missing ingredients
+- Create a complete, detailed recipe
+- Apply flavor pairing principles to create balanced, complex flavors
+- In the response, include a "missing_ingredients" array listing any ingredients not in the pantry
+
+"""
+        else:
+            prompt += """CONSTRAINTS:
 - Use ONLY ingredients from the list above
 - You can assume basic staples: water, salt, pepper (if not in list)
 - DO NOT use any ingredients not listed above
 - Create a complete, detailed recipe
+- Apply flavor pairing principles to create balanced, complex flavors
 
 """
+        
+        if required_ingredients:
+            prompt += f"REQUIRED INGREDIENTS (must include these, but can also use others):\n"
+            prompt += f"{chr(10).join(f'- {ing}' for ing in required_ingredients)}\n\n"
+        
+        if excluded_ingredients:
+            prompt += f"EXCLUDED INGREDIENTS (must NOT use these):\n"
+            prompt += f"{chr(10).join(f'- {ing}' for ing in excluded_ingredients)}\n\n"
         
         if cuisine:
             prompt += f"- Cuisine style: {cuisine}\n"
@@ -252,11 +441,21 @@ Return ONLY valid JSON (no markdown, no code blocks) with this structure:
     "Step 1 description",
     "Step 2 description"
   ],
+  "flavor_pairings": [
+    {
+      "ingredients": ["ingredient1", "ingredient2"],
+      "compounds": "shared chemical compounds (e.g., vanillin, eugenol, terpenes)",
+      "effect": "description of how these flavors work together"
+    }
+  ],
+  "missing_ingredients": ["ingredient not in pantry", "another missing item"],
   "tips": ["Helpful tip 1", "Helpful tip 2"],
   "dietary_tags": ["vegetarian", "vegan", "gluten-free", etc]
 }
 
-Be creative and make it delicious! Focus on flavor combinations that work well together.
+IMPORTANT: Include a "flavor_pairings" array describing the key flavor combinations used in this recipe, explaining the chemical basis (shared volatile compounds) and how they create harmony. This is essential for the recipe output.
+
+Be creative and make it delicious! Focus on scientifically-proven flavor combinations that create complex, balanced flavors.
 """
         
         return prompt

@@ -17,6 +17,87 @@ st.markdown("---")
 
 api = get_api_client()
 
+# Image Processing Section
+with st.expander("📸 Process Images", expanded=False):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📁 Source Directory")
+        try:
+            source_info = api.get_source_directory()
+            current_dir = source_info.get('source_directory', 'Not set')
+            exists = source_info.get('exists', False)
+            
+            if exists:
+                st.success(f"✅ {current_dir}")
+            else:
+                st.warning(f"⚠️ {current_dir} (does not exist)")
+            
+            new_dir = st.text_input(
+                "Change source directory:",
+                value=current_dir,
+                placeholder="~/Pictures/Pantry"
+            )
+            
+            if st.button("💾 Save Directory", key="save_dir"):
+                try:
+                    api.set_source_directory(new_dir)
+                    st.success("✅ Source directory updated!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Failed to update directory: {e}")
+        except Exception as e:
+            st.error(f"Failed to load source directory: {e}")
+    
+    with col2:
+        st.subheader("🔄 Refresh Inventory")
+        st.caption("Process all new images from source directory")
+        
+        refresh_location = st.selectbox(
+            "Storage Location",
+            ["pantry", "fridge", "freezer"],
+            key="refresh_location"
+        )
+        
+        refresh_confidence = st.slider(
+            "Min Confidence",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.6,
+            step=0.1,
+            key="refresh_confidence",
+            help="Minimum AI confidence threshold (0.0-1.0)"
+        )
+        
+        if st.button("🔄 Refresh Inventory", type="primary", use_container_width=True, key="refresh_btn"):
+            try:
+                with st.spinner("Processing images... This may take a while."):
+                    result = api.refresh_inventory(
+                        storage_location=refresh_location,
+                        min_confidence=refresh_confidence
+                    )
+                    
+                    results = result.get('results', {})
+                    st.success(f"✅ Refresh complete!")
+                    st.info(f"""
+                    **Results:**
+                    - ✅ Processed: {results.get('processed', 0)}
+                    - ⏭️ Skipped: {results.get('skipped', 0)}
+                    - ❌ Failed: {results.get('failed', 0)}
+                    - 📦 Items Created: {results.get('items_created', 0)}
+                    """)
+                    
+                    if results.get('errors'):
+                        with st.expander("⚠️ Errors", expanded=False):
+                            for error in results['errors'][:10]:  # Show first 10 errors
+                                st.error(f"{error.get('image', 'Unknown')}: {error.get('error', 'Unknown error')}")
+                    
+                    st.rerun()
+            except Exception as e:
+                st.error(f"❌ Failed to refresh inventory: {e}")
+
+st.markdown("---")
+
 # Sidebar - Add New Item Form
 with st.sidebar:
     st.header("➕ Add New Item")
@@ -84,6 +165,53 @@ with st.sidebar:
                 
                 except Exception as e:
                     st.error(f"Failed to add item: {e}")
+    
+    st.markdown("---")
+    
+    # Upload Single Image
+    st.header("📷 Process Single Image")
+    st.caption("Upload an image to process through OCR and AI")
+    
+    uploaded_file = st.file_uploader(
+        "Choose an image file",
+        type=['jpg', 'jpeg', 'png'],
+        help="Upload a product image to automatically extract information"
+    )
+    
+    if uploaded_file:
+        image_location = st.selectbox(
+            "Storage Location",
+            ["pantry", "fridge", "freezer"],
+            key="image_location"
+        )
+        
+        if st.button("🔍 Process Image", type="primary", use_container_width=True, key="process_image_btn"):
+            try:
+                with st.spinner("Processing image... Running OCR and AI analysis..."):
+                    result = api.process_image(
+                        file_data=uploaded_file.getvalue(),
+                        filename=uploaded_file.name,
+                        storage_location=image_location
+                    )
+                    
+                    if result.get('success'):
+                        item = result.get('item', {})
+                        confidence = result.get('confidence', {})
+                        
+                        st.success(f"✅ Successfully processed: {item.get('product_name', 'Unknown')}")
+                        st.info(f"""
+                        **Confidence Scores:**
+                        - OCR: {confidence.get('ocr', 0):.0%}
+                        - AI: {confidence.get('ai', 0):.0%}
+                        - Combined: {confidence.get('combined', 0):.0%}
+                        """)
+                        
+                        st.rerun()
+                    else:
+                        st.error("Failed to process image")
+                        
+            except Exception as e:
+                st.error(f"❌ Failed to process image: {e}")
 
 # Filters
 col1, col2, col3 = st.columns(3)

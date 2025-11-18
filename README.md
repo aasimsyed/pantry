@@ -21,6 +21,49 @@ Manual pantry inventory is tedious and error-prone. People forget what they have
 
 ---
 
+## 🚀 Quick Start
+
+### Starting the Application
+
+The easiest way to start both the FastAPI backend and Streamlit frontend together:
+
+**Option 1: Using the shell script (recommended for Unix/Mac)**
+```bash
+./start.sh
+```
+
+**Option 2: Using the Python script (cross-platform)**
+```bash
+python start.py
+```
+
+Both scripts will:
+- Check if ports 8000 (API) and 8501 (Streamlit) are available
+- Start the FastAPI backend server
+- Start the Streamlit dashboard
+- Display access URLs and log locations
+- Handle cleanup when you press Ctrl+C
+
+**Access Points:**
+- **API Server**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Dashboard**: http://localhost:8501
+
+**Logs:**
+- API logs: `logs/api.log`
+- Streamlit logs: `logs/streamlit.log`
+
+**Manual Start (if needed):**
+```bash
+# Terminal 1: Start API server
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 2: Start Streamlit dashboard
+streamlit run dashboard/app.py
+```
+
+---
+
 ## 🏗️ System Architecture
 
 ### High-Level Data Flow

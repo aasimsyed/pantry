@@ -13,11 +13,13 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+import tempfile
+import shutil
 
 from .config import config
 from .dependencies import get_pantry_service, get_db
@@ -25,13 +27,16 @@ from .models import (
     ProductCreate, ProductUpdate, ProductResponse,
     InventoryItemCreate, InventoryItemUpdate, InventoryItemResponse,
     ConsumeRequest, StatisticsResponse, MessageResponse,
-    HealthResponse, ErrorResponse, RecipeRequest, RecipeResponse,
+    HealthResponse, ErrorResponse, RecipeRequest, SingleRecipeRequest, RecipeResponse,
     SavedRecipeCreate, SavedRecipeUpdate, SavedRecipeResponse
 )
 from src.db_service import PantryService
 from src.database import Product, InventoryItem
 from src.ai_analyzer import create_ai_analyzer
+from src.ocr_service import create_ocr_service
 from recipe_generator import RecipeGenerator
+from pathlib import Path
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -720,8 +725,509 @@ def get_statistics_by_location(
 
 
 # ============================================================================
+# Image Processing & Source Directory Management
+# ============================================================================
+
+@app.get("/api/config/source-directory", tags=["Configuration"])
+def get_source_directory() -> Dict:
+    """Get the configured source images directory."""
+    source_dir = os.getenv("SOURCE_IMAGES_DIR", str(Path.home() / "Pictures" / "Pantry"))
+    return {
+        "source_directory": source_dir,
+        "exists": os.path.exists(source_dir),
+        "is_directory": os.path.isdir(source_dir) if os.path.exists(source_dir) else False
+    }
+
+
+@app.post("/api/config/source-directory", tags=["Configuration"])
+def set_source_directory(request: Dict) -> Dict:
+    """Set the source images directory."""
+    try:
+        directory = request.get("directory")
+        if not directory:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Directory parameter is required"
+            )
+        
+        dir_path = Path(directory).expanduser().resolve()
+        
+        if not dir_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Directory does not exist: {directory}"
+            )
+        
+        if not dir_path.is_dir():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path is not a directory: {directory}"
+            )
+        
+        # Store in environment or config file (for now, just validate)
+        # In production, you'd want to persist this to a config file
+        return {
+            "source_directory": str(dir_path),
+            "message": "Source directory set successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting source directory: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set source directory: {str(e)}"
+        )
+
+
+@app.post("/api/inventory/process-image", tags=["Inventory"])
+def process_single_image(
+    file: UploadFile = File(...),
+    storage_location: str = Form("pantry"),
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """Process a single uploaded image through OCR and AI analysis."""
+    try:
+        # Validate storage_location
+        if storage_location not in ["pantry", "fridge", "freezer"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="storage_location must be one of: pantry, fridge, freezer"
+            )
+        
+        # Validate file type
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File must be an image"
+            )
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp_file:
+            shutil.copyfileobj(file.file, tmp_file)
+            tmp_path = Path(tmp_file.name)
+        
+        try:
+            # Initialize services
+            ocr_service = create_ocr_service()
+            ai_analyzer = create_ai_analyzer()
+            
+            # Run OCR
+            logger.info(f"Processing image: {file.filename}")
+            ocr_result = ocr_service.extract_text(str(tmp_path))
+            ocr_confidence = ocr_result.get("confidence", 0)
+            
+            if not ocr_result.get("raw_text", "").strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No text extracted from image. Please ensure the image contains readable product labels."
+                )
+            
+            # Run AI analysis
+            product_data = ai_analyzer.analyze_product(ocr_result)
+            ai_confidence = product_data.confidence
+            
+            if not product_data.product_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Could not identify product from image. Please try a clearer image."
+                )
+            
+            # Create or get product
+            product = service.add_product(
+                product_name=product_data.product_name,
+                brand=product_data.brand,
+                category=product_data.category or "Other",
+                subcategory=product_data.subcategory
+            )
+            
+            # Parse expiration date if available
+            exp_date = None
+            if product_data.expiration_date:
+                try:
+                    from datetime import datetime
+                    exp_date = datetime.fromisoformat(product_data.expiration_date.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    pass
+            
+            # Create inventory item
+            item = service.add_inventory_item(
+                product_id=product.id,
+                quantity=1.0,
+                unit="count",
+                storage_location=storage_location,
+                expiration_date=exp_date,
+                image_path=file.filename,
+                notes=f"Processed from uploaded image"
+            )
+            
+            # Create processing log
+            service.add_processing_log(
+                image_path=file.filename,
+                ocr_confidence=ocr_confidence,
+                ai_confidence=ai_confidence,
+                status="success" if ai_confidence >= 0.6 else "manual_review",
+                raw_ocr_data=ocr_result,
+                raw_ai_data=product_data.to_dict(),
+                inventory_item_id=item.id
+            )
+            
+            # Enrich response
+            result = enrich_inventory_item(item, service)
+            
+            logger.info(f"Successfully processed image: {product_data.product_name}")
+            return {
+                "success": True,
+                "message": f"Successfully processed {product_data.product_name}",
+                "item": result,
+                "confidence": {
+                    "ocr": ocr_confidence,
+                    "ai": ai_confidence,
+                    "combined": (ocr_confidence + ai_confidence) / 2
+                }
+            }
+            
+        finally:
+            # Clean up temporary file
+            if tmp_path.exists():
+                tmp_path.unlink()
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing image: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process image: {str(e)}"
+        )
+
+
+@app.post("/api/inventory/refresh", tags=["Inventory"])
+def refresh_inventory(
+    request: Dict,
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """Refresh inventory by processing all images in the source directory."""
+    try:
+        # Get parameters from request
+        source_directory = request.get("source_directory")
+        storage_location = request.get("storage_location", "pantry")
+        min_confidence = request.get("min_confidence", 0.6)
+        
+        # Validate storage_location
+        if storage_location not in ["pantry", "fridge", "freezer"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="storage_location must be one of: pantry, fridge, freezer"
+            )
+        
+        # Validate min_confidence
+        if not isinstance(min_confidence, (int, float)) or min_confidence < 0.0 or min_confidence > 1.0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="min_confidence must be between 0.0 and 1.0"
+            )
+        
+        # Get source directory
+        if not source_directory:
+            source_directory = os.getenv("SOURCE_IMAGES_DIR", str(Path.home() / "Pictures" / "Pantry"))
+        
+        source_dir = Path(source_directory).expanduser().resolve()
+        
+        if not source_dir.exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Source directory does not exist: {source_directory}"
+            )
+        
+        if not source_dir.is_dir():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path is not a directory: {source_directory}"
+            )
+        
+        # Find all images
+        image_files = list(source_dir.glob("*.jpg")) + list(source_dir.glob("*.jpeg"))
+        image_files.sort()
+        
+        if not image_files:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No images found in {source_directory}"
+            )
+        
+        # Initialize services
+        ocr_service = create_ocr_service()
+        ai_analyzer = create_ai_analyzer()
+        
+        # Get existing processed images from logs
+        existing_logs = service.get_processing_logs(limit=10000)
+        processed_images = {log.image_path for log in existing_logs if log.image_path}
+        
+        # Process images
+        results = {
+            "processed": 0,
+            "skipped": 0,
+            "failed": 0,
+            "items_created": 0,
+            "items_updated": 0,
+            "errors": []
+        }
+        
+        for image_path in image_files:
+            image_name = image_path.name
+            
+            # Skip if already processed
+            if image_name in processed_images:
+                results["skipped"] += 1
+                continue
+            
+            try:
+                # Run OCR
+                ocr_result = ocr_service.extract_text(str(image_path))
+                ocr_confidence = ocr_result.get("confidence", 0)
+                
+                if not ocr_result.get("raw_text", "").strip():
+                    results["skipped"] += 1
+                    continue
+                
+                # Run AI analysis
+                product_data = ai_analyzer.analyze_product(ocr_result)
+                ai_confidence = product_data.confidence
+                
+                # Check confidence threshold
+                if ai_confidence < min_confidence:
+                    results["skipped"] += 1
+                    continue
+                
+                if not product_data.product_name:
+                    results["skipped"] += 1
+                    continue
+                
+                # Create or get product
+                product = service.add_product(
+                    product_name=product_data.product_name,
+                    brand=product_data.brand,
+                    category=product_data.category or "Other",
+                    subcategory=product_data.subcategory
+                )
+                
+                # Parse expiration date if available
+                exp_date = None
+                if product_data.expiration_date:
+                    try:
+                        from datetime import datetime
+                        exp_date = datetime.fromisoformat(product_data.expiration_date.replace("Z", "+00:00"))
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Create inventory item
+                item = service.add_inventory_item(
+                    product_id=product.id,
+                    quantity=1.0,
+                    unit="count",
+                    storage_location=storage_location,
+                    expiration_date=exp_date,
+                    image_path=image_name,
+                    notes=f"Processed from {source_directory}"
+                )
+                
+                # Create processing log
+                service.add_processing_log(
+                    image_path=image_name,
+                    ocr_confidence=ocr_confidence,
+                    ai_confidence=ai_confidence,
+                    status="success" if ai_confidence >= 0.6 else "manual_review",
+                    raw_ocr_data=ocr_result,
+                    raw_ai_data=product_data.to_dict(),
+                    inventory_item_id=item.id
+                )
+                
+                results["processed"] += 1
+                results["items_created"] += 1
+                
+            except Exception as e:
+                results["failed"] += 1
+                results["errors"].append({
+                    "image": image_name,
+                    "error": str(e)
+                })
+                logger.error(f"Error processing {image_name}: {e}")
+        
+        logger.info(f"Refresh complete: {results['processed']} processed, {results['skipped']} skipped, {results['failed']} failed")
+        return {
+            "success": True,
+            "message": f"Processed {results['processed']} images",
+            "source_directory": str(source_dir),
+            "results": results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error refreshing inventory: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to refresh inventory: {str(e)}"
+        )
+
+
+# ============================================================================
 # Recipe Generation Endpoints
 # ============================================================================
+
+@app.post("/api/recipes/generate-one", response_model=RecipeResponse, tags=["Recipes"])
+def generate_single_recipe(
+    request: SingleRecipeRequest,
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """
+    Generate a single recipe (for incremental display).
+    """
+    try:
+        # Get inventory items
+        all_items = service.get_all_inventory()
+        available_items = [item for item in all_items if item.status == "in_stock"]
+        
+        if not available_items:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No items in stock. Add items to your pantry first."
+            )
+        
+        # Filter out excluded ingredients
+        excluded_names = set(request.excluded_ingredients or [])
+        filtered_items = []
+        for item in available_items:
+            product_name = item.product.product_name if item.product else None
+            if product_name and product_name not in excluded_names:
+                filtered_items.append(item)
+        
+        if not filtered_items:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No available ingredients after applying exclusions."
+            )
+        
+        # Verify required ingredients are available
+        if request.required_ingredients:
+            required_names = set(request.required_ingredients)
+            available_names = {item.product.product_name for item in filtered_items if item.product}
+            missing_required = required_names - available_names
+            
+            if missing_required:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Required ingredients not available: {', '.join(missing_required)}"
+                )
+        
+        # Convert to format expected by RecipeGenerator
+        pantry_items = []
+        for item in filtered_items:
+            product_name = item.product.product_name if item.product else "Unknown"
+            brand = item.product.brand if item.product else None
+            
+            pantry_items.append({
+                "product": {
+                    "product_name": product_name,
+                    "brand": brand
+                }
+            })
+        
+        # Extract ingredient list (all available, minus excluded)
+        ingredient_list = []
+        for item in pantry_items:
+            product = item['product']
+            name = product['product_name']
+            brand = product.get('brand')
+            if brand:
+                ingredient_list.append(f"{brand} {name}")
+            else:
+                ingredient_list.append(name)
+        
+        # Extract required ingredient names (for prompt)
+        required_ingredient_names = None
+        if request.required_ingredients:
+            required_ingredient_names = []
+            for item in pantry_items:
+                product = item['product']
+                name = product['product_name']
+                if name in request.required_ingredients:
+                    brand = product.get('brand')
+                    if brand:
+                        required_ingredient_names.append(f"{brand} {name}")
+                    else:
+                        required_ingredient_names.append(name)
+        
+        # Initialize AI analyzer and recipe generator
+        ai_analyzer = create_ai_analyzer()
+        recipe_generator = RecipeGenerator(ai_analyzer)
+        
+        # Generate single recipe
+        logger.info(f"Generating 1 recipe from {len(pantry_items)} ingredients")
+        recipe = recipe_generator._generate_single_recipe(
+            ingredients=ingredient_list,
+            cuisine=request.cuisine,
+            difficulty=request.difficulty,
+            dietary_restrictions=request.dietary_restrictions,
+            avoid_previous=request.avoid_names or [],
+            required_ingredients=required_ingredient_names,
+            excluded_ingredients=request.excluded_ingredients,
+            allow_missing_ingredients=request.allow_missing_ingredients
+        )
+        
+        if not recipe:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate recipe"
+            )
+        
+        # Convert to response format
+        used_ingredients = []
+        for ing in recipe.get('ingredients', []):
+            if isinstance(ing, dict):
+                used_ingredients.append(ing.get('item', ing.get('name', '')))
+            else:
+                used_ingredients.append(str(ing))
+        
+        result = {
+            "name": recipe.get('name', 'Unnamed Recipe'),
+            "description": recipe.get('description', ''),
+            "difficulty": recipe.get('difficulty', 'medium'),
+            "prep_time": _parse_time(recipe.get('prep_time', '0 minutes')),
+            "cook_time": _parse_time(recipe.get('cook_time', '0 minutes')),
+            "servings": recipe.get('servings', 4),
+            "cuisine": recipe.get('cuisine', ''),
+            "ingredients": recipe.get('ingredients', []),
+            "instructions": recipe.get('instructions', []),
+            "available_ingredients": used_ingredients,
+            "missing_ingredients": recipe.get('missing_ingredients', []),
+            "flavor_pairings": recipe.get('flavor_pairings', [])
+        }
+        
+        logger.info(f"Successfully generated recipe: {result['name']}")
+        return result
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        if "No AI backends available" in str(e):
+            logger.error("AI API keys not configured")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI service not available. Please configure OpenAI or Anthropic API key in .env file."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error generating recipe: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate recipe: {str(e)}"
+        )
+
 
 @app.post("/api/recipes/generate", response_model=List[RecipeResponse], tags=["Recipes"])
 def generate_recipes(
@@ -731,11 +1237,13 @@ def generate_recipes(
     """
     Generate AI-powered recipes using available pantry ingredients.
     
-    - **ingredients**: Optional list of ingredient names. If empty, uses all available items.
+    - **required_ingredients**: Optional list of ingredient names that must be included. Recipes can also use other available ingredients.
+    - **excluded_ingredients**: Optional list of ingredient names to exclude from recipes.
     - **max_recipes**: Number of recipes to generate (1-20)
     - **cuisine**: Optional cuisine type (italian, mexican, asian, etc.)
     - **difficulty**: Optional difficulty level (easy, medium, hard)
     - **dietary_restrictions**: Optional list of dietary restrictions
+    - **allow_missing_ingredients**: If True, allow recipes to include 2-4 ingredients not in pantry (will be listed as missing)
     """
     try:
         # Get inventory items
@@ -750,29 +1258,35 @@ def generate_recipes(
                 detail="No items in stock. Add items to your pantry first."
             )
         
-        # Build ingredient list
-        if request.ingredients and len(request.ingredients) > 0:
-            # Use selected ingredients
-            selected_names = set(request.ingredients)
-            selected_items = []
-            for item in available_items:
-                product_name = item.product.product_name if item.product else None
-                if product_name and product_name in selected_names:
-                    selected_items.append(item)
+        # Filter out excluded ingredients
+        excluded_names = set(request.excluded_ingredients or [])
+        filtered_items = []
+        for item in available_items:
+            product_name = item.product.product_name if item.product else None
+            if product_name and product_name not in excluded_names:
+                filtered_items.append(item)
+        
+        if not filtered_items:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No available ingredients after applying exclusions."
+            )
+        
+        # Verify required ingredients are available
+        if request.required_ingredients:
+            required_names = set(request.required_ingredients)
+            available_names = {item.product.product_name for item in filtered_items if item.product}
+            missing_required = required_names - available_names
             
-            if not selected_items:
+            if missing_required:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="None of the selected ingredients are available in stock."
+                    detail=f"Required ingredients not available: {', '.join(missing_required)}"
                 )
-            items_to_use = selected_items
-        else:
-            # Use all available items
-            items_to_use = available_items
         
         # Convert to format expected by RecipeGenerator
         pantry_items = []
-        for item in items_to_use:
+        for item in filtered_items:
             product_name = item.product.product_name if item.product else "Unknown"
             brand = item.product.brand if item.product else None
             
@@ -782,6 +1296,20 @@ def generate_recipes(
                     "brand": brand
                 }
             })
+        
+        # Extract required ingredient names (for prompt)
+        required_ingredient_names = None
+        if request.required_ingredients:
+            required_ingredient_names = []
+            for item in pantry_items:
+                product = item['product']
+                name = product['product_name']
+                if name in request.required_ingredients:
+                    brand = product.get('brand')
+                    if brand:
+                        required_ingredient_names.append(f"{brand} {name}")
+                    else:
+                        required_ingredient_names.append(name)
         
         # Initialize AI analyzer and recipe generator
         ai_analyzer = create_ai_analyzer()
@@ -794,7 +1322,10 @@ def generate_recipes(
             num_recipes=request.max_recipes,
             cuisine=request.cuisine,
             difficulty=request.difficulty,
-            dietary_restrictions=request.dietary_restrictions
+            dietary_restrictions=request.dietary_restrictions,
+            required_ingredients=required_ingredient_names,
+            excluded_ingredients=request.excluded_ingredients,
+            allow_missing_ingredients=request.allow_missing_ingredients
         )
         
         # Convert to response format
@@ -819,7 +1350,8 @@ def generate_recipes(
                 "ingredients": recipe.get('ingredients', []),
                 "instructions": recipe.get('instructions', []),
                 "available_ingredients": used_ingredients,
-                "missing_ingredients": recipe.get('missing_ingredients', [])
+                "missing_ingredients": recipe.get('missing_ingredients', []),
+                "flavor_pairings": recipe.get('flavor_pairings', [])
             })
         
         logger.info(f"Successfully generated {len(result)} recipes")
