@@ -63,6 +63,20 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database schema on application startup."""
+    try:
+        from src.database import init_database, get_database_url
+        db_url = get_database_url()
+        logger.info(f"Initializing database: {db_url[:50]}...")
+        init_database()
+        logger.info("✅ Database schema initialized successfully")
+    except Exception as e:
+        logger.warning(f"⚠️  Database initialization warning: {e}")
+        # Continue anyway - tables might already exist
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
