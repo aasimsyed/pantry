@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -822,6 +822,18 @@ def generate_recipes(
         
     except HTTPException:
         raise
+    except ValueError as e:
+        # Handle missing AI API keys
+        if "No AI backends available" in str(e):
+            logger.error("AI API keys not configured")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI service not available. Please configure OpenAI or Anthropic API key in .env file. See README for setup instructions."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Error generating recipes: {e}", exc_info=True)
         raise HTTPException(
@@ -854,9 +866,12 @@ def _parse_time(time_str: str) -> int:
 async def http_exception_handler(request, exc: HTTPException):
     """Custom HTTP exception handler."""
     logger.warning(f"HTTP {exc.status_code}: {exc.detail}")
-    return ErrorResponse(
-        detail=exc.detail,
-        error_code=str(exc.status_code)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "error_code": str(exc.status_code)
+        }
     )
 
 
@@ -864,9 +879,12 @@ async def http_exception_handler(request, exc: HTTPException):
 async def general_exception_handler(request, exc: Exception):
     """Catch-all exception handler."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    raise HTTPException(
+    return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="An unexpected error occurred"
+        content={
+            "detail": "An unexpected error occurred",
+            "error_code": "500"
+        }
     )
 
 
