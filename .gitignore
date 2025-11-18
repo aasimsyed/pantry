@@ -1,3 +1,6 @@
+# Scratch directory for notes
+.scratch/
+
 # Python
 __pycache__/
 *.py[cod]
