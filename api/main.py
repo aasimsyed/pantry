@@ -6,7 +6,7 @@ Provides CRUD operations, search, filtering, and statistics.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date, timedelta
 
 from fastapi import FastAPI, Depends, HTTPException, Query, status
@@ -294,6 +294,42 @@ def search_products(
 
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+def enrich_inventory_item(item: InventoryItem) -> Dict:
+    """
+    Enrich inventory item with product information from relationship.
+    
+    Args:
+        item: InventoryItem ORM object
+        
+    Returns:
+        Dictionary with item data including product information
+    """
+    return {
+        "id": item.id,
+        "product_id": item.product_id,
+        "quantity": item.quantity,
+        "unit": item.unit,
+        "purchase_date": item.purchase_date,
+        "expiration_date": item.expiration_date,
+        "storage_location": item.storage_location,
+        "image_path": item.image_path,
+        "notes": item.notes,
+        "status": item.status,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+        "days_until_expiration": item.days_until_expiration,
+        "is_expired": item.is_expired,
+        # Add product information from relationship
+        "product_name": item.product.product_name if item.product else None,
+        "brand": item.product.brand if item.product else None,
+        "category": item.product.category if item.product else None,
+    }
+
+
+# ============================================================================
 # Inventory Endpoints
 # ============================================================================
 
@@ -304,7 +340,7 @@ def get_inventory(
     location: Optional[str] = Query(None, description="Filter by storage location"),
     status: Optional[str] = Query(None, description="Filter by status"),
     service: PantryService = Depends(get_pantry_service)
-) -> List[InventoryItem]:
+) -> List[Dict]:
     """
     Get all inventory items with optional filtering.
     
@@ -325,8 +361,11 @@ def get_inventory(
         # Apply pagination
         items = items[skip:skip + limit]
         
-        logger.info(f"Retrieved {len(items)} inventory items")
-        return items
+        # Enrich with product information
+        result = [enrich_inventory_item(item) for item in items]
+        
+        logger.info(f"Retrieved {len(result)} inventory items")
+        return result
         
     except Exception as e:
         logger.error(f"Error retrieving inventory: {e}")
@@ -340,7 +379,7 @@ def get_inventory(
 def get_inventory_item(
     item_id: int,
     service: PantryService = Depends(get_pantry_service)
-) -> InventoryItem:
+) -> Dict:
     """
     Get a specific inventory item by ID.
     
@@ -353,7 +392,9 @@ def get_inventory_item(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Inventory item with ID {item_id} not found"
             )
-        return item
+        
+        # Enrich with product information
+        return enrich_inventory_item(item)
     except HTTPException:
         raise
     except Exception as e:
@@ -368,7 +409,7 @@ def get_inventory_item(
 def create_inventory_item(
     item_data: InventoryItemCreate,
     service: PantryService = Depends(get_pantry_service)
-) -> InventoryItem:
+) -> Dict:
     """
     Add a new inventory item.
     
@@ -401,7 +442,7 @@ def create_inventory_item(
             status=item_data.status
         )
         logger.info(f"Created inventory item ID {item.id}")
-        return item
+        return enrich_inventory_item(item)
         
     except HTTPException:
         raise
@@ -418,7 +459,7 @@ def update_inventory_item(
     item_id: int,
     item_data: InventoryItemUpdate,
     service: PantryService = Depends(get_pantry_service)
-) -> InventoryItem:
+) -> Dict:
     """
     Update an existing inventory item.
     
@@ -448,7 +489,7 @@ def update_inventory_item(
         
         updated_item = service.update_inventory_item(item_id, **update_data)
         logger.info(f"Updated inventory item ID {item_id}")
-        return updated_item
+        return enrich_inventory_item(updated_item)
         
     except HTTPException:
         raise
@@ -502,7 +543,7 @@ def consume_inventory_item(
     item_id: int,
     consume_data: Optional[ConsumeRequest] = None,
     service: PantryService = Depends(get_pantry_service)
-) -> InventoryItem:
+) -> Dict:
     """
     Consume an inventory item.
     
@@ -523,7 +564,7 @@ def consume_inventory_item(
             )
         
         logger.info(f"Consumed inventory item ID {item_id}")
-        return item
+        return enrich_inventory_item(item)
         
     except HTTPException:
         raise
@@ -548,7 +589,7 @@ def consume_inventory_item(
 def get_expiring_items(
     days: int = Query(7, ge=1, le=365, description="Days to look ahead"),
     service: PantryService = Depends(get_pantry_service)
-) -> List[InventoryItem]:
+) -> List[Dict]:
     """
     Get items expiring within specified number of days.
     
@@ -556,8 +597,9 @@ def get_expiring_items(
     """
     try:
         items = service.get_expiring_items(days)
-        logger.info(f"Found {len(items)} items expiring within {days} days")
-        return items
+        result = [enrich_inventory_item(item) for item in items]
+        logger.info(f"Found {len(result)} items expiring within {days} days")
+        return result
     except Exception as e:
         logger.error(f"Error retrieving expiring items: {e}")
         raise HTTPException(
@@ -569,7 +611,7 @@ def get_expiring_items(
 @app.get("/api/expired", response_model=List[InventoryItemResponse], tags=["Expiration"])
 def get_expired_items(
     service: PantryService = Depends(get_pantry_service)
-) -> List[InventoryItem]:
+) -> List[Dict]:
     """
     Get all expired items.
     
@@ -577,8 +619,9 @@ def get_expired_items(
     """
     try:
         items = service.get_expired_items()
-        logger.info(f"Found {len(items)} expired items")
-        return items
+        result = [enrich_inventory_item(item) for item in items]
+        logger.info(f"Found {len(result)} expired items")
+        return result
     except Exception as e:
         logger.error(f"Error retrieving expired items: {e}")
         raise HTTPException(

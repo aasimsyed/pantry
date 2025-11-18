@@ -95,6 +95,11 @@ class InventoryItemResponse(InventoryItemBase):
     days_until_expiration: Optional[int] = Field(None, description="Days until expiration (negative if expired)")
     is_expired: bool = Field(False, description="Whether the item is expired")
     
+    # Product information (from relationship)
+    product_name: Optional[str] = Field(None, description="Product name from related product")
+    brand: Optional[str] = Field(None, description="Brand from related product")
+    category: Optional[str] = Field(None, description="Category from related product")
+    
     model_config = ConfigDict(from_attributes=True)
 
 
