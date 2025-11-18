@@ -1143,6 +1143,8 @@ def process_single_image(
         raise
     except Exception as e:
         logger.error(f"Error processing image: {e}", exc_info=True)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process image: {str(e)}"
