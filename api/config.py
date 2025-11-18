@@ -30,6 +30,7 @@ class APIConfig(BaseSettings):
     cors_origins: List[str] = [
         "http://localhost:8501",  # Streamlit default
         "http://localhost:3000",  # React default
+        "http://localhost:5173",  # Vite dev server default
     ]
     
     # Database Configuration

@@ -76,3 +76,10 @@ reports/
 *.sqlite
 *.sqlite3
 
+# Docker
+docker-compose.override.yml
+
+# Deployment configs (keep examples, ignore actual secrets)
+fly.toml
+!fly.toml.example
+

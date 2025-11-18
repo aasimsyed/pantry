@@ -795,17 +795,34 @@ def process_single_image(
                 detail="storage_location must be one of: pantry, fridge, freezer"
             )
         
-        # Validate file type
-        if not file.content_type or not file.content_type.startswith("image/"):
+        # Validate file type (be lenient - React Native might not send content-type)
+        if file.content_type and not file.content_type.startswith("image/"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File must be an image"
+                detail=f"File must be an image, got: {file.content_type}"
             )
         
+        # Validate filename extension
+        if file.filename:
+            ext = Path(file.filename).suffix.lower()
+            if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File must be an image (jpg, png, etc.), got: {ext}"
+                )
+        
         # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp_file:
-            shutil.copyfileobj(file.file, tmp_file)
-            tmp_path = Path(tmp_file.name)
+        try:
+            suffix = Path(file.filename).suffix if file.filename else '.jpg'
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+                shutil.copyfileobj(file.file, tmp_file)
+                tmp_path = Path(tmp_file.name)
+        except Exception as e:
+            logger.error(f"Error saving uploaded file: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to save uploaded file: {str(e)}"
+            )
         
         try:
             # Initialize services
@@ -846,9 +863,14 @@ def process_single_image(
             if product_data.expiration_date:
                 try:
                     from datetime import datetime
-                    exp_date = datetime.fromisoformat(product_data.expiration_date.replace("Z", "+00:00"))
-                except (ValueError, AttributeError):
-                    pass
+                    # Handle different date formats
+                    date_str = str(product_data.expiration_date)
+                    if "Z" in date_str:
+                        date_str = date_str.replace("Z", "+00:00")
+                    exp_date = datetime.fromisoformat(date_str).date()
+                except (ValueError, AttributeError, TypeError) as e:
+                    logger.warning(f"Could not parse expiration date: {product_data.expiration_date}, error: {e}")
+                    exp_date = None
             
             # Create inventory item
             item = service.add_inventory_item(
@@ -873,7 +895,9 @@ def process_single_image(
             )
             
             # Enrich response
-            result = enrich_inventory_item(item, service)
+            # Refresh item to ensure relationship is loaded
+            service.session.refresh(item)
+            result = enrich_inventory_item(item)
             
             logger.info(f"Successfully processed image: {product_data.product_name}")
             return {

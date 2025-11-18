@@ -25,7 +25,13 @@ Manual pantry inventory is tedious and error-prone. People forget what they have
 
 ### Starting the Application
 
-The easiest way to start both the FastAPI backend and Streamlit frontend together:
+**Prerequisites:**
+1. Python 3.8+ with virtual environment activated
+2. Node.js 18+ and npm installed
+3. All Python dependencies installed (`pip install -r requirements.txt`)
+4. All frontend dependencies installed (`cd frontend && npm install`)
+
+The easiest way to start both the FastAPI backend and React frontend together:
 
 **Option 1: Using the shell script (recommended for Unix/Mac)**
 ```bash
@@ -38,29 +44,49 @@ python start.py
 ```
 
 Both scripts will:
-- Check if ports 8000 (API) and 8501 (Streamlit) are available
+- Check if ports 8000 (API) and 5173 (React) are available
 - Start the FastAPI backend server
-- Start the Streamlit dashboard
+- Start the React development server
 - Display access URLs and log locations
 - Handle cleanup when you press Ctrl+C
 
 **Access Points:**
 - **API Server**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
-- **Dashboard**: http://localhost:8501
+- **Frontend**: http://localhost:5173
 
 **Logs:**
 - API logs: `logs/api.log`
-- Streamlit logs: `logs/streamlit.log`
+- React logs: `logs/react.log`
 
 **Manual Start (if needed):**
 ```bash
 # Terminal 1: Start API server
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2: Start Streamlit dashboard
-streamlit run dashboard/app.py
+# Terminal 2: Start React frontend
+cd frontend
+npm run dev
 ```
+
+**Frontend Setup (First Time):**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Deployment
+
+**Backend Deployment (Free Options):**
+- See [BACKEND_DEPLOYMENT.md](./BACKEND_DEPLOYMENT.md) for comprehensive guide
+- Quick start: [QUICK_DEPLOY_BACKEND.md](./QUICK_DEPLOY_BACKEND.md) (Railway - 5 minutes)
+- Options: Railway, Fly.io, Google Cloud Run, PythonAnywhere, Replit, Self-hosting
+
+**Mobile App Deployment (Free Options):**
+- See [mobile/DEPLOYMENT.md](./mobile/DEPLOYMENT.md) for comprehensive guide
+- Quick start: [mobile/QUICK_DEPLOY.md](./mobile/QUICK_DEPLOY.md) (Android - 100% free)
+- Options: EAS Build (free), Google Play Internal Testing, Firebase App Distribution
 
 ---
 
@@ -78,7 +104,7 @@ JPEG Images → Image Preprocessing → OCR Extraction → AI Analysis → Data 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     USER INTERFACES                          │
-│  CLI Tool  │  REST API (FastAPI)  │  Web Dashboard (Streamlit)│
+│  CLI Tool  │  REST API (FastAPI)  │  Web Dashboard (React)  │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -114,7 +140,7 @@ JPEG Images → Image Preprocessing → OCR Extraction → AI Analysis → Data 
 - **Barcode Lookup**: Open Food Facts API (free)
 - **Database**: SQLAlchemy ORM with SQLite (dev) or PostgreSQL (production)
 - **API Framework**: FastAPI (optional, for web API)
-- **Web Interface**: Streamlit (optional, for dashboard)
+- **Web Interface**: React + TypeScript + Tailwind CSS (responsive web dashboard)
 - **CLI**: Click or argparse
 - **Async Processing**: asyncio, aiohttp
 - **Configuration**: pydantic-settings, python-dotenv
@@ -124,6 +150,8 @@ JPEG Images → Image Preprocessing → OCR Extraction → AI Analysis → Data 
 - **Two-Stage Processing**: OCR for text extraction (specialized), LLM for understanding context (generalized). This separation of concerns optimizes both accuracy and cost.
 - **SQLAlchemy**: Database-agnostic ORM that works with SQLite for personal use and scales to PostgreSQL for production.
 - **FastAPI**: Modern, fast, with automatic API documentation. Optional if only CLI is needed.
+- **React + TypeScript**: Modern, type-safe frontend framework for building responsive web interfaces. The React app is designed to be easily migrated to React Native for mobile development.
+- **Tailwind CSS**: Utility-first CSS framework for rapid UI development with full responsiveness.
 
 ---
 

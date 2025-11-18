@@ -1,0 +1,226 @@
+import { useState, useEffect } from 'react';
+import apiClient from '../api/client';
+import type { SavedRecipe } from '../types';
+
+export default function RecipeBox() {
+  const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cuisineFilter, setCuisineFilter] = useState('All');
+  const [difficultyFilter, setDifficultyFilter] = useState('All');
+
+  useEffect(() => {
+    loadRecipes();
+  }, [cuisineFilter, difficultyFilter]);
+
+  const loadRecipes = async () => {
+    try {
+      setLoading(true);
+      const cuisine = cuisineFilter === 'All' ? undefined : cuisineFilter.toLowerCase();
+      const difficulty = difficultyFilter === 'All' ? undefined : difficultyFilter.toLowerCase();
+      const data = await apiClient.getSavedRecipes(cuisine, difficulty);
+      setRecipes(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load recipes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (recipeId: number) => {
+    if (!confirm('Are you sure you want to delete this recipe?')) return;
+
+    try {
+      await apiClient.deleteSavedRecipe(recipeId);
+      await loadRecipes();
+    } catch (err: any) {
+      alert(`Failed to delete recipe: ${err.message}`);
+    }
+  };
+
+  const parseJson = (str: string | null | undefined): any[] => {
+    if (!str) return [];
+    try {
+      return typeof str === 'string' ? JSON.parse(str) : str;
+    } catch {
+      return [];
+    }
+  };
+
+  const difficultyEmoji = (diff: string) => {
+    switch (diff?.toLowerCase()) {
+      case 'easy':
+        return '🟢';
+      case 'medium':
+        return '🟡';
+      case 'hard':
+        return '🔴';
+      default:
+        return '🟡';
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 Recipe Box</h1>
+        <p className="text-gray-600">Your saved favorite recipes</p>
+      </div>
+
+      {/* Filters */}
+      <div className="card mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filter by Cuisine
+            </label>
+            <select
+              value={cuisineFilter}
+              onChange={(e) => setCuisineFilter(e.target.value)}
+              className="input"
+            >
+              <option value="All">All</option>
+              <option value="Italian">Italian</option>
+              <option value="Mexican">Mexican</option>
+              <option value="Asian">Asian</option>
+              <option value="American">American</option>
+              <option value="Mediterranean">Mediterranean</option>
+              <option value="Indian">Indian</option>
+              <option value="French">French</option>
+              <option value="Thai">Thai</option>
+              <option value="Japanese">Japanese</option>
+              <option value="Chinese">Chinese</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filter by Difficulty
+            </label>
+            <select
+              value={difficultyFilter}
+              onChange={(e) => setDifficultyFilter(e.target.value)}
+              className="input"
+            >
+              <option value="All">All</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="card">
+          <p className="text-gray-600">Loading recipes...</p>
+        </div>
+      ) : error ? (
+        <div className="card border-2 border-red-300">
+          <p className="text-red-600">Error: {error}</p>
+        </div>
+      ) : recipes.length === 0 ? (
+        <div className="card">
+          <p className="text-gray-600">No saved recipes found. Generate and save recipes from the Recipes page!</p>
+        </div>
+      ) : (
+        <>
+          <p className="text-gray-600 mb-4">Found {recipes.length} saved recipes</p>
+          <div className="space-y-6">
+            {recipes.map((recipe) => {
+              const ingredients = parseJson(recipe.ingredients);
+              const instructions = parseJson(recipe.instructions);
+              const tags = parseJson(recipe.tags);
+
+              return (
+                <div key={recipe.id} className="card">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h2 className="text-2xl font-bold mb-2">{recipe.name}</h2>
+                      {recipe.description && (
+                        <p className="text-gray-600 mb-2">{recipe.description}</p>
+                      )}
+                      {recipe.cuisine && (
+                        <p className="text-sm text-gray-500">🌍 {recipe.cuisine} Cuisine</p>
+                      )}
+                      {tags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {tags.map((tag, i) => (
+                            <span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              🏷️ {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right ml-4">
+                      <p className="font-semibold">
+                        {difficultyEmoji(recipe.difficulty)} {recipe.difficulty || 'Medium'}
+                      </p>
+                      <p className="text-sm text-gray-600">⏱️ Prep: {recipe.prep_time || 0} min</p>
+                      <p className="text-sm text-gray-600">🔥 Cook: {recipe.cook_time || 0} min</p>
+                      <p className="text-sm text-gray-600">👥 Serves: {recipe.servings || 4}</p>
+                      {recipe.rating && (
+                        <p className="text-sm text-gray-600">
+                          ⭐ Rating: {'⭐'.repeat(recipe.rating)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                      <h3 className="font-semibold mb-2">📋 Ingredients</h3>
+                      <ul className="list-disc list-inside space-y-1">
+                        {ingredients.length > 0 ? (
+                          ingredients.map((ing, i) => (
+                            <li key={i}>
+                              {typeof ing === 'string' ? ing : ing.item || ing.name || JSON.stringify(ing)}
+                              {typeof ing === 'object' && ing.amount && `: ${ing.amount}`}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-gray-500">No ingredients listed</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold mb-2">👨‍🍳 Instructions</h3>
+                      <ol className="list-decimal list-inside space-y-2">
+                        {instructions.length > 0 ? (
+                          instructions.map((step, i) => (
+                            <li key={i}>{typeof step === 'string' ? step : JSON.stringify(step)}</li>
+                          ))
+                        ) : (
+                          <li className="text-gray-500">No instructions provided</li>
+                        )}
+                      </ol>
+                    </div>
+                  </div>
+
+                  {recipe.notes && (
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                      <h3 className="font-semibold mb-1">📝 Notes</h3>
+                      <p className="text-sm text-gray-600">{recipe.notes}</p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => handleDelete(recipe.id)}
+                      className="btn-secondary text-red-600 hover:bg-red-50"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+

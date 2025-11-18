@@ -84,12 +84,12 @@ def main():
             print("   Exiting. Please stop the existing server first.")
             sys.exit(1)
     
-    if check_port(8501):
-        print_colored("⚠️  Port 8501 is already in use (Streamlit may be running)", Colors.YELLOW)
+    if check_port(5173):
+        print_colored("⚠️  Port 5173 is already in use (React dev server may be running)", Colors.YELLOW)
         response = input("   Kill existing process? (y/n): ").strip().lower()
         if response == 'y':
-            if kill_port(8501):
-                print_colored("   ✅ Killed process on port 8501", Colors.GREEN)
+            if kill_port(5173):
+                print_colored("   ✅ Killed process on port 5173", Colors.GREEN)
                 time.sleep(1)
             else:
                 print_colored("   ❌ Could not kill process", Colors.RED)
@@ -145,24 +145,32 @@ def main():
             print(f.read())
         sys.exit(1)
     
-    # Start Streamlit dashboard
-    print_colored("🎨 Starting Streamlit dashboard on http://localhost:8501", Colors.BLUE)
-    streamlit_log = open(logs_dir / "streamlit.log", "w")
-    streamlit_proc = subprocess.Popen(
-        [sys.executable, "-m", "streamlit", "run", "dashboard/app.py"],
-        stdout=streamlit_log,
-        stderr=streamlit_log,
-        cwd=script_dir
-    )
-    processes.append(streamlit_proc)
+    # Start React dev server
+    print_colored("🎨 Starting React frontend on http://localhost:5173", Colors.BLUE)
+    frontend_dir = script_dir / "frontend"
+    if not frontend_dir.exists():
+        print_colored("❌ Frontend directory not found. Run 'npm install' in frontend/ first.", Colors.RED)
+        cleanup()
+        sys.exit(1)
     
-    # Wait for Streamlit to start
+    react_log = open(logs_dir / "react.log", "w")
+    # Use npm run dev for Vite
+    react_proc = subprocess.Popen(
+        ["npm", "run", "dev"],
+        stdout=react_log,
+        stderr=react_log,
+        cwd=frontend_dir,
+        shell=sys.platform == "win32"
+    )
+    processes.append(react_proc)
+    
+    # Wait for React to start
     time.sleep(3)
     
-    if streamlit_proc.poll() is not None:
-        print_colored("❌ Failed to start Streamlit", Colors.RED)
-        streamlit_log.close()
-        with open(logs_dir / "streamlit.log", "r") as f:
+    if react_proc.poll() is not None:
+        print_colored("❌ Failed to start React dev server", Colors.RED)
+        react_log.close()
+        with open(logs_dir / "react.log", "r") as f:
             print(f.read())
         cleanup()
         sys.exit(1)
@@ -173,11 +181,11 @@ def main():
     print_colored("📍 Access points:", Colors.BLUE)
     print_colored("   API:      http://localhost:8000", Colors.GREEN)
     print_colored("   API Docs: http://localhost:8000/docs", Colors.GREEN)
-    print_colored("   Dashboard: http://localhost:8501", Colors.GREEN)
+    print_colored("   Frontend: http://localhost:5173", Colors.GREEN)
     print()
     print_colored("📝 Logs:", Colors.YELLOW)
     print(f"   API:      {logs_dir / 'api.log'}")
-    print(f"   Streamlit: {logs_dir / 'streamlit.log'}")
+    print(f"   React:    {logs_dir / 'react.log'}")
     print()
     print_colored("Press Ctrl+C to stop both servers", Colors.YELLOW)
     print()

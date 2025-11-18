@@ -45,13 +45,13 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1 ; then
     fi
 fi
 
-# Check if Streamlit is already running
-if lsof -Pi :8501 -sTCP:LISTEN -t >/dev/null 2>&1 ; then
-    echo -e "${YELLOW}⚠️  Port 8501 is already in use (Streamlit may be running)${NC}"
+# Check if React dev server is already running
+if lsof -Pi :5173 -sTCP:LISTEN -t >/dev/null 2>&1 ; then
+    echo -e "${YELLOW}⚠️  Port 5173 is already in use (React dev server may be running)${NC}"
     read -p "   Kill existing process? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        lsof -ti:8501 | xargs kill -9 2>/dev/null || true
+        lsof -ti:5173 | xargs kill -9 2>/dev/null || true
         sleep 1
     else
         echo "   Exiting. Please stop the existing server first."
@@ -66,8 +66,8 @@ mkdir -p logs
 cleanup() {
     echo ""
     echo -e "${YELLOW}🛑 Shutting down servers...${NC}"
-    kill $API_PID $STREAMLIT_PID 2>/dev/null || true
-    wait $API_PID $STREAMLIT_PID 2>/dev/null || true
+    kill $API_PID $REACT_PID 2>/dev/null || true
+    wait $API_PID $REACT_PID 2>/dev/null || true
     echo -e "${GREEN}✅ Servers stopped${NC}"
     exit 0
 }
@@ -90,18 +90,24 @@ if ! kill -0 $API_PID 2>/dev/null; then
     exit 1
 fi
 
-# Start Streamlit dashboard
-echo -e "${BLUE}🎨 Starting Streamlit dashboard on http://localhost:8501${NC}"
-streamlit run dashboard/app.py > logs/streamlit.log 2>&1 &
-STREAMLIT_PID=$!
+# Start React dev server
+echo -e "${BLUE}🎨 Starting React frontend on http://localhost:5173${NC}"
+if [ ! -d "frontend" ]; then
+    echo -e "${YELLOW}❌ Frontend directory not found. Run 'npm install' in frontend/ first.${NC}"
+    kill $API_PID 2>/dev/null || true
+    exit 1
+fi
+cd frontend && npm run dev > ../logs/react.log 2>&1 &
+REACT_PID=$!
+cd ..
 
-# Wait a moment for Streamlit to start
+# Wait a moment for React to start
 sleep 3
 
-# Check if Streamlit started successfully
-if ! kill -0 $STREAMLIT_PID 2>/dev/null; then
-    echo -e "${YELLOW}❌ Failed to start Streamlit${NC}"
-    cat logs/streamlit.log
+# Check if React started successfully
+if ! kill -0 $REACT_PID 2>/dev/null; then
+    echo -e "${YELLOW}❌ Failed to start React dev server${NC}"
+    cat logs/react.log
     kill $API_PID 2>/dev/null || true
     exit 1
 fi
@@ -112,15 +118,15 @@ echo ""
 echo -e "${BLUE}📍 Access points:${NC}"
 echo -e "   API:      ${GREEN}http://localhost:8000${NC}"
 echo -e "   API Docs: ${GREEN}http://localhost:8000/docs${NC}"
-echo -e "   Dashboard: ${GREEN}http://localhost:8501${NC}"
+echo -e "   Frontend: ${GREEN}http://localhost:5173${NC}"
 echo ""
 echo -e "${YELLOW}📝 Logs:${NC}"
 echo "   API:      logs/api.log"
-echo "   Streamlit: logs/streamlit.log"
+echo "   React:    logs/react.log"
 echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop both servers${NC}"
 echo ""
 
 # Wait for both processes
-wait $API_PID $STREAMLIT_PID
+wait $API_PID $REACT_PID
 
