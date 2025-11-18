@@ -54,18 +54,26 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     import bcrypt
     
-    # Truncate password to 72 bytes if needed
+    if not plain_password or not hashed_password:
+        return False
+    
+    # Truncate password to 72 bytes if needed (bcrypt limit)
     password_bytes = plain_password.encode('utf-8')
     if len(password_bytes) > 72:
         password_bytes = password_bytes[:72]
     
+    # Ensure hashed_password is bytes
+    if isinstance(hashed_password, str):
+        hashed_bytes = hashed_password.encode('utf-8')
+    else:
+        hashed_bytes = hashed_password
+    
     # Verify using bcrypt directly
     try:
-        return bcrypt.checkpw(password_bytes, hashed_password.encode('utf-8'))
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
     except Exception as e:
         logger.error(f"Password verification error: {e}")
-        # Fallback to passlib for compatibility
-        return pwd_context.verify(plain_password, hashed_password)
+        return False
 
 
 def get_password_hash(password: str) -> str:
