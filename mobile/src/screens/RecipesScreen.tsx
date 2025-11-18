@@ -127,17 +127,32 @@ export default function RecipesScreen() {
           <TextInput
             label="Number of Recipes"
             value={numRecipes.toString()}
-            onChangeText={(text) => setNumRecipes(parseInt(text) || 5)}
+            onChangeText={(text) => {
+              // Allow empty text for clearing
+              if (text === '' || text === null || text === undefined) {
+                setNumRecipes(0);
+              } else {
+                const num = parseInt(text, 10);
+                if (!isNaN(num) && num > 0) {
+                  setNumRecipes(num);
+                }
+              }
+            }}
             keyboardType="numeric"
             style={styles.input}
+            placeholder="5"
           />
 
           <View style={styles.checkboxContainer}>
             <Checkbox
-              checked={allowMissing}
+              status={allowMissing ? 'checked' : 'unchecked'}
               onPress={() => setAllowMissing(!allowMissing)}
             />
-            <Text variant="bodyMedium" onPress={() => setAllowMissing(!allowMissing)}>
+            <Text 
+              variant="bodyMedium" 
+              onPress={() => setAllowMissing(!allowMissing)}
+              style={styles.checkboxLabel}
+            >
               Allow Missing Ingredients
             </Text>
           </View>
@@ -276,6 +291,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  checkboxLabel: {
+    marginLeft: 8,
+    flex: 1,
   },
   chipContainer: {
     flexDirection: 'row',
