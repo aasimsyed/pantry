@@ -58,13 +58,25 @@ def get_password_hash(password: str) -> str:
     Returns:
         Bcrypt hashed password
     """
+    # Ensure password is a string
+    if not isinstance(password, str):
+        password = str(password)
+    
     # Bcrypt has a 72-byte limit, truncate if necessary
-    if isinstance(password, str):
-        password_bytes = password.encode('utf-8')
-        if len(password_bytes) > 72:
-            password_bytes = password_bytes[:72]
-            password = password_bytes.decode('utf-8', errors='ignore')
-    return pwd_context.hash(password)
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        logger.warning(f"Password exceeds 72 bytes, truncating from {len(password_bytes)} to 72")
+        password_bytes = password_bytes[:72]
+        password = password_bytes.decode('utf-8', errors='ignore')
+    
+    try:
+        return pwd_context.hash(password)
+    except ValueError as e:
+        # If still fails, try with explicit encoding
+        logger.error(f"Password hashing error: {e}, password length: {len(password_bytes)} bytes")
+        # Fallback: ensure we're using the right format
+        password_str = password_bytes[:72].decode('utf-8', errors='ignore')
+        return pwd_context.hash(password_str)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
