@@ -21,10 +21,12 @@ from .models import (
     ProductCreate, ProductUpdate, ProductResponse,
     InventoryItemCreate, InventoryItemUpdate, InventoryItemResponse,
     ConsumeRequest, StatisticsResponse, MessageResponse,
-    HealthResponse, ErrorResponse
+    HealthResponse, ErrorResponse, RecipeRequest, RecipeResponse
 )
 from src.db_service import PantryService
 from src.database import Product, InventoryItem
+from src.ai_analyzer import create_ai_analyzer
+from recipe_generator import RecipeGenerator
 
 # Configure logging
 logging.basicConfig(
@@ -710,6 +712,138 @@ def get_statistics_by_location(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve location statistics"
         )
+
+
+# ============================================================================
+# Recipe Generation Endpoints
+# ============================================================================
+
+@app.post("/api/recipes/generate", response_model=List[RecipeResponse], tags=["Recipes"])
+def generate_recipes(
+    request: RecipeRequest,
+    service: PantryService = Depends(get_pantry_service)
+) -> List[Dict]:
+    """
+    Generate AI-powered recipes using available pantry ingredients.
+    
+    - **ingredients**: Optional list of ingredient names. If empty, uses all available items.
+    - **max_recipes**: Number of recipes to generate (1-20)
+    - **cuisine**: Optional cuisine type (italian, mexican, asian, etc.)
+    - **difficulty**: Optional difficulty level (easy, medium, hard)
+    - **dietary_restrictions**: Optional list of dietary restrictions
+    """
+    try:
+        # Get inventory items
+        all_items = service.get_all_inventory()
+        
+        # Filter to in_stock items only
+        available_items = [item for item in all_items if item.status == "in_stock"]
+        
+        if not available_items:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No items in stock. Add items to your pantry first."
+            )
+        
+        # Build ingredient list
+        if request.ingredients and len(request.ingredients) > 0:
+            # Use selected ingredients
+            selected_names = set(request.ingredients)
+            selected_items = []
+            for item in available_items:
+                product_name = item.product.product_name if item.product else None
+                if product_name and product_name in selected_names:
+                    selected_items.append(item)
+            
+            if not selected_items:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="None of the selected ingredients are available in stock."
+                )
+            items_to_use = selected_items
+        else:
+            # Use all available items
+            items_to_use = available_items
+        
+        # Convert to format expected by RecipeGenerator
+        pantry_items = []
+        for item in items_to_use:
+            product_name = item.product.product_name if item.product else "Unknown"
+            brand = item.product.brand if item.product else None
+            
+            pantry_items.append({
+                "product": {
+                    "product_name": product_name,
+                    "brand": brand
+                }
+            })
+        
+        # Initialize AI analyzer and recipe generator
+        ai_analyzer = create_ai_analyzer()
+        recipe_generator = RecipeGenerator(ai_analyzer)
+        
+        # Generate recipes
+        logger.info(f"Generating {request.max_recipes} recipes from {len(pantry_items)} ingredients")
+        recipes = recipe_generator.generate_recipes(
+            pantry_items=pantry_items,
+            num_recipes=request.max_recipes,
+            cuisine=request.cuisine,
+            difficulty=request.difficulty,
+            dietary_restrictions=request.dietary_restrictions
+        )
+        
+        # Convert to response format
+        result = []
+        for recipe in recipes:
+            # Extract available ingredients used
+            used_ingredients = []
+            for ing in recipe.get('ingredients', []):
+                if isinstance(ing, dict):
+                    used_ingredients.append(ing.get('item', ing.get('name', '')))
+                else:
+                    used_ingredients.append(str(ing))
+            
+            result.append({
+                "name": recipe.get('name', 'Unnamed Recipe'),
+                "description": recipe.get('description', ''),
+                "difficulty": recipe.get('difficulty', 'medium'),
+                "prep_time": _parse_time(recipe.get('prep_time', '0 minutes')),
+                "cook_time": _parse_time(recipe.get('cook_time', '0 minutes')),
+                "servings": recipe.get('servings', 4),
+                "cuisine": recipe.get('cuisine', ''),
+                "ingredients": recipe.get('ingredients', []),
+                "instructions": recipe.get('instructions', []),
+                "available_ingredients": used_ingredients,
+                "missing_ingredients": recipe.get('missing_ingredients', [])
+            })
+        
+        logger.info(f"Successfully generated {len(result)} recipes")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating recipes: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate recipes: {str(e)}"
+        )
+
+
+def _parse_time(time_str: str) -> int:
+    """Parse time string like '30 minutes' to integer minutes."""
+    try:
+        if isinstance(time_str, int):
+            return time_str
+        if isinstance(time_str, str):
+            # Extract number from string
+            import re
+            match = re.search(r'(\d+)', time_str)
+            if match:
+                return int(match.group(1))
+        return 0
+    except:
+        return 0
 
 
 # ============================================================================

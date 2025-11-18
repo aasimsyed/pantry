@@ -169,6 +169,7 @@ class LocationStatisticsResponse(BaseModel):
 
 class RecipeRequest(BaseModel):
     """Request model for recipe generation."""
+    ingredients: Optional[List[str]] = Field(None, description="List of ingredient names to use. If empty, uses all available ingredients.")
     max_recipes: int = Field(default=5, ge=1, le=20, description="Maximum number of recipes")
     cuisine: Optional[str] = Field(None, description="Preferred cuisine type")
     difficulty: Optional[str] = Field(None, description="Difficulty level (easy/medium/hard)")

@@ -157,6 +157,30 @@ class APIClient:
     def get_statistics_by_location(self) -> Dict:
         """Get statistics by location."""
         return self._request("GET", "/api/statistics/by-location")
+    
+    # Recipe Generation
+    def generate_recipes(
+        self,
+        ingredients: Optional[List[str]] = None,
+        max_recipes: int = 5,
+        cuisine: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        dietary_restrictions: Optional[List[str]] = None
+    ) -> List[Dict]:
+        """Generate AI-powered recipes."""
+        json_data = {
+            "max_recipes": max_recipes
+        }
+        if ingredients:
+            json_data["ingredients"] = ingredients
+        if cuisine:
+            json_data["cuisine"] = cuisine
+        if difficulty:
+            json_data["difficulty"] = difficulty
+        if dietary_restrictions:
+            json_data["dietary_restrictions"] = dietary_restrictions
+        
+        return self._request("POST", "/api/recipes/generate", json=json_data)
 
 
 @st.cache_resource
