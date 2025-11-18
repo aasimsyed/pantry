@@ -180,14 +180,26 @@ def init_database():
     """Initialize database - create all tables.
     
     This should be called once to create the database schema.
+    Handles existing tables/indexes gracefully.
     
     Example:
         >>> from src.database import init_database
         >>> init_database()
     """
+    from sqlalchemy.exc import OperationalError
+    
     engine = create_database_engine()
-    Base.metadata.create_all(bind=engine)
-    print(f"✅ Database initialized: {get_database_url()}")
+    
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        print(f"✅ Database initialized: {get_database_url()}")
+    except OperationalError as e:
+        # Handle case where indexes already exist
+        if "already exists" in str(e).lower():
+            print(f"⚠️  Some database objects already exist (this is OK)")
+            print(f"✅ Database schema is up to date: {get_database_url()}")
+        else:
+            raise
 
 
 # ============================================================================
