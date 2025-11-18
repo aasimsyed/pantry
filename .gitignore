@@ -70,3 +70,8 @@ credentials.json
 *_credentials.json
 
 reports/
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
