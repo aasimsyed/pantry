@@ -318,8 +318,11 @@ export default function InventoryScreen() {
           style={styles.editDialog}
         >
           <Dialog.Title>Edit Item: {editingItem?.product_name}</Dialog.Title>
-          <Dialog.ScrollArea>
-            <Dialog.Content>
+          <Dialog.ScrollArea style={styles.scrollArea}>
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={true}
+            >
               <TextInput
                 label="Quantity"
                 value={editFormData.quantity.toString()}
@@ -406,7 +409,7 @@ export default function InventoryScreen() {
                 numberOfLines={3}
                 style={styles.input}
               />
-            </Dialog.Content>
+            </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setEditDialogVisible(false)}>Cancel</Button>
@@ -491,7 +494,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   editDialog: {
-    maxHeight: '80%',
+    maxHeight: '90%',
+  },
+  scrollArea: {
+    maxHeight: 400,
+    paddingHorizontal: 0,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
   input: {
     marginBottom: 12,
