@@ -33,6 +33,18 @@ export default function Inventory() {
     notes: '',
   });
 
+  // Edit item form
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    quantity: 1,
+    unit: 'count',
+    storage_location: 'pantry' as 'pantry' | 'fridge' | 'freezer',
+    status: 'in_stock' as 'in_stock' | 'low',
+    expiration_date: '',
+    purchase_date: '',
+    notes: '',
+  });
+
   useEffect(() => {
     loadInventory();
     loadSourceDirectory();
@@ -174,6 +186,54 @@ export default function Inventory() {
       await loadInventory();
     } catch (err: any) {
       alert(`Failed to delete item: ${err.message}`);
+    }
+  };
+
+  const handleEditItem = (item: InventoryItem) => {
+    setEditingItem(item);
+    setEditFormData({
+      quantity: item.quantity,
+      unit: item.unit,
+      storage_location: item.storage_location || 'pantry',
+      status: item.status as 'in_stock' | 'low',
+      expiration_date: item.expiration_date ? item.expiration_date.split('T')[0] : '',
+      purchase_date: item.purchase_date ? item.purchase_date.split('T')[0] : '',
+      notes: item.notes || '',
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+    setEditFormData({
+      quantity: 1,
+      unit: 'count',
+      storage_location: 'pantry',
+      status: 'in_stock',
+      expiration_date: '',
+      purchase_date: '',
+      notes: '',
+    });
+  };
+
+  const handleUpdateItem = async () => {
+    if (!editingItem) return;
+
+    try {
+      await apiClient.updateInventoryItem(editingItem.id, {
+        quantity: editFormData.quantity,
+        unit: editFormData.unit,
+        storage_location: editFormData.storage_location,
+        status: editFormData.status,
+        expiration_date: editFormData.expiration_date || undefined,
+        purchase_date: editFormData.purchase_date || undefined,
+        notes: editFormData.notes || undefined,
+      });
+
+      alert('Item updated successfully!');
+      setEditingItem(null);
+      await loadInventory();
+    } catch (err: any) {
+      alert(`Failed to update item: ${err.message}`);
     }
   };
 
@@ -449,6 +509,129 @@ export default function Inventory() {
         </div>
       </div>
 
+      {/* Edit Item Modal */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">✏️ Edit Item: {editingItem.product_name}</h2>
+              <button
+                onClick={handleCancelEdit}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quantity *
+                </label>
+                <input
+                  type="number"
+                  value={editFormData.quantity}
+                  onChange={(e) => setEditFormData({ ...editFormData, quantity: parseFloat(e.target.value) })}
+                  min="0.1"
+                  step="0.1"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                <select
+                  value={editFormData.unit}
+                  onChange={(e) => setEditFormData({ ...editFormData, unit: e.target.value })}
+                  className="input"
+                >
+                  <option value="count">count</option>
+                  <option value="oz">oz</option>
+                  <option value="ml">ml</option>
+                  <option value="lb">lb</option>
+                  <option value="kg">kg</option>
+                  <option value="g">g</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Location *
+                </label>
+                <select
+                  value={editFormData.storage_location}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      storage_location: e.target.value as 'pantry' | 'fridge' | 'freezer',
+                    })
+                  }
+                  className="input"
+                >
+                  <option value="pantry">pantry</option>
+                  <option value="fridge">fridge</option>
+                  <option value="freezer">freezer</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      status: e.target.value as 'in_stock' | 'low',
+                    })
+                  }
+                  className="input"
+                >
+                  <option value="in_stock">in_stock</option>
+                  <option value="low">low</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Expiration Date
+                </label>
+                <input
+                  type="date"
+                  value={editFormData.expiration_date}
+                  onChange={(e) => setEditFormData({ ...editFormData, expiration_date: e.target.value })}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Purchase Date
+                </label>
+                <input
+                  type="date"
+                  value={editFormData.purchase_date}
+                  onChange={(e) => setEditFormData({ ...editFormData, purchase_date: e.target.value })}
+                  className="input"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  placeholder="Additional information..."
+                  className="input"
+                  rows={3}
+                />
+              </div>
+              <div className="md:col-span-2 flex gap-2">
+                <button onClick={handleUpdateItem} className="btn-primary flex-1">
+                  💾 Save Changes
+                </button>
+                <button onClick={handleCancelEdit} className="btn-secondary flex-1">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inventory List */}
       <div className="card">
         <h2 className="text-xl font-semibold mb-4">Found {filteredItems.length} items</h2>
@@ -485,7 +668,14 @@ export default function Inventory() {
                       <p className="text-sm text-gray-600">📅 Exp: {item.expiration_date}</p>
                     )}
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => handleEditItem(item)}
+                      className="text-blue-600 hover:text-blue-800"
+                      title="Edit item"
+                    >
+                      ✏️
+                    </button>
                     <button
                       onClick={() => handleDeleteItem(item.id)}
                       className="text-red-600 hover:text-red-800"

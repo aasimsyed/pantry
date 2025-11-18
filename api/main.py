@@ -690,6 +690,7 @@ def create_inventory_item(
 def update_inventory_item(
     item_id: int,
     item_data: InventoryItemUpdate,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> Dict:
     """
@@ -705,6 +706,13 @@ def update_inventory_item(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Inventory item with ID {item_id} not found"
+            )
+        
+        # Ensure user can only update their own items
+        if item.user_id and item.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update your own inventory items"
             )
         
         # Update only provided fields

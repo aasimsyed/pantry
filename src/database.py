@@ -445,7 +445,6 @@ class InventoryItem(Base):
     # Relationships
     product = relationship("Product", back_populates="inventory_items")
     user = relationship("User", back_populates="inventory_items")
-    saved_recipes = relationship("SavedRecipe", back_populates="user", cascade="all, delete-orphan")
     processing_logs = relationship(
         "ProcessingLog",
         back_populates="inventory_item",
