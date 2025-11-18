@@ -403,35 +403,40 @@ export default function RecipesScreen() {
           style={styles.dialog}
         >
           <Dialog.Title>Select Required Ingredients</Dialog.Title>
-          <Searchbar
-            placeholder="Search ingredients..."
-            onChangeText={setRequiredSearchQuery}
-            value={requiredSearchQuery}
-            style={styles.searchbar}
-          />
           <Dialog.ScrollArea style={styles.dialogScrollArea}>
             <ScrollView
               contentContainerStyle={styles.dialogScrollContent}
               showsVerticalScrollIndicator={true}
             >
-              {filteredRequiredIngredients.map((ing) => (
-                <View key={ing} style={styles.checkboxRow}>
-                  <Checkbox
-                    status={requiredIngredients.includes(ing) ? 'checked' : 'unchecked'}
-                    onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
-                  />
-                  <Text
-                    variant="bodyMedium"
-                    onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
-                    style={styles.checkboxText}
-                  >
-                    {ing}
-                  </Text>
-                </View>
-              ))}
-              {filteredRequiredIngredients.length === 0 && (
+              <Searchbar
+                placeholder="Search ingredients..."
+                onChangeText={setRequiredSearchQuery}
+                value={requiredSearchQuery}
+                style={styles.searchbar}
+              />
+              {filteredRequiredIngredients.length > 0 ? (
+                filteredRequiredIngredients.map((ing) => (
+                  <View key={ing} style={styles.checkboxRow}>
+                    <Checkbox
+                      status={requiredIngredients.includes(ing) ? 'checked' : 'unchecked'}
+                      onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
+                    />
+                    <Text
+                      variant="bodyMedium"
+                      onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
+                      style={styles.checkboxText}
+                    >
+                      {ing}
+                    </Text>
+                  </View>
+                ))
+              ) : (
                 <Text variant="bodyMedium" style={styles.noResults}>
-                  No ingredients found
+                  {availableIngredients.length === 0
+                    ? 'No ingredients available. Add items to your pantry first!'
+                    : requiredSearchQuery
+                    ? 'No ingredients match your search'
+                    : 'No ingredients found'}
                 </Text>
               )}
             </ScrollView>
@@ -450,35 +455,40 @@ export default function RecipesScreen() {
           style={styles.dialog}
         >
           <Dialog.Title>Select Excluded Ingredients</Dialog.Title>
-          <Searchbar
-            placeholder="Search ingredients..."
-            onChangeText={setExcludedSearchQuery}
-            value={excludedSearchQuery}
-            style={styles.searchbar}
-          />
           <Dialog.ScrollArea style={styles.dialogScrollArea}>
             <ScrollView
               contentContainerStyle={styles.dialogScrollContent}
               showsVerticalScrollIndicator={true}
             >
-              {filteredExcludedIngredients.map((ing) => (
-                <View key={ing} style={styles.checkboxRow}>
-                  <Checkbox
-                    status={excludedIngredients.includes(ing) ? 'checked' : 'unchecked'}
-                    onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
-                  />
-                  <Text
-                    variant="bodyMedium"
-                    onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
-                    style={styles.checkboxText}
-                  >
-                    {ing}
-                  </Text>
-                </View>
-              ))}
-              {filteredExcludedIngredients.length === 0 && (
+              <Searchbar
+                placeholder="Search ingredients..."
+                onChangeText={setExcludedSearchQuery}
+                value={excludedSearchQuery}
+                style={styles.searchbar}
+              />
+              {filteredExcludedIngredients.length > 0 ? (
+                filteredExcludedIngredients.map((ing) => (
+                  <View key={ing} style={styles.checkboxRow}>
+                    <Checkbox
+                      status={excludedIngredients.includes(ing) ? 'checked' : 'unchecked'}
+                      onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
+                    />
+                    <Text
+                      variant="bodyMedium"
+                      onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
+                      style={styles.checkboxText}
+                    >
+                      {ing}
+                    </Text>
+                  </View>
+                ))
+              ) : (
                 <Text variant="bodyMedium" style={styles.noResults}>
-                  No ingredients found
+                  {availableIngredients.length === 0
+                    ? 'No ingredients available. Add items to your pantry first!'
+                    : excludedSearchQuery
+                    ? 'No ingredients match your search'
+                    : 'No ingredients found'}
                 </Text>
               )}
             </ScrollView>
@@ -613,12 +623,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   dialogScrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 8,
     paddingVertical: 8,
   },
   searchbar: {
-    margin: 8,
-    marginBottom: 0,
+    marginBottom: 8,
   },
   checkboxRow: {
     flexDirection: 'row',
