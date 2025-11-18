@@ -394,6 +394,98 @@ export default function RecipesScreen() {
           </Card.Content>
         </Card>
       ))}
+
+      {/* Required Ingredients Dialog */}
+      <Portal>
+        <Dialog
+          visible={requiredIngredientsDialogVisible}
+          onDismiss={() => setRequiredIngredientsDialogVisible(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title>Select Required Ingredients</Dialog.Title>
+          <Dialog.ScrollArea style={styles.dialogScrollArea}>
+            <ScrollView>
+              <Searchbar
+                placeholder="Search ingredients..."
+                onChangeText={setRequiredSearchQuery}
+                value={requiredSearchQuery}
+                style={styles.searchbar}
+              />
+              <Dialog.Content>
+                {filteredRequiredIngredients.map((ing) => (
+                  <View key={ing} style={styles.checkboxRow}>
+                    <Checkbox
+                      status={requiredIngredients.includes(ing) ? 'checked' : 'unchecked'}
+                      onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
+                    />
+                    <Text
+                      variant="bodyMedium"
+                      onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
+                      style={styles.checkboxText}
+                    >
+                      {ing}
+                    </Text>
+                  </View>
+                ))}
+                {filteredRequiredIngredients.length === 0 && (
+                  <Text variant="bodyMedium" style={styles.noResults}>
+                    No ingredients found
+                  </Text>
+                )}
+              </Dialog.Content>
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setRequiredIngredientsDialogVisible(false)}>Done</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Excluded Ingredients Dialog */}
+      <Portal>
+        <Dialog
+          visible={excludedIngredientsDialogVisible}
+          onDismiss={() => setExcludedIngredientsDialogVisible(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title>Select Excluded Ingredients</Dialog.Title>
+          <Dialog.ScrollArea style={styles.dialogScrollArea}>
+            <ScrollView>
+              <Searchbar
+                placeholder="Search ingredients..."
+                onChangeText={setExcludedSearchQuery}
+                value={excludedSearchQuery}
+                style={styles.searchbar}
+              />
+              <Dialog.Content>
+                {filteredExcludedIngredients.map((ing) => (
+                  <View key={ing} style={styles.checkboxRow}>
+                    <Checkbox
+                      status={excludedIngredients.includes(ing) ? 'checked' : 'unchecked'}
+                      onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
+                    />
+                    <Text
+                      variant="bodyMedium"
+                      onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
+                      style={styles.checkboxText}
+                    >
+                      {ing}
+                    </Text>
+                  </View>
+                ))}
+                {filteredExcludedIngredients.length === 0 && (
+                  <Text variant="bodyMedium" style={styles.noResults}>
+                    No ingredients found
+                  </Text>
+                )}
+              </Dialog.Content>
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setExcludedIngredientsDialogVisible(false)}>Done</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 }
