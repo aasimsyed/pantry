@@ -270,8 +270,12 @@ export default function RecipesScreen() {
           </Text>
           <Button
             mode="outlined"
-            onPress={() => {
+            onPress={async () => {
               setRequiredSearchQuery('');
+              // Ensure ingredients are loaded
+              if (availableIngredients.length === 0) {
+                await loadAvailableIngredients();
+              }
               setRequiredIngredientsDialogVisible(true);
             }}
             style={styles.selectButton}
@@ -298,8 +302,12 @@ export default function RecipesScreen() {
           </Text>
           <Button
             mode="outlined"
-            onPress={() => {
+            onPress={async () => {
               setExcludedSearchQuery('');
+              // Ensure ingredients are loaded
+              if (availableIngredients.length === 0) {
+                await loadAvailableIngredients();
+              }
               setExcludedIngredientsDialogVisible(true);
             }}
             style={styles.selectButton}
@@ -466,7 +474,11 @@ export default function RecipesScreen() {
                 value={excludedSearchQuery}
                 style={styles.searchbar}
               />
-              {filteredExcludedIngredients.length > 0 ? (
+              {availableIngredients.length === 0 ? (
+                <Text variant="bodyMedium" style={styles.noResults}>
+                  Loading ingredients...
+                </Text>
+              ) : filteredExcludedIngredients.length > 0 ? (
                 filteredExcludedIngredients.map((ing) => (
                   <View key={ing} style={styles.checkboxRow}>
                     <Checkbox
