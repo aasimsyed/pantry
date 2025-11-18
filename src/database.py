@@ -872,6 +872,7 @@ class User(Base):
     # Relationships
     inventory_items = relationship("InventoryItem", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    saved_recipes = relationship("SavedRecipe", back_populates="user", cascade="all, delete-orphan")
     
     # Indexes
     __table_args__ = (
