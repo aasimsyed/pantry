@@ -68,21 +68,24 @@ def get_password_hash(password: str) -> str:
     if not isinstance(password, str):
         password = str(password)
     
-    # Bcrypt has a 72-byte limit, truncate if necessary
+    # Bcrypt has a strict 72-byte limit - truncate BEFORE hashing
+    # Convert to bytes to check actual length
     password_bytes = password.encode('utf-8')
-    if len(password_bytes) > 72:
-        logger.warning(f"Password exceeds 72 bytes, truncating from {len(password_bytes)} to 72")
+    original_length = len(password_bytes)
+    
+    if original_length > 72:
+        logger.warning(f"Password exceeds 72 bytes ({original_length}), truncating to 72")
+        # Truncate bytes, then decode back to string
         password_bytes = password_bytes[:72]
         password = password_bytes.decode('utf-8', errors='ignore')
+    elif original_length == 0:
+        raise ValueError("Password cannot be empty")
     
-    try:
-        return pwd_context.hash(password)
-    except ValueError as e:
-        # If still fails, try with explicit encoding
-        logger.error(f"Password hashing error: {e}, password length: {len(password_bytes)} bytes")
-        # Fallback: ensure we're using the right format
-        password_str = password_bytes[:72].decode('utf-8', errors='ignore')
-        return pwd_context.hash(password_str)
+    # Log for debugging (remove in production)
+    logger.debug(f"Hashing password of {len(password_bytes)} bytes")
+    
+    # Hash the (possibly truncated) password
+    return pwd_context.hash(password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
