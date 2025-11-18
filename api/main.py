@@ -284,7 +284,16 @@ def get_current_user_info(
     
     Returns user details for the authenticated user.
     """
-    return UserResponse.model_validate(current_user)
+    try:
+        # Convert User model to dict first, then validate
+        user_dict = current_user.to_dict()
+        return UserResponse.model_validate(user_dict)
+    except Exception as e:
+        logger.error(f"Error getting current user info: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve user information: {str(e)}"
+        )
 
 
 # ============================================================================

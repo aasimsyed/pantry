@@ -92,17 +92,30 @@ async def get_current_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
-    token = credentials.credentials
-    payload = verify_token(token, token_type="access")
-    user_id = int(payload.get("sub"))
+    import logging
+    logger = logging.getLogger(__name__)
     
-    user = get_user_by_id(db, user_id)
-    if not user or not user.is_active:
+    try:
+        token = credentials.credentials
+        payload = verify_token(token, token_type="access")
+        user_id = int(payload.get("sub"))
+        
+        user = get_user_by_id(db, user_id)
+        if not user or not user.is_active:
+            logger.warning(f"User {user_id} not found or inactive")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_current_user: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Authentication error: {str(e)}"
         )
-    return user
 
 
 async def get_current_admin_user(
