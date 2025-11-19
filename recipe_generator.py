@@ -808,6 +808,21 @@ class RecipeGenerator:
         if not recipe.get('description') and description:
             recipe['description'] = description
         
+        # Normalize missing_ingredients: convert objects to strings if needed
+        missing_ingredients = recipe.get('missing_ingredients', [])
+        if missing_ingredients:
+            normalized_missing = []
+            for item in missing_ingredients:
+                if isinstance(item, dict):
+                    # Extract the ingredient name from object
+                    ingredient_name = item.get('item') or item.get('name') or item.get('ingredient') or str(item)
+                    normalized_missing.append(ingredient_name)
+                elif isinstance(item, str):
+                    normalized_missing.append(item)
+                else:
+                    normalized_missing.append(str(item))
+            recipe['missing_ingredients'] = normalized_missing
+        
         # Add model metadata to recipe
         if model_used:
             recipe['ai_model'] = model_used
@@ -953,15 +968,17 @@ AVAILABLE PANTRY INGREDIENTS:
       "effect": "detailed explanation of how these flavors work together chemically and the taste experience they create"
     }
   ],
-  "missing_ingredients": [],
+  "missing_ingredients": ["ingredient name 1", "ingredient name 2"],
   "tips": [],
   "dietary_tags": []
 }
 
 CRITICAL JSON STRUCTURE REQUIREMENTS:
 - ingredients MUST be an array of objects with "item", "amount", and optionally "notes" keys
+- missing_ingredients MUST be an array of STRINGS (just ingredient names), NOT objects
 - flavor_pairings MUST be an array of objects with "ingredients", "compounds", and "effect" keys
 - Do NOT return ingredients or flavor_pairings as strings
+- Do NOT return missing_ingredients as objects - use simple strings like ["Fresh Cilantro", "Red chili flakes"]
 - flavor_pairings must explain the CHEMICAL BASIS (specific compounds) and TASTE EFFECT
 - ALL STRING VALUES MUST BE PROPERLY ESCAPED: Use \\" for quotes, \\n for newlines, \\t for tabs
 - Ensure ALL strings are properly closed with closing quotes
