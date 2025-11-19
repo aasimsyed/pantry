@@ -451,9 +451,39 @@ AVAILABLE PANTRY INGREDIENTS:
         if avoid_previous:
             prompt += f"- DO NOT create these recipes (already made): {', '.join(avoid_previous)}\n"
         
-        prompt += """Return ONLY valid JSON (no markdown) with: name, description, cuisine, difficulty (match requested exactly), prep_time, cook_time, servings, ingredients[], instructions[], flavor_pairings[], missing_ingredients[], tips[], dietary_tags[].
+        prompt += """Return ONLY valid JSON (no markdown, no code blocks) with this EXACT structure:
 
-IMPORTANT: The flavor_pairings array MUST explain the chemical basis (shared volatile compounds like vanillin, eugenol, terpenes, capsaicin, etc.) and how they create flavor harmony. This is essential for molecular gastronomy-based recipe generation.
+{
+  "name": "Recipe Name",
+  "description": "Brief description",
+  "cuisine": "cuisine type",
+  "difficulty": "easy/medium/hard",
+  "prep_time": "X minutes",
+  "cook_time": "X minutes",
+  "servings": 4,
+  "ingredients": [
+    {"item": "ingredient name", "amount": "quantity", "notes": "optional prep notes"}
+  ],
+  "instructions": [
+    "Step 1",
+    "Step 2"
+  ],
+  "flavor_pairings": [
+    {
+      "ingredients": ["ingredient1", "ingredient2"],
+      "compounds": "shared chemical compounds",
+      "effect": "how they work together"
+    }
+  ],
+  "missing_ingredients": [],
+  "tips": [],
+  "dietary_tags": []
+}
+
+CRITICAL: 
+- ingredients MUST be an array of objects with "item", "amount", and optionally "notes" keys
+- flavor_pairings MUST be an array of objects with "ingredients", "compounds", and "effect" keys
+- Do NOT return ingredients or flavor_pairings as strings
 
 Be creative and delicious using scientifically-proven flavor chemistry!"""
         
