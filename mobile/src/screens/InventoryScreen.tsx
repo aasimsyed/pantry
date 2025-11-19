@@ -414,11 +414,148 @@ export default function InventoryScreen() {
           <Dialog visible={processing} dismissable={false}>
             <Dialog.Content>
               <ActivityIndicator size="large" />
-              <Text style={styles.processingText}>Processing image...</Text>
+              <Text style={styles.processingText}>Processing...</Text>
             </Dialog.Content>
           </Dialog>
         </Portal>
       )}
+
+      {/* Manual Entry Dialog */}
+      <Portal>
+        <Dialog
+          visible={manualEntryDialogVisible}
+          onDismiss={() => setManualEntryDialogVisible(false)}
+          style={styles.editDialog}
+        >
+          <Dialog.Title>Add Item Manually</Dialog.Title>
+          <Dialog.ScrollArea style={styles.scrollArea}>
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={true}
+            >
+              <TextInput
+                label="Product Name *"
+                value={manualEntryFormData.product_name}
+                onChangeText={(text) =>
+                  setManualEntryFormData({ ...manualEntryFormData, product_name: text })
+                }
+                style={styles.input}
+                mode="outlined"
+                placeholder="e.g., Dried Chickpeas"
+              />
+              <TextInput
+                label="Brand (optional)"
+                value={manualEntryFormData.brand}
+                onChangeText={(text) =>
+                  setManualEntryFormData({ ...manualEntryFormData, brand: text })
+                }
+                style={styles.input}
+                mode="outlined"
+                placeholder="e.g., Generic"
+              />
+              <TextInput
+                label="Quantity"
+                value={manualEntryFormData.quantity.toString()}
+                onChangeText={(text) =>
+                  setManualEntryFormData({
+                    ...manualEntryFormData,
+                    quantity: parseFloat(text) || 0,
+                  })
+                }
+                keyboardType="numeric"
+                style={styles.input}
+                mode="outlined"
+              />
+              <TextInput
+                label="Unit"
+                value={manualEntryFormData.unit}
+                onChangeText={(text) =>
+                  setManualEntryFormData({ ...manualEntryFormData, unit: text })
+                }
+                style={styles.input}
+                mode="outlined"
+                placeholder="e.g., count, oz, lb, g"
+              />
+              <View style={styles.locationContainer}>
+                <Text variant="bodyMedium" style={styles.label}>Storage Location</Text>
+                <View style={styles.locationButtons}>
+                  {(['pantry', 'fridge', 'freezer'] as const).map((loc) => (
+                    <Chip
+                      key={loc}
+                      selected={manualEntryFormData.storage_location === loc}
+                      onPress={() =>
+                        setManualEntryFormData({ ...manualEntryFormData, storage_location: loc })
+                      }
+                      style={styles.locationChip}
+                    >
+                      {loc.charAt(0).toUpperCase() + loc.slice(1)}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.locationContainer}>
+                <Text variant="bodyMedium" style={styles.label}>Status</Text>
+                <View style={styles.locationButtons}>
+                  {(['in_stock', 'low'] as const).map((stat) => (
+                    <Chip
+                      key={stat}
+                      selected={manualEntryFormData.status === stat}
+                      onPress={() =>
+                        setManualEntryFormData({ ...manualEntryFormData, status: stat })
+                      }
+                      style={styles.locationChip}
+                    >
+                      {stat === 'in_stock' ? 'In Stock' : 'Low'}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
+              <TextInput
+                label="Expiration Date (optional)"
+                value={manualEntryFormData.expiration_date}
+                onChangeText={(text) =>
+                  setManualEntryFormData({ ...manualEntryFormData, expiration_date: text })
+                }
+                style={styles.input}
+                mode="outlined"
+                placeholder="YYYY-MM-DD"
+              />
+              <TextInput
+                label="Purchase Date (optional)"
+                value={manualEntryFormData.purchase_date}
+                onChangeText={(text) =>
+                  setManualEntryFormData({ ...manualEntryFormData, purchase_date: text })
+                }
+                style={styles.input}
+                mode="outlined"
+                placeholder="YYYY-MM-DD"
+              />
+              <TextInput
+                label="Notes (optional)"
+                value={manualEntryFormData.notes}
+                onChangeText={(text) =>
+                  setManualEntryFormData({ ...manualEntryFormData, notes: text })
+                }
+                style={styles.input}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                placeholder="Additional notes..."
+              />
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setManualEntryDialogVisible(false)}>Cancel</Button>
+            <Button
+              mode="contained"
+              onPress={handleManualEntry}
+              disabled={processing || !manualEntryFormData.product_name.trim()}
+            >
+              Add Item
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       {/* Edit Item Dialog */}
       <Portal>
