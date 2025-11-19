@@ -13,6 +13,7 @@ const navigation = [
   { name: 'Recipes', href: '/recipes', icon: '🍳' },
   { name: 'Statistics', href: '/statistics', icon: '📊' },
   { name: 'Recipe Box', href: '/recipe-box', icon: '📚' },
+  { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 
 export default function Layout({ children }: LayoutProps) {

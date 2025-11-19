@@ -10,6 +10,7 @@ import Expiring from './pages/Expiring';
 import Recipes from './pages/Recipes';
 import Statistics from './pages/Statistics';
 import RecipeBox from './pages/RecipeBox';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
                   <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
                   <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
                   <Route path="/recipe-box" element={<ProtectedRoute><RecipeBox /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 </Routes>
               </Layout>
             }

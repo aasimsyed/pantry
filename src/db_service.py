@@ -41,6 +41,7 @@ from src.database import (
     ProcessingLog,
     Product,
     SavedRecipe,
+    UserSettings,
     get_db_session,
     get_or_create_product,
     init_database,

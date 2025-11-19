@@ -33,7 +33,8 @@ from .models import (
     HealthResponse, ErrorResponse, RecipeRequest, SingleRecipeRequest, RecipeResponse,
     SavedRecipeCreate, SavedRecipeUpdate, SavedRecipeResponse,
     RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest, RefreshTokenResponse, UserResponse,
-    PantryCreate, PantryUpdate, PantryResponse
+    PantryCreate, PantryUpdate, PantryResponse,
+    UserSettingsResponse, UserSettingsUpdate
 )
 from src.db_service import PantryService
 from src.database import Product, InventoryItem, User
@@ -1954,8 +1955,27 @@ def generate_single_recipe(
                     else:
                         required_ingredient_names.append(name)
         
-        # Initialize AI analyzer and recipe generator
-        ai_analyzer = create_ai_analyzer()
+        # Initialize AI analyzer with user's preferred model
+        user_settings = service.get_user_settings(current_user.id)
+        ai_config = None
+        
+        if user_settings.ai_provider or user_settings.ai_model:
+            from src.ai_analyzer import AIConfig
+            import os
+            
+            # Create custom config with user preferences
+            ai_config = AIConfig.from_env()
+            if user_settings.ai_provider:
+                ai_config.provider = user_settings.ai_provider
+            if user_settings.ai_model:
+                ai_config.model = user_settings.ai_model
+            
+            from src.ai_analyzer import AIAnalyzer
+            ai_analyzer = AIAnalyzer(ai_config)
+        else:
+            # Use default system config
+            ai_analyzer = create_ai_analyzer()
+        
         recipe_generator = RecipeGenerator(ai_analyzer)
         
         # Generate single recipe
@@ -2119,8 +2139,27 @@ def generate_recipes(
                     else:
                         required_ingredient_names.append(name)
         
-        # Initialize AI analyzer and recipe generator
-        ai_analyzer = create_ai_analyzer()
+        # Initialize AI analyzer with user's preferred model
+        user_settings = service.get_user_settings(current_user.id)
+        ai_config = None
+        
+        if user_settings.ai_provider or user_settings.ai_model:
+            from src.ai_analyzer import AIConfig
+            import os
+            
+            # Create custom config with user preferences
+            ai_config = AIConfig.from_env()
+            if user_settings.ai_provider:
+                ai_config.provider = user_settings.ai_provider
+            if user_settings.ai_model:
+                ai_config.model = user_settings.ai_model
+            
+            from src.ai_analyzer import AIAnalyzer
+            ai_analyzer = AIAnalyzer(ai_config)
+        else:
+            # Use default system config
+            ai_analyzer = create_ai_analyzer()
+        
         recipe_generator = RecipeGenerator(ai_analyzer)
         
         # Generate recipes
@@ -2250,6 +2289,61 @@ def save_recipe(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save recipe: {str(e)}"
+        )
+
+
+@app.get("/api/user/settings", response_model=UserSettingsResponse, tags=["User"])
+def get_user_settings(
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """
+    Get user settings and preferences.
+    """
+    try:
+        settings = service.get_user_settings(current_user.id)
+        return settings.to_dict()
+    except Exception as e:
+        logger.error(f"Error getting user settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get user settings: {str(e)}"
+        )
+
+
+@app.put("/api/user/settings", response_model=UserSettingsResponse, tags=["User"])
+def update_user_settings(
+    settings_data: UserSettingsUpdate,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> Dict:
+    """
+    Update user settings and preferences.
+    
+    - **ai_provider**: AI provider ("openai" or "anthropic")
+    - **ai_model**: AI model name (e.g., "gpt-4o", "claude-3-5-sonnet-20241022")
+    """
+    try:
+        # Validate provider if provided
+        if settings_data.ai_provider and settings_data.ai_provider not in ["openai", "anthropic"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="ai_provider must be 'openai' or 'anthropic'"
+            )
+        
+        settings = service.update_user_settings(
+            user_id=current_user.id,
+            ai_provider=settings_data.ai_provider,
+            ai_model=settings_data.ai_model
+        )
+        return settings.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user settings: {str(e)}"
         )
 
 

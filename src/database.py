@@ -1017,6 +1017,66 @@ class User(Base):
 
 
 # ============================================================================
+# UserSettings Model - User Preferences
+# ============================================================================
+
+class UserSettings(Base):
+    """User preferences and settings.
+    
+    Stores user-specific settings like AI model preferences.
+    
+    Attributes:
+        id: Primary key
+        user_id: Foreign key to users table
+        ai_provider: Preferred AI provider (openai, anthropic)
+        ai_model: Preferred AI model name
+        created_at: Record creation timestamp
+        updated_at: Last update timestamp
+    """
+    
+    __tablename__ = "user_settings"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    
+    # Foreign key
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,  # One settings record per user
+        index=True
+    )
+    
+    # AI preferences
+    ai_provider = Column(String(50), nullable=True)  # "openai" or "anthropic"
+    ai_model = Column(String(100), nullable=True)  # e.g., "gpt-4o", "claude-3-5-sonnet-20241022"
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+    
+    # Relationships
+    user = relationship("User", backref="settings")
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "ai_provider": self.ai_provider,
+            "ai_model": self.ai_model,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ============================================================================
 # RefreshToken Model - JWT Refresh Token Storage
 # ============================================================================
 

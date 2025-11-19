@@ -147,6 +147,22 @@ class PantryResponse(PantryBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserSettingsResponse(BaseModel):
+    """Response model for user settings."""
+    id: int
+    user_id: int
+    ai_provider: Optional[str] = None
+    ai_model: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class UserSettingsUpdate(BaseModel):
+    """Request model for updating user settings."""
+    ai_provider: Optional[str] = Field(None, description="AI provider: 'openai' or 'anthropic'")
+    ai_model: Optional[str] = Field(None, description="AI model name (e.g., 'gpt-4o', 'claude-3-5-sonnet-20241022')")
+
+
 # ============================================================================
 # Processing Log Models
 # ============================================================================

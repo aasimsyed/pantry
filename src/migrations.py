@@ -212,6 +212,58 @@ def add_pantries_table_and_pantry_id():
             raise
 
 
+def add_user_settings_table():
+    """
+    Add user_settings table for storing user preferences.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+
+    if 'user_settings' in inspector.get_table_names():
+        logger.info("user_settings table already exists, skipping")
+        return
+
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            if db_url.startswith('sqlite'):
+                # SQLite
+                conn.execute(text("""
+                    CREATE TABLE user_settings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL UNIQUE,
+                        ai_provider VARCHAR(50),
+                        ai_model VARCHAR(100),
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_user_settings_user_id ON user_settings(user_id)"))
+            else:
+                # PostgreSQL
+                conn.execute(text("""
+                    CREATE TABLE user_settings (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL UNIQUE,
+                        ai_provider VARCHAR(50),
+                        ai_model VARCHAR(100),
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_user_settings_user_id ON user_settings(user_id)"))
+            
+            trans.commit()
+            logger.info("✅ Created user_settings table")
+        except Exception as e:
+            trans.rollback()
+            logger.error(f"❌ Error creating user_settings table: {e}", exc_info=True)
+            raise
+
+
 def assign_null_items_to_default_pantry():
     """
     Assign all inventory items with NULL pantry_id to their user's default pantry.

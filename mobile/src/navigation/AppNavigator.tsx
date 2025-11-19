@@ -15,6 +15,7 @@ import RecipesScreen from '../screens/RecipesScreen';
 import RecipeBoxScreen from '../screens/RecipeBoxScreen';
 import StatisticsScreen from '../screens/StatisticsScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -107,6 +108,11 @@ export default function AppNavigator() {
               name="RecipeDetail"
               component={RecipeDetailScreen}
               options={{ title: 'Recipe Details', headerShown: true }}
+            />
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{ title: 'Settings', headerShown: true }}
             />
           </>
         )}

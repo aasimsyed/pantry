@@ -274,6 +274,15 @@ class APIClient {
     return this.request<void>('DELETE', `/api/pantries/${pantryId}`);
   }
 
+  // User Settings
+  async getUserSettings(): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
+    return this.request('GET', '/api/user/settings');
+  }
+
+  async updateUserSettings(data: { ai_provider?: string; ai_model?: string }): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
+    return this.request('PUT', '/api/user/settings', { data });
+  }
+
   // Inventory
   async getInventory(
     skip: number = 0,

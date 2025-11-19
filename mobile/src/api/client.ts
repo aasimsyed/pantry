@@ -452,6 +452,15 @@ class APIClient {
     if (brand) params.brand = brand;
     return this.request<Product[]>('GET', '/api/products/search', { params });
   }
+
+  // User Settings
+  async getUserSettings(): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
+    return this.request('GET', '/api/user/settings');
+  }
+
+  async updateUserSettings(data: { ai_provider?: string; ai_model?: string }): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
+    return this.request('PUT', '/api/user/settings', { data });
+  }
 }
 
 // Export singleton instance

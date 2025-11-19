@@ -33,13 +33,19 @@ export default function HomeScreen() {
       screen: 'Statistics',
       color: '#8b5cf6'
     },
-    { 
-      title: 'Recipe Box', 
-      icon: 'book-open-variant', 
-      screen: 'RecipeBox',
-      color: '#ec4899'
-    },
-  ];
+        {
+          title: 'Recipe Box',
+          icon: 'book-open-variant',
+          screen: 'RecipeBox',
+          color: '#ec4899'
+        },
+        {
+          title: 'Settings',
+          icon: 'cog',
+          screen: 'Settings',
+          color: '#6b7280'
+        },
+      ];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
