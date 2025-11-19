@@ -218,8 +218,16 @@ def init_database():
     
     # Run migrations for existing databases
     try:
-        from src.migrations import run_migrations
-        run_migrations()
+        from src.migrations import (
+            add_user_id_to_saved_recipes,
+            add_pantries_table_and_pantry_id,
+            assign_null_items_to_default_pantry,
+            add_user_settings_table
+        )
+        add_user_id_to_saved_recipes()
+        add_pantries_table_and_pantry_id()
+        assign_null_items_to_default_pantry()
+        add_user_settings_table()
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
