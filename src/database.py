@@ -1058,7 +1058,7 @@ class UserSettings(Base):
     
     # AI preferences
     ai_provider = Column(String(50), nullable=True)  # "openai" or "anthropic"
-    ai_model = Column(String(100), nullable=True)  # e.g., "gpt-4o", "claude-3-5-sonnet-20240620"
+    ai_model = Column(String(100), nullable=True)  # e.g., "gpt-4o", "claude-sonnet-4-20250514"
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

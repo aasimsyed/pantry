@@ -160,7 +160,7 @@ class UserSettingsResponse(BaseModel):
 class UserSettingsUpdate(BaseModel):
     """Request model for updating user settings."""
     ai_provider: Optional[str] = Field(None, description="AI provider: 'openai' or 'anthropic'")
-    ai_model: Optional[str] = Field(None, description="AI model name (e.g., 'gpt-4o', 'claude-3-5-sonnet-20240620')")
+    ai_model: Optional[str] = Field(None, description="AI model name (e.g., 'gpt-4o', 'claude-sonnet-4-20250514')")
 
 
 # ============================================================================
