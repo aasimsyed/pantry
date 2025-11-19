@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Menu, Button, Portal, Dialog, TextInput, Text } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Button, Portal, Dialog, TextInput, Text, List } from 'react-native-paper';
 import apiClient from '../api/client';
 import type { Pantry } from '../types';
 
@@ -15,7 +15,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
 }) => {
   const [pantries, setPantries] = useState<Pantry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [selectorDialogVisible, setSelectorDialogVisible] = useState(false);
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
   const [newPantryName, setNewPantryName] = useState('');
   const [newPantryDescription, setNewPantryDescription] = useState('');
@@ -67,43 +67,78 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
     }
   };
 
+  const handleSelectPantry = (pantryId: number) => {
+    onPantryChange(pantryId);
+    setSelectorDialogVisible(false);
+  };
+
   const selectedPantry = pantries.find(p => p.id === selectedPantryId);
 
   return (
     <View style={styles.container}>
-      <Menu
-        visible={menuVisible}
-        onDismiss={() => setMenuVisible(false)}
-        anchor={
-          <Button
-            mode="outlined"
-            onPress={() => setMenuVisible(true)}
-            style={styles.button}
-          >
-            {selectedPantry ? `${selectedPantry.name}${selectedPantry.is_default ? ' (Default)' : ''}` : 'Select Pantry'}
-          </Button>
-        }
+      <Button
+        mode="outlined"
+        onPress={() => setSelectorDialogVisible(true)}
+        style={styles.button}
+        contentStyle={styles.buttonContent}
       >
-        {pantries.map((pantry) => (
-          <Menu.Item
-            key={pantry.id}
-            onPress={() => {
-              onPantryChange(pantry.id);
-              setMenuVisible(false);
-            }}
-            title={`${pantry.name}${pantry.is_default ? ' (Default)' : ''}`}
-          />
-        ))}
-        <Menu.Item
-          onPress={() => {
-            setMenuVisible(false);
-            setCreateDialogVisible(true);
-          }}
-          title="+ New Pantry"
-        />
-      </Menu>
+        {selectedPantry ? `${selectedPantry.name}${selectedPantry.is_default ? ' (Default)' : ''}` : 'Select Pantry'}
+      </Button>
 
       <Portal>
+        <Dialog 
+          visible={selectorDialogVisible} 
+          onDismiss={() => setSelectorDialogVisible(false)}
+          style={styles.dialog}
+        >
+          <Dialog.Title>Select Pantry</Dialog.Title>
+          <Dialog.ScrollArea style={styles.scrollArea}>
+            <ScrollView>
+              {pantries.map((pantry) => (
+                <TouchableOpacity
+                  key={pantry.id}
+                  onPress={() => handleSelectPantry(pantry.id)}
+                  style={[
+                    styles.pantryItem,
+                    selectedPantryId === pantry.id && styles.selectedPantryItem
+                  ]}
+                >
+                  <List.Item
+                    title={pantry.name}
+                    description={pantry.description || pantry.location || undefined}
+                    left={(props) => (
+                      <List.Icon 
+                        {...props} 
+                        icon={pantry.is_default ? "home" : "store"} 
+                      />
+                    )}
+                    right={(props) => 
+                      selectedPantryId === pantry.id ? (
+                        <List.Icon {...props} icon="check" color="#0284c7" />
+                      ) : null
+                    }
+                  />
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectorDialogVisible(false);
+                  setCreateDialogVisible(true);
+                }}
+                style={styles.newPantryButton}
+              >
+                <List.Item
+                  title="+ New Pantry"
+                  left={(props) => <List.Icon {...props} icon="plus" color="#0284c7" />}
+                />
+              </TouchableOpacity>
+            </ScrollView>
+          </Dialog.ScrollArea>
+          <Dialog.Actions>
+            <Button onPress={() => setSelectorDialogVisible(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+
         <Dialog visible={createDialogVisible} onDismiss={() => setCreateDialogVisible(false)}>
           <Dialog.Title>Create New Pantry</Dialog.Title>
           <Dialog.Content>
@@ -113,6 +148,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               onChangeText={setNewPantryName}
               style={styles.input}
               placeholder="e.g., Home, Office"
+              mode="outlined"
             />
             <TextInput
               label="Description"
@@ -120,6 +156,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               onChangeText={setNewPantryDescription}
               style={styles.input}
               placeholder="Optional description"
+              mode="outlined"
             />
             <TextInput
               label="Location"
@@ -127,6 +164,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               onChangeText={setNewPantryLocation}
               style={styles.input}
               placeholder="Optional address/location"
+              mode="outlined"
             />
           </Dialog.Content>
           <Dialog.Actions>
@@ -147,6 +185,28 @@ const styles = StyleSheet.create({
   },
   button: {
     minWidth: 150,
+  },
+  buttonContent: {
+    paddingVertical: 4,
+  },
+  dialog: {
+    maxHeight: '80%',
+  },
+  scrollArea: {
+    maxHeight: 400,
+    paddingHorizontal: 0,
+  },
+  pantryItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  selectedPantryItem: {
+    backgroundColor: '#eff6ff',
+  },
+  newPantryButton: {
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    marginTop: 8,
   },
   input: {
     marginBottom: 8,
