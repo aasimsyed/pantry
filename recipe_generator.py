@@ -654,6 +654,8 @@ CRITICAL JSON STRUCTURE REQUIREMENTS:
 - flavor_pairings MUST be an array of objects with "ingredients", "compounds", and "effect" keys
 - Do NOT return ingredients or flavor_pairings as strings
 - flavor_pairings must explain the CHEMICAL BASIS (specific compounds) and TASTE EFFECT
+- ALL STRING VALUES MUST BE PROPERLY ESCAPED: Use \\" for quotes, \\n for newlines, \\t for tabs
+- Ensure ALL strings are properly closed with closing quotes
 - Be detailed and creative - focus on exceptional flavor experiences through chemistry-based pairings
 
 Create a recipe that showcases the flavor chemistry principles above. Make it creative, delicious, and scientifically sound in its flavor combinations!"""
