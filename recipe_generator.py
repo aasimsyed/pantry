@@ -412,9 +412,72 @@ class RecipeGenerator:
                 content = content[4:]
             content = content.strip()
         
-        # Parse JSON
+        # Parse JSON with error handling and repair
         import json as json_module
-        recipe = json_module.loads(content)
+        import re
+        
+        try:
+            recipe = json_module.loads(content)
+        except json_module.JSONDecodeError as e:
+            # Try to repair common JSON issues
+            self.analyzer.logger.warning(f"JSON parse error: {e}. Attempting to repair...")
+            
+            # Try to find and fix unterminated strings
+            # Look for the error position
+            error_pos = getattr(e, 'pos', None)
+            if error_pos:
+                # Try to close unterminated strings
+                # Find the last quote before the error
+                before_error = content[:error_pos]
+                after_error = content[error_pos:]
+                
+                # Count quotes to see if we have an unclosed string
+                quote_count = before_error.count('"') - before_error.count('\\"')
+                if quote_count % 2 != 0:
+                    # Odd number of quotes = unclosed string
+                    # Try to close it at the error position
+                    content = before_error + '"' + after_error
+                    try:
+                        recipe = json_module.loads(content)
+                        self.analyzer.logger.info("Successfully repaired JSON by closing unterminated string")
+                    except:
+                        pass
+            
+            # If still failing, try to extract JSON object from the content
+            if 'recipe' not in locals():
+                # Try to find JSON object boundaries
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    try:
+                        recipe = json_module.loads(json_str)
+                        self.analyzer.logger.info("Successfully extracted JSON object from response")
+                    except:
+                        pass
+            
+            # If still failing, try to fix common issues
+            if 'recipe' not in locals():
+                # Fix unescaped quotes in strings (common issue)
+                # This is a simple heuristic - replace unescaped quotes in string values
+                try:
+                    # Try to fix by escaping quotes that aren't already escaped
+                    fixed_content = re.sub(r'(?<!\\)"(?![,}\]:\s])', '\\"', content)
+                    recipe = json_module.loads(fixed_content)
+                    self.analyzer.logger.info("Successfully repaired JSON by escaping quotes")
+                except:
+                    pass
+            
+            # If all repair attempts failed, raise with helpful error
+            if 'recipe' not in locals():
+                error_msg = f"Failed to parse JSON response: {str(e)}"
+                if error_pos:
+                    # Show context around the error
+                    start = max(0, error_pos - 100)
+                    end = min(len(content), error_pos + 100)
+                    context = content[start:end]
+                    error_msg += f"\nError at position {error_pos}. Context: ...{context}..."
+                self.analyzer.logger.error(error_msg)
+                raise ValueError(f"Invalid JSON from AI model: {error_msg}")
         
         # Add model metadata to recipe
         if model_used:
