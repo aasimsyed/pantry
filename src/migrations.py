@@ -212,11 +212,111 @@ def add_pantries_table_and_pantry_id():
             raise
 
 
+def assign_null_items_to_default_pantry():
+    """
+    Assign all inventory items with NULL pantry_id to their user's default pantry.
+    
+    This migration fixes items that were created before the pantry feature
+    was added, assigning them to the user's default pantry.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+    
+    if 'inventory_items' not in inspector.get_table_names():
+        logger.info("inventory_items table doesn't exist, skipping assignment")
+        return
+    
+    if 'pantries' not in inspector.get_table_names():
+        logger.info("pantries table doesn't exist, skipping assignment")
+        return
+    
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            # Get all users who have inventory items with NULL pantry_id
+            result = conn.execute(text("""
+                SELECT DISTINCT user_id 
+                FROM inventory_items 
+                WHERE pantry_id IS NULL AND user_id IS NOT NULL
+            """))
+            user_ids = [row[0] for row in result]
+            
+            if not user_ids:
+                logger.info("No items with NULL pantry_id found")
+                trans.commit()
+                return
+            
+            logger.info(f"Found {len(user_ids)} users with NULL pantry_id items")
+            
+            # For each user, assign their NULL items to their default pantry
+            for user_id in user_ids:
+                # Get the user's default pantry
+                pantry_result = conn.execute(text("""
+                    SELECT id FROM pantries 
+                    WHERE user_id = :user_id AND is_default = TRUE
+                    LIMIT 1
+                """), {"user_id": user_id})
+                pantry_row = pantry_result.first()
+                
+                if not pantry_row:
+                    # If no default pantry, get the first pantry or create one
+                    pantry_result = conn.execute(text("""
+                        SELECT id FROM pantries 
+                        WHERE user_id = :user_id
+                        ORDER BY created_at ASC
+                        LIMIT 1
+                    """), {"user_id": user_id})
+                    pantry_row = pantry_result.first()
+                    
+                    if not pantry_row:
+                        # Create a default pantry for this user
+                        logger.info(f"Creating default pantry for user {user_id}")
+                        if db_url.startswith('sqlite'):
+                            conn.execute(text("""
+                                INSERT INTO pantries (user_id, name, description, is_default, created_at, updated_at)
+                                VALUES (:user_id, 'Home', 'Default pantry', 1, datetime('now'), datetime('now'))
+                            """), {"user_id": user_id})
+                            pantry_id_result = conn.execute(text("SELECT last_insert_rowid()"))
+                        else:
+                            conn.execute(text("""
+                                INSERT INTO pantries (user_id, name, description, is_default, created_at, updated_at)
+                                VALUES (:user_id, 'Home', 'Default pantry', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                                RETURNING id
+                            """), {"user_id": user_id})
+                            pantry_id_result = conn.execute(text("SELECT id FROM pantries WHERE user_id = :user_id AND name = 'Home'"), {"user_id": user_id})
+                        
+                        pantry_id = pantry_id_result.first()[0]
+                    else:
+                        pantry_id = pantry_row[0]
+                else:
+                    pantry_id = pantry_row[0]
+                
+                # Update all NULL items for this user to this pantry
+                update_result = conn.execute(text("""
+                    UPDATE inventory_items 
+                    SET pantry_id = :pantry_id 
+                    WHERE user_id = :user_id AND pantry_id IS NULL
+                """), {"pantry_id": pantry_id, "user_id": user_id})
+                
+                count = update_result.rowcount
+                logger.info(f"Assigned {count} items to pantry {pantry_id} for user {user_id}")
+            
+            trans.commit()
+            logger.info("✅ Migration completed: assigned NULL items to default pantries")
+            
+        except Exception as e:
+            trans.rollback()
+            logger.error(f"Migration failed: {e}", exc_info=True)
+            raise
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
     add_user_id_to_saved_recipes()
     add_pantries_table_and_pantry_id()
+    assign_null_items_to_default_pantry()
     logger.info("✅ All migrations completed")
 
 
