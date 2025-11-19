@@ -367,8 +367,12 @@ AVAILABLE PANTRY INGREDIENTS:
         prompt += "CHEMISTRY-BASED FLAVOR PAIRING PRINCIPLES (molecular gastronomy):\n"
         if flavor_pairings:
             for ingredient, pairings in flavor_pairings.items():
-                if pairings:
-                    prompt += f"- {ingredient.title()}: Pairs with {', '.join(p.title() for p in pairings[:4])} (shared volatile compounds)\n"
+                if pairings and ingredient:
+                    # Safely handle None or empty values
+                    ingredient_name = str(ingredient).title() if ingredient else "Unknown"
+                    pairing_names = [str(p).title() for p in pairings[:4] if p]
+                    if pairing_names:
+                        prompt += f"- {ingredient_name}: Pairs with {', '.join(pairing_names)} (shared volatile compounds)\n"
             prompt += "\n"
         else:
             prompt += """- Shared volatile compounds (vanillin, eugenol, terpenes) create harmonious flavors

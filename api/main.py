@@ -2629,10 +2629,14 @@ async def http_exception_handler(request, exc: HTTPException):
 async def general_exception_handler(request, exc: Exception):
     """Catch-all exception handler."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    # Include error message in development, generic message in production
+    import os
+    is_dev = os.getenv("ENVIRONMENT", "production") == "development"
+    error_detail = str(exc) if is_dev else "An unexpected error occurred"
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "detail": "An unexpected error occurred",
+            "detail": error_detail,
             "error_code": "500"
         }
     )
