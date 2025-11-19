@@ -363,48 +363,22 @@ AVAILABLE PANTRY INGREDIENTS:
 
 """
 
-        prompt += """FLAVOR PAIRING GUIDANCE (based on shared chemical compounds):
-Use these scientifically-proven flavor pairings to create harmonious, complex flavors:
-
-"""
-        
-        # Add flavor pairing information
+        # Add flavor pairing information (condensed for faster processing)
         if flavor_pairings:
+            prompt += "FLAVOR PAIRINGS: "
+            pairing_list = []
             for ingredient, pairings in flavor_pairings.items():
                 if pairings:
-                    prompt += f"- {ingredient.title()}: Pairs well with {', '.join(p.title() for p in pairings[:5])} (shared volatile compounds create complementary flavors)\n"
-            prompt += "\n"
+                    pairing_list.append(f"{ingredient.title()}: {', '.join(p.title() for p in pairings[:3])}")
+            if pairing_list:
+                prompt += "; ".join(pairing_list) + "\n\n"
         else:
-            prompt += """Common flavor pairing principles:
-- Ingredients with shared volatile compounds create harmonious flavors
-- Umami-rich ingredients (mushrooms, tomatoes, soy sauce) enhance savory depth
-- Acidic ingredients (lemon, lime, vinegar) brighten and balance rich flavors
-- Aromatic herbs and spices share terpenes that create complex layers
-- Sweet and savory combinations (chocolate + salt, fruit + herbs) create contrast
-- Complementary textures and temperatures enhance the eating experience
-
-"""
+            prompt += "FLAVOR GUIDANCE: Use shared compounds, umami, acidity, and aromatics for balanced flavors.\n\n"
         
         if allow_missing_ingredients:
-            prompt += """CONSTRAINTS:
-- Prioritize using ingredients from the pantry list above
-- You can assume basic staples: water, salt, pepper (if not in list)
-- You may include 2-4 additional ingredients NOT in the pantry if essential for the recipe
-- Clearly distinguish between pantry ingredients and missing ingredients
-- Create a complete, detailed recipe
-- Apply flavor pairing principles to create balanced, complex flavors
-- In the response, include a "missing_ingredients" array listing any ingredients not in the pantry
-
-"""
+            prompt += "CONSTRAINTS: Prioritize pantry ingredients. May include 2-4 missing items if essential. Mark missing ingredients clearly.\n\n"
         else:
-            prompt += """CONSTRAINTS:
-- Use ONLY ingredients from the list above
-- You can assume basic staples: water, salt, pepper (if not in list)
-- DO NOT use any ingredients not listed above
-- Create a complete, detailed recipe
-- Apply flavor pairing principles to create balanced, complex flavors
-
-"""
+            prompt += "CONSTRAINTS: Use ONLY listed ingredients (assume water, salt, pepper). Create complete, detailed recipe.\n\n"
         
         if required_ingredients:
             prompt += f"REQUIRED INGREDIENTS (must include these, but can also use others):\n"
@@ -434,41 +408,9 @@ Use these scientifically-proven flavor pairings to create harmonious, complex fl
         if avoid_previous:
             prompt += f"- DO NOT create these recipes (already made): {', '.join(avoid_previous)}\n"
         
-        prompt += """
-Return ONLY valid JSON (no markdown, no code blocks) with this structure:
+        prompt += """Return ONLY valid JSON (no markdown) with: name, description, cuisine, difficulty (match requested exactly), prep_time, cook_time, servings, ingredients[], instructions[], flavor_pairings[], missing_ingredients[], tips[], dietary_tags[].
 
-{
-  "name": "Recipe Name",
-  "description": "Brief appetizing description",
-  "cuisine": "cuisine type",
-  "difficulty": "easy/medium/hard" (MUST match the requested difficulty level exactly),
-  "prep_time": "X minutes",
-  "cook_time": "X minutes",
-  "total_time": "X minutes",
-  "servings": 4,
-  "ingredients": [
-    {"item": "ingredient from pantry", "amount": "quantity", "notes": "optional prep notes"}
-  ],
-  "instructions": [
-    "Step 1 description",
-    "Step 2 description"
-  ],
-  "flavor_pairings": [
-    {
-      "ingredients": ["ingredient1", "ingredient2"],
-      "compounds": "shared chemical compounds (e.g., vanillin, eugenol, terpenes)",
-      "effect": "description of how these flavors work together"
-    }
-  ],
-  "missing_ingredients": ["ingredient not in pantry", "another missing item"],
-  "tips": ["Helpful tip 1", "Helpful tip 2"],
-  "dietary_tags": ["vegetarian", "vegan", "gluten-free", etc]
-}
-
-IMPORTANT: Include a "flavor_pairings" array describing the key flavor combinations used in this recipe, explaining the chemical basis (shared volatile compounds) and how they create harmony. This is essential for the recipe output.
-
-Be creative and make it delicious! Focus on scientifically-proven flavor combinations that create complex, balanced flavors.
-"""
+Be creative and delicious!"""
         
         return prompt
     
