@@ -30,9 +30,29 @@ def assign_items_to_default_pantry():
     
     try:
         # Get all items with NULL pantry_id
-        null_items = session.query(InventoryItem).filter(
-            InventoryItem.pantry_id.is_(None)
-        ).all()
+        # Use raw SQL to avoid ORM issues if user_id column doesn't exist locally
+        from sqlalchemy import text, inspect
+        from src.database import create_database_engine
+        
+        engine = create_database_engine()
+        inspector = inspect(engine)
+        
+        # Check if user_id column exists
+        columns = [col['name'] for col in inspector.get_columns('inventory_items')]
+        has_user_id = 'user_id' in columns
+        
+        if has_user_id:
+            null_items = session.query(InventoryItem).filter(
+                InventoryItem.pantry_id.is_(None),
+                InventoryItem.user_id.isnot(None)
+            ).all()
+        else:
+            # If no user_id column, get all items with NULL pantry_id
+            # This is for local dev databases that might not have user_id yet
+            logger.warning("user_id column not found - this script is designed for production database")
+            null_items = session.query(InventoryItem).filter(
+                InventoryItem.pantry_id.is_(None)
+            ).all()
         
         if not null_items:
             logger.info("✅ No items with NULL pantry_id found")
@@ -43,7 +63,10 @@ def assign_items_to_default_pantry():
         # Group items by user_id
         items_by_user = {}
         for item in null_items:
-            user_id = item.user_id
+            user_id = item.user_id if has_user_id else None
+            if user_id is None:
+                logger.warning(f"Item {item.id} has no user_id - skipping")
+                continue
             if user_id not in items_by_user:
                 items_by_user[user_id] = []
             items_by_user[user_id].append(item)
