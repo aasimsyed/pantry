@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:prod": "VITE_API_URL=https://pantry.up.railway.app vite",
     "build": "tsc -b && vite build",
+    "build:prod": "VITE_API_URL=https://pantry.up.railway.app tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
-import type { InventoryItem, SourceDirectory, ProcessImageResult, RefreshInventoryResult } from '../types';
+import type { InventoryItem, SourceDirectory, RefreshInventoryResult } from '../types';
 
 export default function Inventory() {
   const [items, setItems] = useState<InventoryItem[]>([]);

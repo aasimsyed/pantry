@@ -2238,6 +2238,13 @@ def save_recipe(
         logger.info(f"Saved recipe: {recipe.name} (ID: {recipe.id})")
         return recipe.to_dict()
         
+    except ValueError as e:
+        # Duplicate recipe error
+        logger.warning(f"Duplicate recipe attempt: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Error saving recipe: {e}")
         raise HTTPException(

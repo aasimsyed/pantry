@@ -95,3 +95,4 @@ echo ""
 echo "📋 Verify with: railway variables"
 echo "📋 Check logs with: railway logs"
 
+

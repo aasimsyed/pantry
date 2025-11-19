@@ -96,7 +96,12 @@ export default function Recipes() {
       });
       alert(`Saved "${recipe.name}" to recipe box!`);
     } catch (err: any) {
-      alert(`Failed to save recipe: ${err.message}`);
+      // Check if it's a duplicate error (409 Conflict)
+      if (err.response?.status === 409 || err.message?.includes('already saved')) {
+        alert(`"${recipe.name}" is already in your recipe box`);
+      } else {
+        alert(`Failed to save recipe: ${err.message}`);
+      }
     }
   };
 

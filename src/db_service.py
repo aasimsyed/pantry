@@ -714,8 +714,20 @@ class PantryService:
             
         Returns:
             Saved recipe object
+            
+        Raises:
+            ValueError: If a recipe with the same name already exists for this user
         """
         import json
+        
+        # Check for duplicate recipe name for this user
+        existing = self.session.query(SavedRecipe).filter(
+            SavedRecipe.user_id == user_id,
+            SavedRecipe.name == name
+        ).first()
+        
+        if existing:
+            raise ValueError(f"Recipe '{name}' is already saved in your recipe box")
         
         recipe = SavedRecipe(
             name=name,

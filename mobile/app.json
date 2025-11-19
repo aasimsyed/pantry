@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Smart Pantry",
+    "name": "Smart Pantry AI",
     "slug": "smart-pantry",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,8 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourname.smartpantry",
-      "buildNumber": "1"
+      "bundleIdentifier": "com.aasimsyed.smartpantry",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +27,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.yourname.smartpantry",
+      "package": "com.aasimsyed.smartpantry",
       "versionCode": 1
     },
     "web": {
@@ -32,8 +35,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "57af01d6-c443-4708-b8f2-0354bc50e1a3"
       }
-    }
+    },
+    "owner": "aasimsyed",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

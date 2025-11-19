@@ -1,0 +1,21 @@
+# Git Commit Guidelines
+
+## When to Push
+- ✅ Code changes that affect functionality
+- ✅ Bug fixes
+- ✅ New features
+- ✅ Configuration changes needed for deployment
+
+## When NOT to Push (or commit separately)
+- ❌ Documentation-only changes (.md files)
+- ❌ Comment-only changes
+- ❌ Temporary debug files
+- ❌ Scratch/notes files
+
+## Workflow
+1. Make code changes
+2. Commit code changes
+3. Make documentation changes separately (don't push immediately)
+4. Only push when code is ready for deployment
+
+
