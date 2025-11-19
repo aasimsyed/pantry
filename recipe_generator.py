@@ -541,7 +541,7 @@ AVAILABLE PANTRY INGREDIENTS:
 
 {
   "name": "Recipe Name",
-  "description": "Brief description",
+  "description": "Brief, appetizing description",
   "cuisine": "cuisine type",
   "difficulty": "easy/medium/hard",
   "prep_time": "X minutes",
@@ -551,14 +551,14 @@ AVAILABLE PANTRY INGREDIENTS:
     {"item": "ingredient name", "amount": "quantity", "notes": "optional prep notes"}
   ],
   "instructions": [
-    "Step 1",
-    "Step 2"
+    "Step 1 - detailed instruction",
+    "Step 2 - detailed instruction"
   ],
   "flavor_pairings": [
     {
       "ingredients": ["ingredient1", "ingredient2"],
-      "compounds": "shared chemical compounds",
-      "effect": "how they work together"
+      "compounds": "specific shared chemical compounds (e.g., vanillin, eugenol, terpenes, glutamates, sulfur compounds)",
+      "effect": "detailed explanation of how these flavors work together chemically and the taste experience they create"
     }
   ],
   "missing_ingredients": [],
@@ -566,12 +566,14 @@ AVAILABLE PANTRY INGREDIENTS:
   "dietary_tags": []
 }
 
-CRITICAL: 
+CRITICAL JSON STRUCTURE REQUIREMENTS:
 - ingredients MUST be an array of objects with "item", "amount", and optionally "notes" keys
 - flavor_pairings MUST be an array of objects with "ingredients", "compounds", and "effect" keys
 - Do NOT return ingredients or flavor_pairings as strings
+- flavor_pairings must explain the CHEMICAL BASIS (specific compounds) and TASTE EFFECT
+- Be detailed and creative - focus on exceptional flavor experiences through chemistry-based pairings
 
-Be creative and delicious using scientifically-proven flavor chemistry!"""
+Create a recipe that showcases the flavor chemistry principles above. Make it creative, delicious, and scientifically sound in its flavor combinations!"""
         
         return prompt
     
