@@ -11,7 +11,9 @@ interface UserSettings {
 
 const AI_MODELS = {
   openai: [
+    { value: 'gpt-5', label: 'GPT-5 (Latest & Best)' },
     { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
+    { value: 'gpt-4', label: 'GPT-4 Classic' },
     { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
   ],
@@ -115,7 +117,7 @@ export default function Settings() {
           AI Model Preferences
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Choose which AI model to use for recipe generation. Claude 3.5 Sonnet is recommended for creative recipes, while GPT-4o offers a good balance of quality and speed.
+          Choose which AI model to use for recipe generation. GPT-5 offers the best quality and reasoning, GPT-4o provides excellent balance, while Claude models excel at creative recipes.
         </Typography>
 
         <FormControl fullWidth sx={{ mb: 2 }}>
