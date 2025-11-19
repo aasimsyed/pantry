@@ -293,6 +293,10 @@ class RecipeGenerator:
         backend = self.analyzer._get_backend()
         
         # Call AI model directly based on backend type
+        # Use lower max_tokens for faster response to avoid Railway's 60s HTTP timeout
+        # Recipes don't need 2000 tokens - 1500 is sufficient for quality recipes
+        recipe_max_tokens = min(1500, backend.config.max_tokens)  # Cap at 1500 for speed
+        
         if backend.__class__.__name__ == 'OpenAIBackend':
             response = backend.client.chat.completions.create(
                 model=backend.config.model,
@@ -301,13 +305,13 @@ class RecipeGenerator:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,  # More creative for recipes
-                max_tokens=backend.config.max_tokens,
+                max_tokens=recipe_max_tokens,
             )
             content = response.choices[0].message.content.strip()
         else:  # Claude
             message = backend.client.messages.create(
                 model=backend.config.model if "claude" in backend.config.model else "claude-sonnet-4-20250514",
-                max_tokens=backend.config.max_tokens,
+                max_tokens=recipe_max_tokens,
                 temperature=0.7,  # More creative for recipes
                 messages=[{"role": "user", "content": prompt}]
             )
