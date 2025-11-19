@@ -96,11 +96,14 @@ export default function Recipes() {
       });
       alert(`Saved "${recipe.name}" to recipe box!`);
     } catch (err: any) {
+      // Extract error message from API response
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
+      
       // Check if it's a duplicate error (409 Conflict)
-      if (err.response?.status === 409 || err.message?.includes('already saved')) {
-        alert(`"${recipe.name}" is already in your recipe box`);
+      if (err.response?.status === 409 || errorMessage.includes('already saved')) {
+        alert(errorMessage);
       } else {
-        alert(`Failed to save recipe: ${err.message}`);
+        alert(`Failed to save recipe: ${errorMessage}`);
       }
     }
   };
