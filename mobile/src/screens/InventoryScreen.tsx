@@ -192,28 +192,6 @@ export default function InventoryScreen() {
     }
   };
 
-  const handleDeleteItem = async (itemId: number) => {
-    Alert.alert(
-      'Delete Item',
-      'Are you sure you want to delete this item?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiClient.deleteInventoryItem(itemId);
-              await loadInventory();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete item');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const filteredItems = items.filter((item) => {
     if (searchQuery) {
       const name = item.product_name?.toLowerCase() || '';
