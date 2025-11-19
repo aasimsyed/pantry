@@ -695,7 +695,8 @@ class PantryService:
         instructions: List[str] = None,
         notes: Optional[str] = None,
         rating: Optional[int] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
+        ai_model: Optional[str] = None
     ) -> SavedRecipe:
         """Save a recipe to the recipe box.
         
@@ -712,6 +713,7 @@ class PantryService:
             notes: User notes
             rating: Rating (1-5 stars)
             tags: List of tags
+            ai_model: AI model used to generate the recipe (optional)
             
         Returns:
             Saved recipe object
