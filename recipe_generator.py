@@ -439,7 +439,7 @@ class RecipeGenerator:
         flavor_pairings = self._identify_flavor_pairings(ingredients)
         
         if allow_missing_ingredients:
-            prompt = f"""You are a creative chef with expertise in molecular gastronomy and flavor chemistry. Generate a delicious recipe using ingredients from this pantry list. You may also suggest additional ingredients that are not in the pantry to complete the recipe.
+            prompt = f"""You are a creative chef with deep expertise in flavor chemistry and taste science. Generate a delicious, creative recipe using ingredients from this pantry list. You may also suggest additional ingredients that are not in the pantry to complete the recipe.
 
 AVAILABLE PANTRY INGREDIENTS:
 {chr(10).join(f"- {ing}" for ing in ingredients)}
@@ -448,30 +448,59 @@ IMPORTANT: Prioritize using ingredients from the pantry list above. You may incl
 
 """
         else:
-            prompt = f"""You are a creative chef with expertise in molecular gastronomy and flavor chemistry. Generate a delicious recipe using ONLY ingredients from this pantry list.
+            prompt = f"""You are a creative chef with deep expertise in flavor chemistry and taste science. Generate a delicious, creative recipe using ONLY ingredients from this pantry list.
 
 AVAILABLE PANTRY INGREDIENTS:
 {chr(10).join(f"- {ing}" for ing in ingredients)}
 
 """
 
-        # Add chemistry-based flavor pairing information (condensed but scientifically accurate)
-        prompt += "CHEMISTRY-BASED FLAVOR PAIRING PRINCIPLES (molecular gastronomy):\n"
+        # Add detailed chemistry-based flavor pairing information focused on taste and flavor
+        prompt += "FLAVOR CHEMISTRY & TASTE SCIENCE PRINCIPLES:\n"
+        prompt += """Understanding the chemical basis of flavor pairing will help you create exceptional recipes:
+
+1. SHARED VOLATILE COMPOUNDS create harmonious flavor connections:
+   - Vanillin (vanilla, chocolate, coffee, cinnamon) - creates warm, sweet harmony
+   - Eugenol (cloves, cinnamon, nutmeg, basil) - provides spicy, aromatic depth
+   - Terpenes (citrus, herbs, pine) - add bright, fresh complexity
+   - Sulfur compounds (garlic, onion, cruciferous vegetables) - create savory, umami-rich layers
+   - Esters (fruits, flowers) - contribute fruity, floral notes
+
+2. UMAMI SYNERGY enhances savory depth:
+   - Glutamates (tomatoes, mushrooms, soy, parmesan) amplify each other
+   - Nucleotides (fish, meat, seaweed) create powerful umami combinations
+   - Combining glutamate + nucleotide sources creates exponential umami enhancement
+
+3. ACID-BASE BALANCE creates complexity:
+   - Acids (citrus, vinegar, wine) brighten and cut through richness
+   - They enhance other flavors by making them more perceptible
+   - Balance fatty, rich ingredients with acidic components
+
+4. COMPLEMENTARY CHEMICAL PROFILES:
+   - Ingredients with similar volatile compounds naturally harmonize
+   - Contrasting profiles (sweet + salty, fatty + acidic) create dynamic balance
+   - Layering complementary compounds builds flavor depth
+
+5. AROMATIC LAYERING:
+   - Primary aromatics (garlic, onion, ginger) form the base
+   - Secondary aromatics (herbs, spices) add complexity
+   - Tertiary aromatics (citrus zest, finishing herbs) provide brightness
+
+"""
+        
+        # Add specific flavor pairings if identified
         if flavor_pairings:
+            prompt += "SPECIFIC FLAVOR PAIRINGS IDENTIFIED IN YOUR INGREDIENTS:\n"
             for ingredient, pairings in flavor_pairings.items():
                 if pairings and ingredient:
                     # Safely handle None or empty values
                     ingredient_name = str(ingredient).title() if ingredient else "Unknown"
-                    pairing_names = [str(p).title() for p in pairings[:4] if p]
+                    pairing_names = [str(p).title() for p in pairings[:6] if p]  # Show more pairings
                     if pairing_names:
-                        prompt += f"- {ingredient_name}: Pairs with {', '.join(pairing_names)} (shared volatile compounds)\n"
+                        prompt += f"- {ingredient_name}: Pairs beautifully with {', '.join(pairing_names)} due to shared volatile compounds and complementary flavor profiles\n"
             prompt += "\n"
-        else:
-            prompt += """- Shared volatile compounds (vanillin, eugenol, terpenes) create harmonious flavors
-- Umami compounds enhance savory depth
-- Acidic compounds brighten and balance
-- Aromatic terpenes create complex layers
-- Complementary chemical profiles enhance each other
+        
+        prompt += """CRITICAL: Use this flavor chemistry knowledge to create recipes where ingredients are chosen and combined based on their chemical compatibility and taste synergy. Focus on creating exceptional flavor experiences through scientifically-proven pairings, not on molecular gastronomy techniques.
 
 """
         
