@@ -1051,6 +1051,68 @@ class PantryService:
         
         logger.info(f"Deleted pantry ID {pantry_id}")
         return True
+    
+    # ========================================================================
+    # User Settings Operations
+    # ========================================================================
+    
+    def get_user_settings(self, user_id: int) -> UserSettings:
+        """Get user settings, creating default if doesn't exist.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            UserSettings object
+        """
+        settings = self.session.query(UserSettings).filter(
+            UserSettings.user_id == user_id
+        ).first()
+        
+        if not settings:
+            # Create default settings
+            settings = UserSettings(
+                user_id=user_id,
+                ai_provider=None,  # Use system default
+                ai_model=None  # Use system default
+            )
+            self.session.add(settings)
+            self.session.commit()
+            self.session.refresh(settings)
+        
+        return settings
+    
+    def update_user_settings(
+        self,
+        user_id: int,
+        ai_provider: Optional[str] = None,
+        ai_model: Optional[str] = None
+    ) -> UserSettings:
+        """Update user settings.
+        
+        Args:
+            user_id: User ID
+            ai_provider: AI provider ("openai" or "anthropic")
+            ai_model: AI model name (e.g., "gpt-4o", "claude-3-5-sonnet-20241022")
+            
+        Returns:
+            Updated UserSettings object
+        """
+        from datetime import datetime
+        settings = self.get_user_settings(user_id)
+        
+        if ai_provider is not None:
+            settings.ai_provider = ai_provider
+        if ai_model is not None:
+            settings.ai_model = ai_model
+        
+        settings.updated_at = datetime.utcnow()
+        self.session.add(settings)
+        self.session.commit()
+        self.session.refresh(settings)
+        
+        logger.info(f"Updated settings for user {user_id}: provider={ai_provider}, model={ai_model}")
+        return settings
 
 
 def initialize_database():
