@@ -706,18 +706,31 @@ class RecipeGenerator:
             raise ValueError("AI model returned invalid or empty recipe")
         
         # Log what fields are actually present for debugging
-        self.analyzer.logger.info(f"Parsed recipe fields: {list(recipe.keys())}")
+        keys = set(recipe.keys())
+        self.analyzer.logger.info(f"Parsed recipe fields: {list(keys)}")
+        
+        # STRICT VALIDATION: Reject ingredient-only objects even if they somehow got through
+        ingredient_only_fields = {'item', 'amount', 'notes'}
+        if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
+            self.analyzer.logger.error(f"Final validation: Rejected ingredient-only object. Fields: {list(keys)}")
+            raise ValueError(f"AI model returned an ingredient object instead of a recipe. Fields: {list(keys)}")
         
         # Check if recipe has at least a name or description (basic validation)
         # Also check for alternative field names the AI might use
         name = recipe.get('name') or recipe.get('title') or recipe.get('recipe_name')
         description = recipe.get('description') or recipe.get('desc') or recipe.get('summary')
         
-        if not name and not description:
+        # Also check for other recipe-like fields that indicate it's a recipe, not an ingredient
+        recipe_fields = {'name', 'title', 'recipe_name', 'description', 'desc', 'summary', 
+                        'instructions', 'steps', 'prep_time', 'cook_time', 'servings', 
+                        'cuisine', 'difficulty', 'ingredients', 'flavor_pairings'}
+        has_recipe_fields = bool(keys.intersection(recipe_fields))
+        
+        if not name and not description and not has_recipe_fields:
             # Log the full recipe content for debugging
             self.analyzer.logger.error(f"Recipe missing required fields. Recipe content: {recipe}")
-            self.analyzer.logger.error(f"Available fields: {list(recipe.keys())}")
-            raise ValueError(f"AI model returned recipe without name or description. Available fields: {list(recipe.keys())}")
+            self.analyzer.logger.error(f"Available fields: {list(keys)}")
+            raise ValueError(f"AI model returned object without recipe fields. Available fields: {list(keys)}")
         
         # Normalize field names if needed
         if not recipe.get('name') and name:
