@@ -1,14 +1,13 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Text, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -49,7 +48,8 @@ export default function HomeScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="headlineLarge" style={styles.title}>
         Smart Pantry
       </Text>
@@ -137,7 +137,8 @@ export default function HomeScreen() {
           </Card.Content>
         </Card>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

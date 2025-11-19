@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { Card, Text, ActivityIndicator } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import type { Statistics } from '../types';
 
 export default function StatisticsScreen() {
-  const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +42,8 @@ export default function StatisticsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="titleLarge" style={styles.title}>
         Pantry Statistics
       </Text>
@@ -143,7 +143,8 @@ export default function StatisticsScreen() {
             ))}
         </Card.Content>
       </Card>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

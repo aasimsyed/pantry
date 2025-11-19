@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, Divider } from 'react-native-paper';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Recipe, SavedRecipe } from '../types';
 
 type RouteParams = {
@@ -13,7 +13,6 @@ type RouteParams = {
 
 export default function RecipeDetailScreen() {
   const route = useRoute<RouteProp<RouteParams, 'RecipeDetail'>>();
-  const insets = useSafeAreaInsets();
   const { recipe } = route.params;
 
   const parseJson = (str: string | null | undefined): any[] => {
@@ -34,7 +33,8 @@ export default function RecipeDetailScreen() {
     : Array.isArray(recipe.instructions) ? recipe.instructions : [];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="headlineMedium" style={styles.title}>
         {recipe.name}
       </Text>
@@ -105,7 +105,8 @@ export default function RecipeDetailScreen() {
           </Card>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

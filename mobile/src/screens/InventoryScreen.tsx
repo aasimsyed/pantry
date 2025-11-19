@@ -14,18 +14,19 @@ import {
   IconButton,
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import apiClient from '../api/client';
+import { PantrySelector } from '../components/PantrySelector';
 import type { InventoryItem } from '../types';
 
 export default function InventoryScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState<string>('All');
+  const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
   const [dialogVisible, setDialogVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [editDialogVisible, setEditDialogVisible] = useState(false);
@@ -41,14 +42,18 @@ export default function InventoryScreen() {
   });
 
   useEffect(() => {
-    loadInventory();
-  }, [locationFilter]);
+    if (selectedPantryId !== undefined) {
+      loadInventory();
+    }
+  }, [locationFilter, selectedPantryId]);
 
   const loadInventory = async () => {
+    if (selectedPantryId === undefined) return;
+    
     try {
       setLoading(true);
       const location = locationFilter === 'All' ? undefined : locationFilter;
-      const data = await apiClient.getInventory(0, 1000, location);
+      const data = await apiClient.getInventory(0, 1000, location, undefined, selectedPantryId);
       setItems(data);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to load inventory');
@@ -203,8 +208,13 @@ export default function InventoryScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+        <PantrySelector
+          selectedPantryId={selectedPantryId}
+          onPantryChange={setSelectedPantryId}
+        />
+        
         <Searchbar
           placeholder="Search inventory..."
           onChangeText={setSearchQuery}
@@ -419,7 +429,7 @@ export default function InventoryScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </View>
+    </SafeAreaView>
   );
 }
 

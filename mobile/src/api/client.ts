@@ -3,6 +3,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import type {
   Product,
+  Pantry,
   InventoryItem,
   Recipe,
   SavedRecipe,
@@ -251,16 +252,43 @@ class APIClient {
     return this.request('GET', '/health');
   }
 
+  // Pantries
+  async getPantries(): Promise<Pantry[]> {
+    return this.request<Pantry[]>('GET', '/api/pantries');
+  }
+
+  async getPantry(pantryId: number): Promise<Pantry> {
+    return this.request<Pantry>('GET', `/api/pantries/${pantryId}`);
+  }
+
+  async getDefaultPantry(): Promise<Pantry> {
+    return this.request<Pantry>('GET', '/api/pantries/default');
+  }
+
+  async createPantry(data: Partial<Pantry>): Promise<Pantry> {
+    return this.request<Pantry>('POST', '/api/pantries', { data });
+  }
+
+  async updatePantry(pantryId: number, data: Partial<Pantry>): Promise<Pantry> {
+    return this.request<Pantry>('PUT', `/api/pantries/${pantryId}`, { data });
+  }
+
+  async deletePantry(pantryId: number): Promise<void> {
+    return this.request<void>('DELETE', `/api/pantries/${pantryId}`);
+  }
+
   // Inventory
   async getInventory(
     skip: number = 0,
     limit: number = 100,
     location?: string,
-    status?: string
+    status?: string,
+    pantryId?: number
   ): Promise<InventoryItem[]> {
     const params: Record<string, string | number> = { skip, limit };
     if (location) params.location = location;
     if (status) params.status = status;
+    if (pantryId) params.pantry_id = pantryId;
     return this.request<InventoryItem[]>('GET', '/api/inventory', { params });
   }
 
@@ -304,6 +332,7 @@ class APIClient {
       dietary_restrictions?: string[];
       avoid_names?: string[];
       allow_missing_ingredients?: boolean;
+      pantry_id?: number;
     }
   ): Promise<Recipe> {
     const data: Record<string, any> = {
@@ -315,6 +344,7 @@ class APIClient {
     if (options.difficulty) data.difficulty = options.difficulty;
     if (options.dietary_restrictions) data.dietary_restrictions = options.dietary_restrictions;
     if (options.avoid_names) data.avoid_names = options.avoid_names;
+    if (options.pantry_id) data.pantry_id = options.pantry_id;
 
     return this.request<Recipe>('POST', '/api/recipes/generate-one', {
       data,

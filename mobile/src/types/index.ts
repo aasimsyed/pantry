@@ -13,6 +13,17 @@ export interface Product {
   updated_at: string;
 }
 
+export interface Pantry {
+  id: number;
+  user_id: number;
+  name: string;
+  description?: string;
+  location?: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InventoryItem {
   id: number;
   product_id: number;
@@ -27,6 +38,9 @@ export interface InventoryItem {
   image_path?: string;
   notes?: string;
   status: 'in_stock' | 'low' | 'expired' | 'consumed';
+  user_id?: number;
+  pantry_id?: number;
+  pantry_name?: string;
   created_at: string;
   updated_at: string;
 }

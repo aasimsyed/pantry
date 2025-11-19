@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, ActivityIndicator } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import apiClient from '../api/client';
 import type { InventoryItem } from '../types';
 
 export default function ExpiringScreen() {
-  const insets = useSafeAreaInsets();
   const [expiringItems, setExpiringItems] = useState<InventoryItem[]>([]);
   const [expiredItems, setExpiredItems] = useState<InventoryItem[]>([]);
   const [days, setDays] = useState(7);
@@ -48,7 +47,8 @@ export default function ExpiringScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="titleLarge" style={styles.title}>
         Expiring Items
       </Text>
@@ -112,7 +112,8 @@ export default function ExpiringScreen() {
           </Card>
         ))
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

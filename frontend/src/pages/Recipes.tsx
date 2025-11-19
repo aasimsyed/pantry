@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
-import type { Recipe, InventoryItem } from '../types';
+import { PantrySelector } from '../components/PantrySelector';
+import type { Recipe } from '../types';
 
 export default function Recipes() {
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
@@ -8,6 +9,9 @@ export default function Recipes() {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Pantry selection
+  const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
 
   // Recipe options
   const [requiredIngredients, setRequiredIngredients] = useState<string[]>([]);
@@ -19,12 +23,16 @@ export default function Recipes() {
   const [allowMissing, setAllowMissing] = useState(false);
 
   useEffect(() => {
-    loadAvailableIngredients();
-  }, []);
+    if (selectedPantryId !== undefined) {
+      loadAvailableIngredients();
+    }
+  }, [selectedPantryId]);
 
   const loadAvailableIngredients = async () => {
+    if (selectedPantryId === undefined) return;
+    
     try {
-      const items = await apiClient.getInventory(0, 1000, undefined, 'in_stock');
+      const items = await apiClient.getInventory(0, 1000, undefined, 'in_stock', selectedPantryId);
       const uniqueNames = new Set<string>();
       items.forEach((item) => {
         if (item.product_name) uniqueNames.add(item.product_name);
@@ -56,6 +64,7 @@ export default function Recipes() {
           dietary_restrictions: dietaryRestrictions.length > 0 ? dietaryRestrictions : undefined,
           avoid_names: avoidNames,
           allow_missing_ingredients: allowMissing,
+          pantry_id: selectedPantryId,
         });
 
         newRecipes.push(recipe);
@@ -82,8 +91,8 @@ export default function Recipes() {
         prep_time: recipe.prep_time,
         cook_time: recipe.cook_time,
         servings: recipe.servings,
-        ingredients: recipe.ingredients,
-        instructions: recipe.instructions,
+        ingredients: recipe.ingredients as any, // API expects List[Dict], Recipe has RecipeIngredient[]
+        instructions: recipe.instructions as any, // API expects List[str], Recipe has string[]
       });
       alert(`Saved "${recipe.name}" to recipe box!`);
     } catch (err: any) {
@@ -122,6 +131,13 @@ export default function Recipes() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">🍳 Recipe Suggestions</h1>
         <p className="text-gray-600">AI-powered recipe suggestions based on your pantry items</p>
+        <div className="mt-4">
+          <PantrySelector
+            selectedPantryId={selectedPantryId}
+            onPantryChange={setSelectedPantryId}
+            showCreateButton={true}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

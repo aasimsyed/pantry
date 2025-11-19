@@ -28,12 +28,16 @@ class APIConfig(BaseSettings):
     
     # CORS Configuration
     # Note: Mobile apps (React Native) don't use CORS, but web frontends do
+    # Add your Vercel domain after deployment (e.g., "https://smart-pantry-frontend.vercel.app")
     cors_origins: List[str] = [
         "http://localhost:8501",  # Streamlit default
         "http://localhost:3000",  # React default
         "http://localhost:5173",  # Vite dev server default
-        # Add your production frontend URL here when deployed
-        # "https://your-frontend.vercel.app",
+        # Production frontend URLs - add your Vercel domain here after deployment
+        # "https://smart-pantry-frontend.vercel.app",  # Your Vercel production URL
+        # "https://smart-pantry-frontend-git-main-yourusername.vercel.app",  # Preview deployments
+        # Add your custom domain here when configured
+        # "https://pantry.yourdomain.com",
     ]
     
     # Database Configuration
@@ -44,6 +48,13 @@ class APIConfig(BaseSettings):
     port: int = 8000
     reload: bool = True
     log_level: str = "info"
+    
+    # Rate Limiting Configuration
+    rate_limit_enabled: bool = True
+    rate_limit_per_minute: int = 100
+    rate_limit_auth_per_minute: int = 5
+    rate_limit_upload_per_minute: int = 10
+    rate_limit_recipe_per_hour: int = 20
     
     model_config = {
         "env_file": ".env",

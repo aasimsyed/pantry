@@ -181,6 +181,7 @@ def init_database():
     
     This should be called once to create the database schema.
     Handles existing tables/indexes gracefully.
+    Also runs migrations for schema updates.
     
     Example:
         >>> from src.database import init_database
@@ -214,6 +215,15 @@ def init_database():
             print(f"✅ Database schema is up to date: {get_database_url()}")
         else:
             raise
+    
+    # Run migrations for existing databases
+    try:
+        from src.migrations import run_migrations
+        run_migrations()
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Migration warning (non-fatal): {e}")
 
 
 # ============================================================================
@@ -406,6 +416,12 @@ class InventoryItem(Base):
         nullable=True,  # Allow NULL for backward compatibility
         index=True
     )
+    pantry_id = Column(
+        Integer,
+        ForeignKey("pantries.id", ondelete="SET NULL"),
+        nullable=True,  # Allow NULL for backward compatibility
+        index=True
+    )
     
     # Quantity information
     quantity = Column(Float, nullable=False, default=1.0)
@@ -445,6 +461,7 @@ class InventoryItem(Base):
     # Relationships
     product = relationship("Product", back_populates="inventory_items")
     user = relationship("User", back_populates="inventory_items")
+    pantry = relationship("Pantry", back_populates="inventory_items")
     processing_logs = relationship(
         "ProcessingLog",
         back_populates="inventory_item",
@@ -485,6 +502,9 @@ class InventoryItem(Base):
             "image_path": self.image_path,
             "notes": self.notes,
             "status": self.status,
+            "user_id": self.user_id,
+            "pantry_id": self.pantry_id,
+            "pantry_name": self.pantry.name if self.pantry else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "days_until_expiration": self.days_until_expiration,
@@ -821,6 +841,94 @@ class SavedRecipe(Base):
 
 
 # ============================================================================
+# Pantry Model - Multiple Pantries per User
+# ============================================================================
+
+class Pantry(Base):
+    """Pantry/location for organizing inventory items.
+    
+    Allows users to have multiple pantries (e.g., home, office, vacation home).
+    Each inventory item belongs to a specific pantry.
+    
+    Attributes:
+        id: Primary key
+        user_id: Foreign key to users table
+        name: Pantry name (e.g., "Home", "Office", "Vacation Home")
+        description: Optional description
+        location: Optional location/address
+        is_default: Whether this is the user's default pantry
+        created_at: Record creation timestamp
+        updated_at: Last update timestamp
+    
+    Relationships:
+        user: Associated user
+        inventory_items: Inventory items in this pantry
+    
+    Indexes:
+        - user_id (for queries by user)
+        - is_default (for finding default pantry)
+    """
+    
+    __tablename__ = "pantries"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    
+    # Foreign key
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    
+    # Pantry information
+    name = Column(String(255), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    location = Column(String(255), nullable=True)  # e.g., "123 Main St, City, State"
+    is_default = Column(Boolean, default=False, nullable=False, index=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+    
+    # Relationships
+    user = relationship("User", back_populates="pantries")
+    inventory_items = relationship(
+        "InventoryItem",
+        back_populates="pantry",
+        cascade="all, delete-orphan"
+    )
+    
+    # Indexes
+    __table_args__ = (
+        Index("ix_pantries_user_default", "user_id", "is_default"),
+    )
+    
+    def __repr__(self) -> str:
+        """String representation."""
+        return f"<Pantry(id={self.id}, name='{self.name}', user_id={self.user_id})>"
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "description": self.description,
+            "location": self.location,
+            "is_default": self.is_default,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ============================================================================
 # User Model - Authentication & Authorization
 # ============================================================================
 
@@ -876,6 +984,7 @@ class User(Base):
     inventory_items = relationship("InventoryItem", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     saved_recipes = relationship("SavedRecipe", back_populates="user", cascade="all, delete-orphan")
+    pantries = relationship("Pantry", back_populates="user", cascade="all, delete-orphan")
     
     # Indexes
     __table_args__ = (
@@ -972,6 +1081,83 @@ class RefreshToken(Base):
     def is_valid(self) -> bool:
         """Check if token is valid (not revoked and not expired)."""
         return not self.revoked and not self.is_expired
+
+
+# ============================================================================
+# SecurityEvent Model - Security Audit Logging (Phase 2)
+# ============================================================================
+
+class SecurityEvent(Base):
+    """Security event logging for audit and monitoring.
+    
+    Tracks security-related events such as login attempts, authentication failures,
+    sensitive operations, and potential security threats.
+    
+    Attributes:
+        id: Primary key
+        event_type: Type of security event (indexed)
+        user_id: Associated user (if applicable)
+        ip_address: Client IP address
+        user_agent: Client user agent string
+        details: JSON details of the event
+        severity: Event severity (info, warning, error, critical)
+        created_at: Event timestamp (indexed)
+    
+    Relationships:
+        user: Associated user (if applicable)
+    """
+    
+    __tablename__ = "security_events"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    
+    # Event information
+    event_type = Column(String(100), nullable=False, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    ip_address = Column(String(45), nullable=False)  # IPv6 max length
+    user_agent = Column(String(500), nullable=True)
+    details = Column(Text, nullable=True)  # JSON string
+    severity = Column(String(20), default="info", nullable=False)  # info, warning, error, critical
+    
+    # Timestamp
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    
+    # Indexes
+    __table_args__ = (
+        Index("ix_security_events_type_created", "event_type", "created_at"),
+        Index("ix_security_events_user_created", "user_id", "created_at"),
+        Index("ix_security_events_severity", "severity"),
+    )
+    
+    def __repr__(self) -> str:
+        """String representation."""
+        return (
+            f"<SecurityEvent(id={self.id}, type='{self.event_type}', "
+            f"user_id={self.user_id}, severity='{self.severity}')>"
+        )
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        import json
+        return {
+            "id": self.id,
+            "event_type": self.event_type,
+            "user_id": self.user_id,
+            "ip_address": self.ip_address,
+            "user_agent": self.user_agent,
+            "details": json.loads(self.details) if self.details else None,
+            "severity": self.severity,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 # ============================================================================

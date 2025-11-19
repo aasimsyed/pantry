@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from src.database import (
     InventoryItem,
+    Pantry,
     ProcessingLog,
     Product,
     SavedRecipe,
@@ -187,6 +188,8 @@ class PantryService:
         unit: str = "count",
         storage_location: str = "pantry",
         expiration_date: Optional[datetime] = None,
+        user_id: Optional[int] = None,
+        pantry_id: Optional[int] = None,
         **kwargs
     ) -> InventoryItem:
         """Add inventory item.
@@ -197,6 +200,8 @@ class PantryService:
             unit: Unit of measurement
             storage_location: Where stored
             expiration_date: Expiration date
+            user_id: User ID (optional, for backward compatibility)
+            pantry_id: Pantry ID (optional)
             **kwargs: Additional attributes
             
         Returns:
@@ -208,6 +213,8 @@ class PantryService:
             unit=unit,
             storage_location=storage_location,
             expiration_date=expiration_date,
+            user_id=user_id,
+            pantry_id=pantry_id,
             **kwargs
         )
         item.update_status()
@@ -250,17 +257,27 @@ class PantryService:
     
     def get_all_inventory(
         self,
+        user_id: Optional[int] = None,
+        pantry_id: Optional[int] = None,
         include_consumed: bool = False
     ) -> List[InventoryItem]:
-        """Get all inventory items.
+        """Get all inventory items with optional filtering.
         
         Args:
+            user_id: Filter by user ID
+            pantry_id: Filter by pantry ID
             include_consumed: Include consumed items
             
         Returns:
             List of inventory items
         """
         q = self.session.query(InventoryItem)
+        
+        if user_id is not None:
+            q = q.filter(InventoryItem.user_id == user_id)
+        
+        if pantry_id is not None:
+            q = q.filter(InventoryItem.pantry_id == pantry_id)
         
         if not include_consumed:
             q = q.filter(InventoryItem.status != "consumed")
@@ -723,6 +740,7 @@ class PantryService:
     
     def get_saved_recipes(
         self,
+        user_id: int,
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
         limit: Optional[int] = None
@@ -730,14 +748,17 @@ class PantryService:
         """Get saved recipes with optional filtering.
         
         Args:
+            user_id: User ID to filter recipes (required for data isolation)
             cuisine: Filter by cuisine type
             difficulty: Filter by difficulty
             limit: Maximum number of recipes to return
             
         Returns:
-            List of saved recipes
+            List of saved recipes for the specified user
         """
-        query = self.session.query(SavedRecipe)
+        query = self.session.query(SavedRecipe).filter(
+            SavedRecipe.user_id == user_id
+        )
         
         if cuisine:
             query = query.filter(SavedRecipe.cuisine == cuisine)
@@ -818,6 +839,202 @@ class PantryService:
         self.session.commit()
         
         logger.info(f"Deleted recipe ID {recipe_id}")
+        return True
+    
+    # ========================================================================
+    # Pantry Operations
+    # ========================================================================
+    
+    def create_pantry(
+        self,
+        user_id: int,
+        name: str,
+        description: Optional[str] = None,
+        location: Optional[str] = None,
+        is_default: bool = False
+    ) -> Pantry:
+        """Create a new pantry for a user.
+        
+        Args:
+            user_id: User ID
+            name: Pantry name
+            description: Optional description
+            location: Optional location/address
+            is_default: Whether this should be the default pantry
+            
+        Returns:
+            Created Pantry instance
+        """
+        # If this is set as default, unset other default pantries for this user
+        if is_default:
+            self.session.query(Pantry).filter(
+                Pantry.user_id == user_id,
+                Pantry.is_default == True
+            ).update({"is_default": False})
+        
+        pantry = Pantry(
+            user_id=user_id,
+            name=name,
+            description=description,
+            location=location,
+            is_default=is_default
+        )
+        self.session.add(pantry)
+        self.session.commit()
+        self.session.refresh(pantry)
+        
+        logger.info(f"Created pantry '{name}' for user {user_id}")
+        return pantry
+    
+    def get_pantry(self, pantry_id: int, user_id: Optional[int] = None) -> Optional[Pantry]:
+        """Get a pantry by ID.
+        
+        Args:
+            pantry_id: Pantry ID
+            user_id: Optional user ID to verify ownership
+            
+        Returns:
+            Pantry instance or None
+        """
+        query = self.session.query(Pantry).filter(Pantry.id == pantry_id)
+        
+        if user_id:
+            query = query.filter(Pantry.user_id == user_id)
+        
+        return query.first()
+    
+    def get_user_pantries(self, user_id: int) -> List[Pantry]:
+        """Get all pantries for a user.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            List of Pantry instances
+        """
+        return self.session.query(Pantry).filter(
+            Pantry.user_id == user_id
+        ).order_by(Pantry.is_default.desc(), Pantry.created_at).all()
+    
+    def get_default_pantry(self, user_id: int) -> Optional[Pantry]:
+        """Get the default pantry for a user.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            Default Pantry instance or None
+        """
+        return self.session.query(Pantry).filter(
+            Pantry.user_id == user_id,
+            Pantry.is_default == True
+        ).first()
+    
+    def get_or_create_default_pantry(self, user_id: int) -> Pantry:
+        """Get or create a default pantry for a user.
+        
+        If no default pantry exists, creates one named "Home".
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            Default Pantry instance
+        """
+        pantry = self.get_default_pantry(user_id)
+        
+        if not pantry:
+            # Check if user has any pantries
+            pantries = self.get_user_pantries(user_id)
+            if pantries:
+                # Set the first pantry as default
+                pantry = pantries[0]
+                pantry.is_default = True
+                self.session.commit()
+                self.session.refresh(pantry)
+            else:
+                # Create a default pantry
+                pantry = self.create_pantry(
+                    user_id=user_id,
+                    name="Home",
+                    description="Default pantry",
+                    is_default=True
+                )
+        
+        return pantry
+    
+    def update_pantry(
+        self,
+        pantry_id: int,
+        user_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        location: Optional[str] = None,
+        is_default: Optional[bool] = None
+    ) -> Optional[Pantry]:
+        """Update a pantry.
+        
+        Args:
+            pantry_id: Pantry ID
+            user_id: User ID (for ownership verification)
+            name: New name
+            description: New description
+            location: New location
+            is_default: Whether to set as default
+            
+        Returns:
+            Updated Pantry instance or None
+        """
+        pantry = self.get_pantry(pantry_id, user_id)
+        if not pantry:
+            return None
+        
+        if name is not None:
+            pantry.name = name
+        if description is not None:
+            pantry.description = description
+        if location is not None:
+            pantry.location = location
+        
+        # Handle default flag
+        if is_default is not None:
+            if is_default and not pantry.is_default:
+                # Unset other default pantries
+                self.session.query(Pantry).filter(
+                    Pantry.user_id == user_id,
+                    Pantry.is_default == True,
+                    Pantry.id != pantry_id
+                ).update({"is_default": False})
+                pantry.is_default = True
+            elif not is_default:
+                pantry.is_default = False
+        
+        self.session.commit()
+        self.session.refresh(pantry)
+        
+        logger.info(f"Updated pantry ID {pantry_id}")
+        return pantry
+    
+    def delete_pantry(self, pantry_id: int, user_id: int) -> bool:
+        """Delete a pantry.
+        
+        Note: Inventory items in this pantry will have pantry_id set to NULL.
+        
+        Args:
+            pantry_id: Pantry ID
+            user_id: User ID (for ownership verification)
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        pantry = self.get_pantry(pantry_id, user_id)
+        if not pantry:
+            return False
+        
+        self.session.delete(pantry)
+        self.session.commit()
+        
+        logger.info(f"Deleted pantry ID {pantry_id}")
         return True
 
 

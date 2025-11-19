@@ -32,7 +32,8 @@ from .models import (
     ConsumeRequest, StatisticsResponse, MessageResponse,
     HealthResponse, ErrorResponse, RecipeRequest, SingleRecipeRequest, RecipeResponse,
     SavedRecipeCreate, SavedRecipeUpdate, SavedRecipeResponse,
-    RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest, RefreshTokenResponse, UserResponse
+    RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest, RefreshTokenResponse, UserResponse,
+    PantryCreate, PantryUpdate, PantryResponse
 )
 from src.db_service import PantryService
 from src.database import Product, InventoryItem, User
@@ -43,6 +44,8 @@ from src.auth_service import (
     verify_token, store_refresh_token, revoke_refresh_token, hash_refresh_token,
     get_valid_refresh_token
 )
+from src.file_validation import validate_image_file
+from src.security_logger import log_security_event, get_client_ip, get_user_agent
 from recipe_generator import RecipeGenerator
 from pathlib import Path
 import os
@@ -77,31 +80,126 @@ async def startup_event():
         logger.warning(f"⚠️  Database initialization warning: {e}")
         # Continue anyway - tables might already exist
 
-# Add CORS middleware
+# Add CORS middleware with support for Vercel preview deployments
+def get_cors_origins():
+    """Get CORS origins, including Vercel preview deployments."""
+    origins = config.cors_origins.copy()
+    
+    # Add common Vercel patterns (you can add specific preview URLs here)
+    # Vercel preview deployments use patterns like:
+    # - https://your-app-git-branch-username.vercel.app
+    # - https://your-app-*.vercel.app
+    # For now, we'll use the configured origins and you can add specific preview URLs
+    
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.cors_origins,
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Add rate limiting
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# Add rate limiting with user-based key function
+def get_user_id_for_rate_limit(request: Request) -> str:
+    """
+    Get user ID for rate limiting (if authenticated), otherwise use IP address.
+    
+    This allows per-user rate limiting for authenticated requests,
+    while falling back to IP-based limiting for anonymous requests.
+    """
+    try:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header.replace("Bearer ", "")
+            from src.auth_service import verify_token
+            from api.config import config
+            import os
+            payload = verify_token(token, token_type="access")
+            user_id = payload.get("sub")
+            if user_id:
+                return f"user:{user_id}"
+    except Exception:
+        pass
+    # Fallback to IP address
+    return get_remote_address(request)
 
-# Add security headers middleware
+limiter = Limiter(key_func=get_user_id_for_rate_limit)
+app.state.limiter = limiter
+
+# Custom rate limit exception handler with security logging
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Handle rate limit exceeded with security logging."""
+    try:
+        # Get database session for logging
+        from api.dependencies import SessionLocal
+        db = SessionLocal()
+        try:
+            ip_address = get_client_ip(request)
+            user_agent = get_user_agent(request)
+            
+            # Try to get user ID if authenticated
+            user_id = None
+            try:
+                auth_header = request.headers.get("Authorization", "")
+                if auth_header.startswith("Bearer "):
+                    token = auth_header.replace("Bearer ", "")
+                    payload = verify_token(token, token_type="access")
+                    user_id = int(payload.get("sub"))
+            except Exception:
+                pass
+            
+            # Log rate limit exceeded event
+            log_security_event(
+                db=db,
+                event_type="rate_limit_exceeded",
+                user_id=user_id,
+                ip_address=ip_address,
+                details={
+                    "endpoint": str(request.url.path),
+                    "method": request.method,
+                    "limit": str(exc.detail) if hasattr(exc, 'detail') else "unknown"
+                },
+                severity="warning",
+                user_agent=user_agent
+            )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error logging rate limit event: {e}")
+    
+    # Use default handler
+    return _rate_limit_exceeded_handler(request, exc)
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+# Add security headers and rate limit headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
-    """Add security headers to all responses."""
+    """Add security headers and rate limit headers to all responses."""
     response = await call_next(request)
+    
+    # Security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    
+    # Rate limit headers (if rate limiting is enabled)
+    if config.rate_limit_enabled:
+        try:
+            # Get rate limit info from limiter state
+            key = get_user_id_for_rate_limit(request)
+            # Note: slowapi doesn't expose rate limit info directly,
+            # but we can add headers indicating rate limiting is active
+            response.headers["X-RateLimit-Enabled"] = "true"
+        except Exception:
+            pass
+    
     return response
 
 
@@ -145,22 +243,59 @@ def register(
     """
     Register a new user account.
     
+    Security: Logs registration attempts for audit trail.
+    
     - **email**: User email address (must be unique)
     - **password**: Password (minimum 8 characters)
     - **full_name**: Optional full name
     """
+    ip_address = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    
     try:
         user = create_user(db, email, password, full_name)
+        
+        # Log successful registration
+        log_security_event(
+            db=db,
+            event_type="registration_success",
+            user_id=user.id,
+            ip_address=ip_address,
+            details={"email": email, "full_name": full_name},
+            severity="info",
+            user_agent=user_agent
+        )
+        
         return MessageResponse(
             message="User registered successfully",
             details={"user_id": user.id, "email": user.email}
         )
-    except HTTPException:
+    except HTTPException as e:
+        # Log failed registration attempt
+        log_security_event(
+            db=db,
+            event_type="registration_failed",
+            user_id=None,
+            ip_address=ip_address,
+            details={"email": email, "error": str(e.detail)},
+            severity="warning",
+            user_agent=user_agent
+        )
         raise
     except Exception as e:
         logger.error(f"Registration error: {e}", exc_info=True)
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Log registration error
+        log_security_event(
+            db=db,
+            event_type="registration_error",
+            user_id=None,
+            ip_address=ip_address,
+            details={"email": email, "error": str(e)},
+            severity="error",
+            user_agent=user_agent
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Registration failed: {str(e)}"
@@ -178,13 +313,39 @@ def login(
     """
     Login and get access/refresh tokens.
     
+    Security: Logs all login attempts (success and failure) for audit trail.
+    
     - **email**: User email address
     - **password**: User password
     
     Returns JWT access token and refresh token.
     """
+    ip_address = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    
+    # Log login attempt
+    log_security_event(
+        db=db,
+        event_type="login_attempt",
+        user_id=None,
+        ip_address=ip_address,
+        details={"email": email},
+        severity="info",
+        user_agent=user_agent
+    )
+    
     user = authenticate_user(db, email, password)
     if not user:
+        # Log failed login
+        log_security_event(
+            db=db,
+            event_type="login_failed",
+            user_id=None,
+            ip_address=ip_address,
+            details={"email": email, "reason": "invalid_credentials"},
+            severity="warning",
+            user_agent=user_agent
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -200,6 +361,17 @@ def login(
     
     # Store refresh token
     store_refresh_token(db, user.id, refresh_token)
+    
+    # Log successful login
+    log_security_event(
+        db=db,
+        event_type="login_success",
+        user_id=user.id,
+        ip_address=ip_address,
+        details={"email": email, "role": user.role},
+        severity="info",
+        user_agent=user_agent
+    )
     
     return TokenResponse(
         access_token=access_token,
@@ -563,6 +735,7 @@ def get_inventory(
     limit: int = Query(100, ge=1, le=1000, description="Maximum records to return"),
     location: Optional[str] = Query(None, description="Filter by storage location"),
     status: Optional[str] = Query(None, description="Filter by status"),
+    pantry_id: Optional[int] = Query(None, description="Filter by pantry ID"),
     current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> List[Dict]:
@@ -573,12 +746,19 @@ def get_inventory(
     - **limit**: Maximum number of records to return
     - **location**: Filter by storage location (pantry/fridge/freezer)
     - **status**: Filter by item status (in_stock/low/expired/consumed)
+    - **pantry_id**: Filter by pantry ID (optional, defaults to user's default pantry if not specified)
     """
     try:
-        # Filter by user_id if authenticated
-        items = service.get_all_inventory()
-        if current_user:
-            items = [i for i in items if i.user_id is None or i.user_id == current_user.id]
+        # If pantry_id not specified, use default pantry
+        if pantry_id is None and current_user:
+            default_pantry = service.get_or_create_default_pantry(current_user.id)
+            pantry_id = default_pantry.id
+        
+        # Filter by user_id and pantry_id
+        items = service.get_all_inventory(
+            user_id=current_user.id if current_user else None,
+            pantry_id=pantry_id
+        )
         
         # Apply filters
         if location:
@@ -661,6 +841,12 @@ def create_inventory_item(
                 detail=f"Product with ID {item_data.product_id} not found"
             )
         
+        # Get or create default pantry if pantry_id not provided
+        pantry_id = item_data.pantry_id
+        if pantry_id is None:
+            default_pantry = service.get_or_create_default_pantry(current_user.id)
+            pantry_id = default_pantry.id
+        
         item = service.add_inventory_item(
             product_id=item_data.product_id,
             quantity=item_data.quantity,
@@ -671,7 +857,8 @@ def create_inventory_item(
             image_path=item_data.image_path,
             notes=item_data.notes,
             status=item_data.status,
-            user_id=current_user.id
+            user_id=current_user.id,
+            pantry_id=pantry_id
         )
         logger.info(f"Created inventory item ID {item.id}")
         return enrich_inventory_item(item)
@@ -733,6 +920,15 @@ def update_inventory_item(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Product with ID {update_data['product_id']} not found"
+                )
+        
+        # If pantry_id is being updated, verify it belongs to the user
+        if 'pantry_id' in update_data and update_data['pantry_id'] is not None:
+            pantry = service.get_pantry(update_data['pantry_id'], current_user.id)
+            if not pantry:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Pantry with ID {update_data['pantry_id']} not found"
                 )
         
         updated_item = service.update_inventory_item(item_id, **update_data)
@@ -875,6 +1071,216 @@ def get_expired_items(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve expired items"
+        )
+
+
+# ============================================================================
+# Pantry Endpoints
+# ============================================================================
+
+@app.post("/api/pantries", response_model=PantryResponse, tags=["Pantries"])
+@limiter.limit("20/minute")
+def create_pantry(
+    request: Request,
+    pantry_data: PantryCreate,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> PantryResponse:
+    """
+    Create a new pantry for the current user.
+    
+    - **name**: Pantry name (required)
+    - **description**: Optional description
+    - **location**: Optional location/address
+    - **is_default**: Whether this should be the default pantry
+    """
+    try:
+        pantry = service.create_pantry(
+            user_id=current_user.id,
+            name=pantry_data.name,
+            description=pantry_data.description,
+            location=pantry_data.location,
+            is_default=pantry_data.is_default
+        )
+        logger.info(f"Created pantry '{pantry.name}' for user {current_user.id}")
+        return pantry
+        
+    except Exception as e:
+        logger.error(f"Error creating pantry: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create pantry"
+        )
+
+
+@app.get("/api/pantries", response_model=List[PantryResponse], tags=["Pantries"])
+@limiter.limit("100/minute")
+def get_pantries(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> List[PantryResponse]:
+    """
+    Get all pantries for the current user.
+    
+    Returns list of pantries, with default pantry first.
+    """
+    try:
+        pantries = service.get_user_pantries(current_user.id)
+        
+        # If user has no pantries, create a default one
+        if not pantries:
+            default_pantry = service.get_or_create_default_pantry(current_user.id)
+            pantries = [default_pantry]
+        
+        logger.info(f"Retrieved {len(pantries)} pantries for user {current_user.id}")
+        return pantries
+        
+    except Exception as e:
+        logger.error(f"Error retrieving pantries: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve pantries"
+        )
+
+
+@app.get("/api/pantries/{pantry_id}", response_model=PantryResponse, tags=["Pantries"])
+@limiter.limit("100/minute")
+def get_pantry(
+    request: Request,
+    pantry_id: int,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> PantryResponse:
+    """
+    Get a specific pantry by ID.
+    
+    - **pantry_id**: Pantry ID
+    """
+    try:
+        pantry = service.get_pantry(pantry_id, current_user.id)
+        if not pantry:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Pantry with ID {pantry_id} not found"
+            )
+        
+        return pantry
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving pantry {pantry_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve pantry"
+        )
+
+
+@app.get("/api/pantries/default", response_model=PantryResponse, tags=["Pantries"])
+@limiter.limit("100/minute")
+def get_default_pantry(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> PantryResponse:
+    """
+    Get or create the default pantry for the current user.
+    
+    If no default pantry exists, creates one named "Home".
+    """
+    try:
+        pantry = service.get_or_create_default_pantry(current_user.id)
+        return pantry
+        
+    except Exception as e:
+        logger.error(f"Error getting default pantry: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get default pantry"
+        )
+
+
+@app.put("/api/pantries/{pantry_id}", response_model=PantryResponse, tags=["Pantries"])
+@limiter.limit("20/minute")
+def update_pantry(
+    request: Request,
+    pantry_id: int,
+    pantry_data: PantryUpdate,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> PantryResponse:
+    """
+    Update a pantry.
+    
+    - **pantry_id**: Pantry ID
+    - Only provided fields will be updated
+    """
+    try:
+        pantry = service.update_pantry(
+            pantry_id=pantry_id,
+            user_id=current_user.id,
+            name=pantry_data.name,
+            description=pantry_data.description,
+            location=pantry_data.location,
+            is_default=pantry_data.is_default
+        )
+        
+        if not pantry:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Pantry with ID {pantry_id} not found"
+            )
+        
+        logger.info(f"Updated pantry ID {pantry_id}")
+        return pantry
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating pantry {pantry_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update pantry"
+        )
+
+
+@app.delete("/api/pantries/{pantry_id}", response_model=MessageResponse, tags=["Pantries"])
+@limiter.limit("20/minute")
+def delete_pantry(
+    request: Request,
+    pantry_id: int,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+) -> MessageResponse:
+    """
+    Delete a pantry.
+    
+    Note: Inventory items in this pantry will have pantry_id set to NULL.
+    
+    - **pantry_id**: Pantry ID
+    """
+    try:
+        deleted = service.delete_pantry(pantry_id, current_user.id)
+        
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Pantry with ID {pantry_id} not found"
+            )
+        
+        logger.info(f"Deleted pantry ID {pantry_id}")
+        return MessageResponse(
+            message=f"Pantry {pantry_id} deleted successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting pantry {pantry_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete pantry"
         )
 
 
@@ -1023,9 +1429,17 @@ def process_single_image(
     file: UploadFile = File(...),
     storage_location: str = Form("pantry"),
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
+    db: Session = Depends(get_db)
 ) -> Dict:
-    """Process a single uploaded image through OCR and AI analysis."""
+    """
+    Process a single uploaded image through OCR and AI analysis.
+    
+    Security: Enhanced file validation and security event logging.
+    """
+    ip_address = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    
     try:
         # Validate storage_location
         if storage_location not in ["pantry", "fridge", "freezer"]:
@@ -1034,21 +1448,43 @@ def process_single_image(
                 detail="storage_location must be one of: pantry, fridge, freezer"
             )
         
-        # Validate file type (be lenient - React Native might not send content-type)
-        if file.content_type and not file.content_type.startswith("image/"):
+        # Enhanced file validation (Phase 2 security)
+        try:
+            validate_image_file(file)
+        except HTTPException as e:
+            # Log file validation failure
+            log_security_event(
+                db=db,
+                event_type="file_upload_validation_failed",
+                user_id=current_user.id,
+                ip_address=ip_address,
+                details={
+                    "filename": file.filename,
+                    "content_type": file.content_type,
+                    "error": str(e.detail)
+                },
+                severity="warning",
+                user_agent=user_agent
+            )
+            raise
+        except Exception as e:
+            logger.error(f"File validation error: {e}", exc_info=True)
+            log_security_event(
+                db=db,
+                event_type="file_upload_validation_error",
+                user_id=current_user.id,
+                ip_address=ip_address,
+                details={
+                    "filename": file.filename,
+                    "error": str(e)
+                },
+                severity="error",
+                user_agent=user_agent
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File must be an image, got: {file.content_type}"
+                detail=f"File validation failed: {str(e)}"
             )
-        
-        # Validate filename extension
-        if file.filename:
-            ext = Path(file.filename).suffix.lower()
-            if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"File must be an image (jpg, png, etc.), got: {ext}"
-                )
         
         # Save uploaded file temporarily
         try:
@@ -1139,6 +1575,9 @@ def process_single_image(
                     logger.warning(f"Could not parse expiration date: {product_data.expiration_date}, error: {e}")
                     exp_date = None
             
+            # Get or create default pantry for user
+            default_pantry = service.get_or_create_default_pantry(current_user.id)
+            
             # Create inventory item
             item = service.add_inventory_item(
                 product_id=product.id,
@@ -1148,7 +1587,8 @@ def process_single_image(
                 expiration_date=exp_date,
                 image_path=file.filename,
                 notes=f"Processed from uploaded image",
-                user_id=current_user.id
+                user_id=current_user.id,
+                pantry_id=default_pantry.id
             )
             
             # Create processing log
@@ -1168,6 +1608,24 @@ def process_single_image(
             result = enrich_inventory_item(item)
             
             logger.info(f"Successfully processed image: {product_data.product_name}")
+            
+            # Log successful file upload
+            log_security_event(
+                db=db,
+                event_type="file_upload_success",
+                user_id=current_user.id,
+                ip_address=ip_address,
+                details={
+                    "filename": file.filename,
+                    "product_name": product_data.product_name,
+                    "file_size": file.size if hasattr(file, 'size') else None,
+                    "ocr_confidence": ocr_confidence,
+                    "ai_confidence": ai_confidence
+                },
+                severity="info",
+                user_agent=user_agent
+            )
+            
             return {
                 "success": True,
                 "message": f"Successfully processed {product_data.product_name}",
@@ -1184,12 +1642,41 @@ def process_single_image(
             if tmp_path.exists():
                 tmp_path.unlink()
                 
-    except HTTPException:
+    except HTTPException as e:
+        # Log HTTP exceptions (validation errors, etc.)
+        log_security_event(
+            db=db,
+            event_type="file_upload_failed",
+            user_id=current_user.id if 'current_user' in locals() else None,
+            ip_address=ip_address if 'ip_address' in locals() else get_client_ip(request),
+            details={
+                "filename": file.filename if file else None,
+                "error": str(e.detail),
+                "status_code": e.status_code
+            },
+            severity="warning",
+            user_agent=user_agent if 'user_agent' in locals() else get_user_agent(request)
+        )
         raise
     except Exception as e:
         logger.error(f"Error processing image: {e}", exc_info=True)
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Log file upload error
+        log_security_event(
+            db=db,
+            event_type="file_upload_error",
+            user_id=current_user.id if 'current_user' in locals() else None,
+            ip_address=ip_address if 'ip_address' in locals() else get_client_ip(request),
+            details={
+                "filename": file.filename if file else None,
+                "error": str(e)
+            },
+            severity="error",
+            user_agent=user_agent if 'user_agent' in locals() else get_user_agent(request)
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process image: {str(e)}"
@@ -1371,16 +1858,30 @@ def refresh_inventory(
 # ============================================================================
 
 @app.post("/api/recipes/generate-one", response_model=RecipeResponse, tags=["Recipes"])
+@limiter.limit(f"{config.rate_limit_recipe_per_hour}/hour")
 def generate_single_recipe(
-    request: SingleRecipeRequest,
+    request: Request,
+    recipe_request: SingleRecipeRequest,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> Dict:
     """
     Generate a single recipe (for incremental display).
+    
+    Uses the user's default pantry if pantry_id is not specified in the request.
     """
     try:
-        # Get inventory items
-        all_items = service.get_all_inventory()
+        # Get pantry_id from request or use default
+        pantry_id = recipe_request.pantry_id
+        if pantry_id is None and current_user:
+            default_pantry = service.get_or_create_default_pantry(current_user.id)
+            pantry_id = default_pantry.id
+        
+        # Get inventory items filtered by pantry
+        all_items = service.get_all_inventory(
+            user_id=current_user.id if current_user else None,
+            pantry_id=pantry_id
+        )
         available_items = [item for item in all_items if item.status == "in_stock"]
         
         if not available_items:
@@ -1390,7 +1891,7 @@ def generate_single_recipe(
             )
         
         # Filter out excluded ingredients
-        excluded_names = set(request.excluded_ingredients or [])
+        excluded_names = set(recipe_request.excluded_ingredients or [])
         filtered_items = []
         for item in available_items:
             product_name = item.product.product_name if item.product else None
@@ -1404,8 +1905,8 @@ def generate_single_recipe(
             )
         
         # Verify required ingredients are available
-        if request.required_ingredients:
-            required_names = set(request.required_ingredients)
+        if recipe_request.required_ingredients:
+            required_names = set(recipe_request.required_ingredients)
             available_names = {item.product.product_name for item in filtered_items if item.product}
             missing_required = required_names - available_names
             
@@ -1441,12 +1942,12 @@ def generate_single_recipe(
         
         # Extract required ingredient names (for prompt)
         required_ingredient_names = None
-        if request.required_ingredients:
+        if recipe_request.required_ingredients:
             required_ingredient_names = []
             for item in pantry_items:
                 product = item['product']
                 name = product['product_name']
-                if name in request.required_ingredients:
+                if name in recipe_request.required_ingredients:
                     brand = product.get('brand')
                     if brand:
                         required_ingredient_names.append(f"{brand} {name}")
@@ -1461,13 +1962,13 @@ def generate_single_recipe(
         logger.info(f"Generating 1 recipe from {len(pantry_items)} ingredients")
         recipe = recipe_generator._generate_single_recipe(
             ingredients=ingredient_list,
-            cuisine=request.cuisine,
-            difficulty=request.difficulty,
-            dietary_restrictions=request.dietary_restrictions,
-            avoid_previous=request.avoid_names or [],
+            cuisine=recipe_request.cuisine,
+            difficulty=recipe_request.difficulty,
+            dietary_restrictions=recipe_request.dietary_restrictions,
+            avoid_previous=recipe_request.avoid_names or [],
             required_ingredients=required_ingredient_names,
-            excluded_ingredients=request.excluded_ingredients,
-            allow_missing_ingredients=request.allow_missing_ingredients
+            excluded_ingredients=recipe_request.excluded_ingredients,
+            allow_missing_ingredients=recipe_request.allow_missing_ingredients
         )
         
         if not recipe:
@@ -1524,8 +2025,11 @@ def generate_single_recipe(
 
 
 @app.post("/api/recipes/generate", response_model=List[RecipeResponse], tags=["Recipes"])
+@limiter.limit(f"{config.rate_limit_recipe_per_hour}/hour")
 def generate_recipes(
-    request: RecipeRequest,
+    request: Request,
+    recipe_request: RecipeRequest,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> List[Dict]:
     """
@@ -1538,10 +2042,20 @@ def generate_recipes(
     - **difficulty**: Optional difficulty level (easy, medium, hard)
     - **dietary_restrictions**: Optional list of dietary restrictions
     - **allow_missing_ingredients**: If True, allow recipes to include 2-4 ingredients not in pantry (will be listed as missing)
+    - **pantry_id**: Optional pantry ID (defaults to user's default pantry)
     """
     try:
-        # Get inventory items
-        all_items = service.get_all_inventory()
+        # Get pantry_id from request or use default
+        pantry_id = recipe_request.pantry_id
+        if pantry_id is None and current_user:
+            default_pantry = service.get_or_create_default_pantry(current_user.id)
+            pantry_id = default_pantry.id
+        
+        # Get inventory items filtered by pantry
+        all_items = service.get_all_inventory(
+            user_id=current_user.id if current_user else None,
+            pantry_id=pantry_id
+        )
         
         # Filter to in_stock items only
         available_items = [item for item in all_items if item.status == "in_stock"]
@@ -1553,7 +2067,7 @@ def generate_recipes(
             )
         
         # Filter out excluded ingredients
-        excluded_names = set(request.excluded_ingredients or [])
+        excluded_names = set(recipe_request.excluded_ingredients or [])
         filtered_items = []
         for item in available_items:
             product_name = item.product.product_name if item.product else None
@@ -1567,8 +2081,8 @@ def generate_recipes(
             )
         
         # Verify required ingredients are available
-        if request.required_ingredients:
-            required_names = set(request.required_ingredients)
+        if recipe_request.required_ingredients:
+            required_names = set(recipe_request.required_ingredients)
             available_names = {item.product.product_name for item in filtered_items if item.product}
             missing_required = required_names - available_names
             
@@ -1593,12 +2107,12 @@ def generate_recipes(
         
         # Extract required ingredient names (for prompt)
         required_ingredient_names = None
-        if request.required_ingredients:
+        if recipe_request.required_ingredients:
             required_ingredient_names = []
             for item in pantry_items:
                 product = item['product']
                 name = product['product_name']
-                if name in request.required_ingredients:
+                if name in recipe_request.required_ingredients:
                     brand = product.get('brand')
                     if brand:
                         required_ingredient_names.append(f"{brand} {name}")
@@ -1610,16 +2124,16 @@ def generate_recipes(
         recipe_generator = RecipeGenerator(ai_analyzer)
         
         # Generate recipes
-        logger.info(f"Generating {request.max_recipes} recipes from {len(pantry_items)} ingredients")
+        logger.info(f"Generating {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients")
         recipes = recipe_generator.generate_recipes(
             pantry_items=pantry_items,
-            num_recipes=request.max_recipes,
-            cuisine=request.cuisine,
-            difficulty=request.difficulty,
-            dietary_restrictions=request.dietary_restrictions,
+            num_recipes=recipe_request.max_recipes,
+            cuisine=recipe_request.cuisine,
+            difficulty=recipe_request.difficulty,
+            dietary_restrictions=recipe_request.dietary_restrictions,
             required_ingredients=required_ingredient_names,
-            excluded_ingredients=request.excluded_ingredients,
-            allow_missing_ingredients=request.allow_missing_ingredients
+            excluded_ingredients=recipe_request.excluded_ingredients,
+            allow_missing_ingredients=recipe_request.allow_missing_ingredients
         )
         
         # Convert to response format
@@ -1743,12 +2257,15 @@ def get_saved_recipes(
     """
     Get all saved recipes from recipe box.
     
+    Returns only recipes for the current authenticated user.
+    
     - **cuisine**: Optional cuisine filter
     - **difficulty**: Optional difficulty filter
     - **limit**: Maximum number of recipes to return
     """
     try:
         recipes = service.get_saved_recipes(
+            user_id=current_user.id,
             cuisine=cuisine,
             difficulty=difficulty,
             limit=limit
@@ -1784,10 +2301,13 @@ def get_saved_recipes(
 @app.get("/api/recipes/saved/{recipe_id}", response_model=SavedRecipeResponse, tags=["Recipes"])
 def get_saved_recipe(
     recipe_id: int,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> Dict:
     """
     Get a specific saved recipe by ID.
+    
+    Returns only if the recipe belongs to the current authenticated user.
     
     - **recipe_id**: Recipe ID to retrieve
     """
@@ -1797,6 +2317,13 @@ def get_saved_recipe(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Recipe with ID {recipe_id} not found"
+            )
+        
+        # Ensure recipe belongs to current user
+        if recipe.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this recipe"
             )
         
         return recipe.to_dict()
@@ -1815,29 +2342,40 @@ def get_saved_recipe(
 def update_saved_recipe(
     recipe_id: int,
     recipe_data: SavedRecipeUpdate,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> Dict:
     """
     Update a saved recipe (notes, rating, tags).
     
+    Only allows updating recipes that belong to the current authenticated user.
+    
     - **recipe_id**: Recipe ID to update
     """
     try:
-        recipe = service.update_saved_recipe(
-            recipe_id=recipe_id,
-            notes=recipe_data.notes,
-            rating=recipe_data.rating,
-            tags=recipe_data.tags
-        )
-        
+        recipe = service.get_saved_recipe(recipe_id)
         if not recipe:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Recipe with ID {recipe_id} not found"
             )
         
+        # Ensure recipe belongs to current user
+        if recipe.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this recipe"
+            )
+        
+        updated_recipe = service.update_saved_recipe(
+            recipe_id=recipe_id,
+            notes=recipe_data.notes,
+            rating=recipe_data.rating,
+            tags=recipe_data.tags
+        )
+        
         logger.info(f"Updated recipe ID {recipe_id}")
-        return recipe.to_dict()
+        return updated_recipe.to_dict()
         
     except HTTPException:
         raise
@@ -1852,14 +2390,31 @@ def update_saved_recipe(
 @app.delete("/api/recipes/saved/{recipe_id}", response_model=MessageResponse, tags=["Recipes"])
 def delete_saved_recipe(
     recipe_id: int,
+    current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service)
 ) -> MessageResponse:
     """
     Delete a saved recipe.
     
+    Only allows deleting recipes that belong to the current authenticated user.
+    
     - **recipe_id**: Recipe ID to delete
     """
     try:
+        recipe = service.get_saved_recipe(recipe_id)
+        if not recipe:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Recipe with ID {recipe_id} not found"
+            )
+        
+        # Ensure recipe belongs to current user
+        if recipe.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to delete this recipe"
+            )
+        
         deleted = service.delete_saved_recipe(recipe_id)
         
         if not deleted:
@@ -1880,6 +2435,57 @@ def delete_saved_recipe(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete recipe"
+        )
+
+
+# ============================================================================
+# Admin Endpoints - Security Audit Logging (Phase 2)
+# ============================================================================
+
+@app.get("/api/admin/audit-logs", tags=["Admin"])
+def get_audit_logs(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum records to return"),
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    severity: Optional[str] = Query(None, description="Filter by severity"),
+    user_id: Optional[int] = Query(None, description="Filter by user ID"),
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+) -> List[Dict]:
+    """
+    Get security audit logs (admin only).
+    
+    Returns security events for monitoring and auditing purposes.
+    Filterable by event type, severity, and user ID.
+    """
+    try:
+        from src.database import SecurityEvent
+        
+        # Build query
+        query = db.query(SecurityEvent)
+        
+        # Apply filters
+        if event_type:
+            query = query.filter(SecurityEvent.event_type == event_type)
+        if severity:
+            query = query.filter(SecurityEvent.severity == severity)
+        if user_id:
+            query = query.filter(SecurityEvent.user_id == user_id)
+        
+        # Order by most recent first
+        query = query.order_by(SecurityEvent.created_at.desc())
+        
+        # Apply pagination
+        events = query.offset(skip).limit(limit).all()
+        
+        # Convert to dict
+        return [event.to_dict() for event in events]
+        
+    except Exception as e:
+        logger.error(f"Error retrieving audit logs: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve audit logs: {str(e)}"
         )
 
 

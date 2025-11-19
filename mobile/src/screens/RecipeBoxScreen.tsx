@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import type { SavedRecipe } from '../types';
 
 export default function RecipeBoxScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -68,7 +67,8 @@ export default function RecipeBoxScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="titleLarge" style={styles.title}>
         Recipe Box
       </Text>
@@ -130,7 +130,8 @@ export default function RecipeBoxScreen() {
           );
         })
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

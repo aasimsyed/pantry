@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
+import { PantrySelector } from '../components/PantrySelector';
 import type { InventoryItem, SourceDirectory, ProcessImageResult, RefreshInventoryResult } from '../types';
 
 export default function Inventory() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Pantry selection
+  const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,16 +50,20 @@ export default function Inventory() {
   });
 
   useEffect(() => {
-    loadInventory();
+    if (selectedPantryId !== undefined) {
+      loadInventory();
+    }
     loadSourceDirectory();
-  }, [locationFilter, statusFilter]);
+  }, [locationFilter, statusFilter, selectedPantryId]);
 
   const loadInventory = async () => {
+    if (selectedPantryId === undefined) return;
+    
     try {
       setLoading(true);
       const location = locationFilter === 'All' ? undefined : locationFilter;
       const status = statusFilter === 'All' ? undefined : statusFilter;
-      const data = await apiClient.getInventory(0, 1000, location, status);
+      const data = await apiClient.getInventory(0, 1000, location, status, selectedPantryId);
       setItems(data);
       setError(null);
     } catch (err: any) {
@@ -250,6 +258,13 @@ export default function Inventory() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">📦 Inventory Management</h1>
         <p className="text-gray-600">View and manage all pantry items</p>
+        <div className="mt-4">
+          <PantrySelector
+            selectedPantryId={selectedPantryId}
+            onPantryChange={setSelectedPantryId}
+            showCreateButton={true}
+          />
+        </div>
       </div>
 
       {/* Image Processing Section */}

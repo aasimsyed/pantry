@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ScrollView, StyleSheet, View, Alert } from 'react-native';
 import {
   Card,
@@ -15,15 +15,17 @@ import {
   Dialog,
   Searchbar,
 } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
+import { PantrySelector } from '../components/PantrySelector';
 import type { Recipe, InventoryItem } from '../types';
 
 export default function RecipesScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
+  const [loadingIngredients, setLoadingIngredients] = useState(false);
+  const [ingredientsError, setIngredientsError] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -39,23 +41,45 @@ export default function RecipesScreen() {
   const [difficultyMenuVisible, setDifficultyMenuVisible] = useState(false);
   const [requiredIngredientsDialogVisible, setRequiredIngredientsDialogVisible] = useState(false);
   const [excludedIngredientsDialogVisible, setExcludedIngredientsDialogVisible] = useState(false);
+  const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
 
-  useEffect(() => {
-    loadAvailableIngredients();
-  }, []);
-
-  const loadAvailableIngredients = async () => {
+  // Load available ingredients from API
+  const loadAvailableIngredients = useCallback(async () => {
+    if (selectedPantryId === undefined) return;
+    
+    setLoadingIngredients(true);
+    setIngredientsError(null);
     try {
-      const items = await apiClient.getInventory(0, 1000, undefined, 'in_stock');
+      console.log('Loading ingredients from API...');
+      const items = await apiClient.getInventory(0, 1000, undefined, 'in_stock', selectedPantryId);
+      console.log(`Loaded ${items.length} inventory items`);
       const uniqueNames = new Set<string>();
       items.forEach((item) => {
         if (item.product_name) uniqueNames.add(item.product_name);
       });
-      setAvailableIngredients(Array.from(uniqueNames).sort());
+      const ingredients = Array.from(uniqueNames).sort();
+      console.log(`Extracted ${ingredients.length} unique ingredients:`, ingredients);
+      setAvailableIngredients(ingredients);
+      setIngredientsError(null);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load ingredients');
+      console.error('Error loading ingredients:', err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to load ingredients';
+      setIngredientsError(errorMessage);
+      setAvailableIngredients([]);
+      // Don't show alert here - let the dialog show the error message
+    } finally {
+      setLoadingIngredients(false);
     }
-  };
+  }, [selectedPantryId]);
+
+  // Reload ingredients when screen comes into focus or pantry changes
+  useFocusEffect(
+    useCallback(() => {
+      if (selectedPantryId !== undefined) {
+        loadAvailableIngredients();
+      }
+    }, [loadAvailableIngredients, selectedPantryId])
+  );
 
   const handleGenerateRecipes = async () => {
     try {
@@ -77,6 +101,7 @@ export default function RecipesScreen() {
           dietary_restrictions: dietaryRestrictions.length > 0 ? dietaryRestrictions : undefined,
           avoid_names: avoidNames,
           allow_missing_ingredients: allowMissing,
+          pantry_id: selectedPantryId,
         });
 
         newRecipes.push(recipe);
@@ -103,8 +128,8 @@ export default function RecipesScreen() {
         prep_time: recipe.prep_time,
         cook_time: recipe.cook_time,
         servings: recipe.servings,
-        ingredients: recipe.ingredients,
-        instructions: recipe.instructions,
+        ingredients: recipe.ingredients as any, // API expects arrays
+        instructions: recipe.instructions as any, // API expects arrays
       });
       Alert.alert('Success', `Saved "${recipe.name}" to recipe box!`);
     } catch (err: any) {
@@ -130,7 +155,31 @@ export default function RecipesScreen() {
     ing.toLowerCase().includes(excludedSearchQuery.toLowerCase())
   );
 
-  if (availableIngredients.length === 0) {
+  if (loadingIngredients) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#0284c7" />
+        <Text variant="bodyLarge" style={{ marginTop: 16 }}>
+          Loading ingredients...
+        </Text>
+      </View>
+    );
+  }
+
+  if (ingredientsError && availableIngredients.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text variant="bodyLarge" style={{ color: '#dc2626', marginBottom: 16 }}>
+          {ingredientsError}
+        </Text>
+        <Button mode="contained" onPress={loadAvailableIngredients}>
+          Retry
+        </Button>
+      </View>
+    );
+  }
+
+  if (availableIngredients.length === 0 && !loadingIngredients) {
     return (
       <View style={styles.center}>
         <Text variant="bodyLarge">No items in stock. Add items to your pantry first!</Text>
@@ -139,10 +188,16 @@ export default function RecipesScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="titleLarge" style={styles.title}>
         Recipe Suggestions
       </Text>
+
+      <PantrySelector
+        selectedPantryId={selectedPantryId}
+        onPantryChange={setSelectedPantryId}
+      />
 
       <Card style={styles.card}>
         <Card.Content>
@@ -272,8 +327,8 @@ export default function RecipesScreen() {
             mode="outlined"
             onPress={async () => {
               setRequiredSearchQuery('');
-              // Ensure ingredients are loaded
-              if (availableIngredients.length === 0) {
+              // Reload ingredients if empty or if there was an error
+              if (availableIngredients.length === 0 || ingredientsError) {
                 await loadAvailableIngredients();
               }
               setRequiredIngredientsDialogVisible(true);
@@ -304,8 +359,8 @@ export default function RecipesScreen() {
             mode="outlined"
             onPress={async () => {
               setExcludedSearchQuery('');
-              // Ensure ingredients are loaded
-              if (availableIngredients.length === 0) {
+              // Reload ingredients if empty or if there was an error
+              if (availableIngredients.length === 0 || ingredientsError) {
                 await loadAvailableIngredients();
               }
               setExcludedIngredientsDialogVisible(true);
@@ -411,8 +466,9 @@ export default function RecipesScreen() {
           style={styles.dialog}
         >
           <Dialog.Title>Select Required Ingredients</Dialog.Title>
-          <Dialog.ScrollArea style={styles.dialogScrollArea}>
+          <Dialog.Content style={styles.dialogContent}>
             <ScrollView
+              style={styles.dialogScrollView}
               contentContainerStyle={styles.dialogScrollContent}
               showsVerticalScrollIndicator={true}
             >
@@ -422,37 +478,57 @@ export default function RecipesScreen() {
                 value={requiredSearchQuery}
                 style={styles.searchbar}
               />
-              {availableIngredients.length === 0 ? (
-                <Text variant="bodyMedium" style={styles.noResults}>
-                  Loading ingredients...
-                </Text>
+              {loadingIngredients ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#0284c7" />
+                  <Text variant="bodyMedium" style={styles.loadingText}>
+                    Loading ingredients...
+                  </Text>
+                </View>
+              ) : ingredientsError ? (
+                <View style={styles.errorContainer}>
+                  <Text variant="bodyMedium" style={styles.errorText}>
+                    {ingredientsError}
+                  </Text>
+                  <Button
+                    mode="outlined"
+                    onPress={loadAvailableIngredients}
+                    style={styles.retryButton}
+                  >
+                    Retry
+                  </Button>
+                </View>
               ) : filteredRequiredIngredients.length > 0 ? (
-                filteredRequiredIngredients.map((ing) => (
-                  <View key={ing} style={styles.checkboxRow}>
-                    <Checkbox
-                      status={requiredIngredients.includes(ing) ? 'checked' : 'unchecked'}
-                      onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
-                    />
-                    <Text
-                      variant="bodyMedium"
-                      onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
-                      style={styles.checkboxText}
-                    >
-                      {ing}
-                    </Text>
-                  </View>
-                ))
+                <>
+                  {console.log('Rendering ingredients list:', filteredRequiredIngredients)}
+                  {filteredRequiredIngredients.map((ing) => {
+                    console.log('Rendering ingredient:', ing);
+                    return (
+                      <View key={ing} style={styles.checkboxRow}>
+                        <Checkbox
+                          status={requiredIngredients.includes(ing) ? 'checked' : 'unchecked'}
+                          onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
+                        />
+                        <Text
+                          variant="bodyMedium"
+                          onPress={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}
+                          style={styles.checkboxText}
+                        >
+                          {ing}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </>
               ) : (
                 <Text variant="bodyMedium" style={styles.noResults}>
-                  {availableIngredients.length === 0
-                    ? 'No ingredients available. Add items to your pantry first!'
-                    : requiredSearchQuery
-                    ? 'No ingredients match your search'
-                    : 'No ingredients found'}
+                  {requiredSearchQuery
+                    ? `No ingredients match "${requiredSearchQuery}". Available: ${availableIngredients.join(', ')}`
+                    : `No ingredients available. Count: ${availableIngredients.length}. Add items to your pantry first!`}
                 </Text>
               )}
             </ScrollView>
-          </Dialog.ScrollArea>
+          </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setRequiredIngredientsDialogVisible(false)}>Done</Button>
           </Dialog.Actions>
@@ -467,8 +543,9 @@ export default function RecipesScreen() {
           style={styles.dialog}
         >
           <Dialog.Title>Select Excluded Ingredients</Dialog.Title>
-          <Dialog.ScrollArea style={styles.dialogScrollArea}>
+          <Dialog.Content style={styles.dialogContent}>
             <ScrollView
+              style={styles.dialogScrollView}
               contentContainerStyle={styles.dialogScrollContent}
               showsVerticalScrollIndicator={true}
             >
@@ -478,43 +555,64 @@ export default function RecipesScreen() {
                 value={excludedSearchQuery}
                 style={styles.searchbar}
               />
-              {availableIngredients.length === 0 ? (
-                <Text variant="bodyMedium" style={styles.noResults}>
-                  Loading ingredients...
-                </Text>
+              {loadingIngredients ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#0284c7" />
+                  <Text variant="bodyMedium" style={styles.loadingText}>
+                    Loading ingredients...
+                  </Text>
+                </View>
+              ) : ingredientsError ? (
+                <View style={styles.errorContainer}>
+                  <Text variant="bodyMedium" style={styles.errorText}>
+                    {ingredientsError}
+                  </Text>
+                  <Button
+                    mode="outlined"
+                    onPress={loadAvailableIngredients}
+                    style={styles.retryButton}
+                  >
+                    Retry
+                  </Button>
+                </View>
               ) : filteredExcludedIngredients.length > 0 ? (
-                filteredExcludedIngredients.map((ing) => (
-                  <View key={ing} style={styles.checkboxRow}>
-                    <Checkbox
-                      status={excludedIngredients.includes(ing) ? 'checked' : 'unchecked'}
-                      onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
-                    />
-                    <Text
-                      variant="bodyMedium"
-                      onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
-                      style={styles.checkboxText}
-                    >
-                      {ing}
-                    </Text>
-                  </View>
-                ))
+                <>
+                  {console.log('Rendering excluded ingredients list:', filteredExcludedIngredients)}
+                  {filteredExcludedIngredients.map((ing) => {
+                    console.log('Rendering excluded ingredient:', ing);
+                    return (
+                      <View key={ing} style={styles.checkboxRow}>
+                        <Checkbox
+                          status={excludedIngredients.includes(ing) ? 'checked' : 'unchecked'}
+                          onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
+                        />
+                        <Text
+                          variant="bodyMedium"
+                          onPress={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}
+                          style={styles.checkboxText}
+                        >
+                          {ing}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </>
               ) : (
                 <Text variant="bodyMedium" style={styles.noResults}>
-                  {availableIngredients.length === 0
-                    ? 'No ingredients available. Add items to your pantry first!'
-                    : excludedSearchQuery
-                    ? 'No ingredients match your search'
-                    : 'No ingredients found'}
+                  {excludedSearchQuery
+                    ? `No ingredients match "${excludedSearchQuery}". Available: ${availableIngredients.join(', ')}`
+                    : `No ingredients available. Count: ${availableIngredients.length}. Add items to your pantry first!`}
                 </Text>
               )}
             </ScrollView>
-          </Dialog.ScrollArea>
+          </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setExcludedIngredientsDialogVisible(false)}>Done</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -634,9 +732,12 @@ const styles = StyleSheet.create({
   dialog: {
     maxHeight: '80%',
   },
-  dialogScrollArea: {
+  dialogContent: {
     maxHeight: 400,
     paddingHorizontal: 0,
+  },
+  dialogScrollView: {
+    maxHeight: 400,
   },
   dialogScrollContent: {
     paddingHorizontal: 8,
@@ -658,6 +759,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#6b7280',
     padding: 16,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  loadingText: {
+    marginLeft: 8,
+    color: '#6b7280',
+  },
+  errorContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#dc2626',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
   },
 });
 

@@ -69,7 +69,7 @@ class InventoryItemBase(BaseModel):
 
 class InventoryItemCreate(InventoryItemBase):
     """Request model for creating an inventory item."""
-    pass
+    pantry_id: Optional[int] = Field(None, description="Pantry ID (optional)")
 
 
 class InventoryItemUpdate(BaseModel):
@@ -83,6 +83,7 @@ class InventoryItemUpdate(BaseModel):
     image_path: Optional[str] = Field(None, max_length=500)
     notes: Optional[str] = None
     status: Optional[str] = Field(None, max_length=50)
+    pantry_id: Optional[int] = Field(None, description="Pantry ID (optional)")
 
 
 class InventoryItemResponse(InventoryItemBase):
@@ -90,6 +91,9 @@ class InventoryItemResponse(InventoryItemBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    user_id: Optional[int] = Field(None, description="User ID")
+    pantry_id: Optional[int] = Field(None, description="Pantry ID")
+    pantry_name: Optional[str] = Field(None, description="Pantry name")
     
     # Computed fields from helper properties
     days_until_expiration: Optional[int] = Field(None, description="Days until expiration (negative if expired)")
@@ -106,6 +110,41 @@ class InventoryItemResponse(InventoryItemBase):
 class ConsumeRequest(BaseModel):
     """Request model for consuming an item."""
     quantity: Optional[float] = Field(None, gt=0, description="Quantity to consume (if partial)")
+
+
+# ============================================================================
+# Pantry Models
+# ============================================================================
+
+class PantryBase(BaseModel):
+    """Base model for pantry data."""
+    name: str = Field(..., min_length=1, max_length=255, description="Pantry name")
+    description: Optional[str] = Field(None, description="Pantry description")
+    location: Optional[str] = Field(None, max_length=255, description="Location/address")
+    is_default: bool = Field(False, description="Whether this is the default pantry")
+
+
+class PantryCreate(PantryBase):
+    """Request model for creating a pantry."""
+    pass
+
+
+class PantryUpdate(BaseModel):
+    """Request model for updating a pantry. All fields are optional."""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    location: Optional[str] = Field(None, max_length=255)
+    is_default: Optional[bool] = None
+
+
+class PantryResponse(PantryBase):
+    """Response model for pantry data."""
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -176,6 +215,7 @@ class RecipeRequest(BaseModel):
     difficulty: Optional[str] = Field(None, description="Difficulty level (easy/medium/hard)")
     dietary_restrictions: Optional[List[str]] = Field(None, description="Dietary restrictions")
     allow_missing_ingredients: bool = Field(default=False, description="Allow recipes to include 2-4 ingredients not in pantry (will be listed as missing)")
+    pantry_id: Optional[int] = Field(None, description="Pantry ID to use (defaults to user's default pantry)")
 
 
 class SingleRecipeRequest(BaseModel):
@@ -187,6 +227,7 @@ class SingleRecipeRequest(BaseModel):
     dietary_restrictions: Optional[List[str]] = Field(None, description="Dietary restrictions")
     avoid_names: Optional[List[str]] = Field(None, description="List of recipe names to avoid (for variety)")
     allow_missing_ingredients: bool = Field(default=False, description="Allow recipes to include 2-4 ingredients not in pantry (will be listed as missing)")
+    pantry_id: Optional[int] = Field(None, description="Pantry ID to use (defaults to user's default pantry)")
 
 
 class FlavorPairing(BaseModel):
