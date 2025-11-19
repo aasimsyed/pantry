@@ -1093,7 +1093,7 @@ class PantryService:
         Args:
             user_id: User ID
             ai_provider: AI provider ("openai" or "anthropic")
-            ai_model: AI model name (e.g., "gpt-4o", "claude-3-5-sonnet-20241022")
+            ai_model: AI model name (e.g., "gpt-4o", "claude-3-5-sonnet-20240620")
             
         Returns:
             Updated UserSettings object

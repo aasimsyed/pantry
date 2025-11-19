@@ -306,7 +306,7 @@ class RecipeGenerator:
             content = response.choices[0].message.content.strip()
         else:  # Claude
             message = backend.client.messages.create(
-                model=backend.config.model if "claude" in backend.config.model else "claude-3-5-sonnet-20241022",
+                model=backend.config.model if "claude" in backend.config.model else "claude-3-5-sonnet-20240620",
                 max_tokens=backend.config.max_tokens,
                 temperature=0.7,  # More creative for recipes
                 messages=[{"role": "user", "content": prompt}]

@@ -25,7 +25,7 @@ const AI_MODELS = {
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
   ],
   anthropic: [
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Recommended)' },
+    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet (Recommended)' },
     { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
     { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
   ],

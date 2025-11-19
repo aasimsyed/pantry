@@ -446,7 +446,7 @@ class ClaudeBackend(AIBackend):
             self.logger.debug(f"Calling Claude API with model {self.config.model}")
             
             message = self.client.messages.create(
-                model=self.config.model if "claude" in self.config.model else "claude-3-5-sonnet-20241022",
+                model=self.config.model if "claude" in self.config.model else "claude-3-5-sonnet-20240620",
                 max_tokens=self.config.max_tokens,
                 temperature=self.config.temperature,
                 messages=[{"role": "user", "content": prompt}]
