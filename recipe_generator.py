@@ -27,7 +27,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, Iterator
 
 from src.ai_analyzer import AIConfig, create_ai_analyzer
 
@@ -172,7 +172,7 @@ class RecipeGenerator:
         excluded_ingredients: Optional[List[str]] = None,
         allow_missing_ingredients: bool = False,
         stream: bool = False,
-    ) -> List[Dict]:
+    ) -> Union[List[Dict], Iterator[Dict]]:
         """Generate recipes using available ingredients.
         
         Args:
