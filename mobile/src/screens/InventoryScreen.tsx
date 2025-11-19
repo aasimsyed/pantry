@@ -40,6 +40,18 @@ export default function InventoryScreen() {
     purchase_date: '',
     notes: '',
   });
+  const [manualEntryDialogVisible, setManualEntryDialogVisible] = useState(false);
+  const [manualEntryFormData, setManualEntryFormData] = useState({
+    product_name: '',
+    brand: '',
+    quantity: 1,
+    unit: 'count',
+    storage_location: 'pantry' as 'pantry' | 'fridge' | 'freezer',
+    status: 'in_stock' as 'in_stock' | 'low',
+    expiration_date: '',
+    purchase_date: '',
+    notes: '',
+  });
 
   useEffect(() => {
     if (selectedPantryId !== undefined) {
@@ -192,6 +204,76 @@ export default function InventoryScreen() {
     }
   };
 
+  const handleManualEntry = async () => {
+    if (!manualEntryFormData.product_name.trim()) {
+      Alert.alert('Error', 'Product name is required');
+      return;
+    }
+
+    if (selectedPantryId === undefined) {
+      Alert.alert('Error', 'Please select a pantry first');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      
+      // Create or find product
+      let productId: number;
+      try {
+        const existing = await apiClient.searchProducts(manualEntryFormData.product_name);
+        if (existing.length > 0) {
+          productId = existing[0].id;
+        } else {
+          const product = await apiClient.createProduct({
+            product_name: manualEntryFormData.product_name,
+            brand: manualEntryFormData.brand || undefined,
+          });
+          productId = product.id;
+        }
+      } catch {
+        // If search fails, create new product
+        const product = await apiClient.createProduct({
+          product_name: manualEntryFormData.product_name,
+          brand: manualEntryFormData.brand || undefined,
+        });
+        productId = product.id;
+      }
+
+      // Create inventory item
+      await apiClient.createInventoryItem({
+        product_id: productId,
+        quantity: manualEntryFormData.quantity,
+        unit: manualEntryFormData.unit,
+        storage_location: manualEntryFormData.storage_location,
+        status: manualEntryFormData.status,
+        purchase_date: manualEntryFormData.purchase_date || undefined,
+        expiration_date: manualEntryFormData.expiration_date || undefined,
+        notes: manualEntryFormData.notes || undefined,
+        pantry_id: selectedPantryId,
+      });
+
+      Alert.alert('Success', `Added ${manualEntryFormData.product_name} to inventory!`);
+      setManualEntryDialogVisible(false);
+      setManualEntryFormData({
+        product_name: '',
+        brand: '',
+        quantity: 1,
+        unit: 'count',
+        storage_location: 'pantry',
+        status: 'in_stock',
+        expiration_date: '',
+        purchase_date: '',
+        notes: '',
+      });
+      await loadInventory();
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to add item');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const filteredItems = items.filter((item) => {
     if (searchQuery) {
       const name = item.product_name?.toLowerCase() || '';
@@ -291,7 +373,7 @@ export default function InventoryScreen() {
 
       <Portal>
         <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)}>
-          <Dialog.Title>Process Image</Dialog.Title>
+          <Dialog.Title>Add Item</Dialog.Title>
           <Dialog.Content>
             <Button
               mode="contained"
@@ -308,6 +390,17 @@ export default function InventoryScreen() {
               style={styles.dialogButton}
             >
               Choose from Library
+            </Button>
+            <Button
+              mode="outlined"
+              icon="pencil"
+              onPress={() => {
+                setDialogVisible(false);
+                setManualEntryDialogVisible(true);
+              }}
+              style={styles.dialogButton}
+            >
+              Manual Entry
             </Button>
           </Dialog.Content>
           <Dialog.Actions>

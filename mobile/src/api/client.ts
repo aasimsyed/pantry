@@ -307,6 +307,10 @@ class APIClient {
     return this.request<void>('DELETE', `/api/inventory/${itemId}`);
   }
 
+  async createInventoryItem(data: Partial<InventoryItem>): Promise<InventoryItem> {
+    return this.request<InventoryItem>('POST', '/api/inventory', { data });
+  }
+
   async getExpiringItems(days: number = 7): Promise<InventoryItem[]> {
     return this.request<InventoryItem[]>('GET', '/api/expiring', {
       params: { days },
@@ -421,6 +425,32 @@ class APIClient {
 
   async deleteSavedRecipe(recipeId: number): Promise<void> {
     return this.request<void>('DELETE', `/api/recipes/saved/${recipeId}`);
+  }
+
+  // Products
+  async getProducts(skip: number = 0, limit: number = 100): Promise<Product[]> {
+    return this.request<Product[]>('GET', '/api/products', {
+      params: { skip, limit },
+    });
+  }
+
+  async getProduct(productId: number): Promise<Product> {
+    return this.request<Product>('GET', `/api/products/${productId}`);
+  }
+
+  async createProduct(data: Partial<Product>): Promise<Product> {
+    return this.request<Product>('POST', '/api/products', { data });
+  }
+
+  async searchProducts(
+    query: string,
+    category?: string,
+    brand?: string
+  ): Promise<Product[]> {
+    const params: Record<string, string> = { q: query };
+    if (category) params.category = category;
+    if (brand) params.brand = brand;
+    return this.request<Product[]>('GET', '/api/products/search', { params });
   }
 }
 
