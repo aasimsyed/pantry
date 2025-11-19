@@ -310,8 +310,12 @@ class RecipeGenerator:
             content = response.choices[0].message.content.strip()
         else:  # Claude
             try:
-                # Determine model name
-                model_name = backend.config.model if backend.config.model and "claude" in backend.config.model else "claude-sonnet-4-20250514"
+                # Determine model name - try user's model first, then fallback to known working models
+                if backend.config.model and "claude" in backend.config.model:
+                    model_name = backend.config.model
+                else:
+                    # Try latest model first, fallback to older stable model if it fails
+                    model_name = "claude-3-5-sonnet-20240620"  # Known working model
                 
                 # Claude supports system messages - use it for better results
                 messages = [{"role": "user", "content": prompt}]
@@ -324,11 +328,29 @@ class RecipeGenerator:
                 )
                 content = message.content[0].text.strip()
             except Exception as e:
-                # Re-raise with more context
+                # If using a newer model and it fails, try fallback to stable model
                 error_msg = str(e)
-                if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
-                    error_msg = f"Anthropic API error (status {e.response.status_code}): {error_msg}"
-                raise ValueError(f"Failed to generate recipe with Claude: {error_msg}") from e
+                if "claude-sonnet-4" in model_name or "20250514" in model_name:
+                    try:
+                        # Fallback to known working model
+                        fallback_model = "claude-3-5-sonnet-20240620"
+                        self.analyzer.logger.warning(f"Model {model_name} failed, trying fallback {fallback_model}")
+                        message = backend.client.messages.create(
+                            model=fallback_model,
+                            max_tokens=recipe_max_tokens,
+                            temperature=0.7,
+                            messages=messages
+                        )
+                        content = message.content[0].text.strip()
+                    except Exception as fallback_error:
+                        # Both failed, raise original error with context
+                        error_msg = f"Original model ({model_name}) failed: {error_msg}. Fallback ({fallback_model}) also failed: {str(fallback_error)}"
+                        raise ValueError(f"Failed to generate recipe with Claude: {error_msg}") from e
+                else:
+                    # Re-raise with more context
+                    if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
+                        error_msg = f"Anthropic API error (status {e.response.status_code}): {error_msg}"
+                    raise ValueError(f"Failed to generate recipe with Claude: {error_msg}") from e
         
         # Remove markdown code blocks if present
         if content.startswith("```"):
