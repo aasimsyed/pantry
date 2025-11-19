@@ -309,13 +309,26 @@ class RecipeGenerator:
             )
             content = response.choices[0].message.content.strip()
         else:  # Claude
-            message = backend.client.messages.create(
-                model=backend.config.model if "claude" in backend.config.model else "claude-sonnet-4-20250514",
-                max_tokens=recipe_max_tokens,
-                temperature=0.7,  # More creative for recipes
-                messages=[{"role": "user", "content": prompt}]
-            )
-            content = message.content[0].text.strip()
+            try:
+                # Determine model name
+                model_name = backend.config.model if backend.config.model and "claude" in backend.config.model else "claude-sonnet-4-20250514"
+                
+                # Claude supports system messages - use it for better results
+                messages = [{"role": "user", "content": prompt}]
+                
+                message = backend.client.messages.create(
+                    model=model_name,
+                    max_tokens=recipe_max_tokens,
+                    temperature=0.7,  # More creative for recipes
+                    messages=messages
+                )
+                content = message.content[0].text.strip()
+            except Exception as e:
+                # Re-raise with more context
+                error_msg = str(e)
+                if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
+                    error_msg = f"Anthropic API error (status {e.response.status_code}): {error_msg}"
+                raise ValueError(f"Failed to generate recipe with Claude: {error_msg}") from e
         
         # Remove markdown code blocks if present
         if content.startswith("```"):
