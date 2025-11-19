@@ -277,15 +277,9 @@ class PantryService:
             q = q.filter(InventoryItem.user_id == user_id)
         
         if pantry_id is not None:
-            # Include items with NULL pantry_id (backward compatibility for pre-migration items)
-            # OR items matching the specified pantry_id
-            from sqlalchemy import or_
-            q = q.filter(
-                or_(
-                    InventoryItem.pantry_id == pantry_id,
-                    InventoryItem.pantry_id.is_(None)
-                )
-            )
+            # Only show items that belong to this specific pantry
+            # Items with NULL pantry_id are not shown (they need to be assigned to a pantry)
+            q = q.filter(InventoryItem.pantry_id == pantry_id)
         
         if not include_consumed:
             q = q.filter(InventoryItem.status != "consumed")
