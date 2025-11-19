@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import apiClient from '../api/client';
 import type { SavedRecipe } from '../types';
 
@@ -11,11 +11,7 @@ export default function RecipeBoxScreen() {
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadRecipes();
-  }, []);
-
-  const loadRecipes = async () => {
+  const loadRecipes = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiClient.getSavedRecipes();
@@ -25,7 +21,15 @@ export default function RecipeBoxScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Reload recipes when screen comes into focus (e.g., after saving a recipe)
+  useFocusEffect(
+    useCallback(() => {
+      loadRecipes();
+    }, [loadRecipes])
+  );
+
 
   const handleDelete = async (recipeId: number) => {
     Alert.alert(
