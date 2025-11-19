@@ -1956,20 +1956,21 @@ def generate_single_recipe(
                         required_ingredient_names.append(name)
         
         # Initialize AI analyzer with user's preferred model
-        user_settings = service.get_user_settings(current_user.id)
-        ai_config = None
-        
-        if user_settings.ai_provider or user_settings.ai_model:
-            from src.ai_analyzer import AIConfig
-            import os
+        try:
+            user_settings = service.get_user_settings(current_user.id)
+            ai_config = None
             
-            # Create custom config with user preferences
-            ai_config = AIConfig.from_env()
-            if user_settings.ai_provider:
-                ai_config.provider = user_settings.ai_provider
-            if user_settings.ai_model:
-                ai_config.model = user_settings.ai_model
-            
+            if user_settings.ai_provider or user_settings.ai_model:
+                from src.ai_analyzer import AIConfig
+                import os
+                
+                # Create custom config with user preferences
+                ai_config = AIConfig.from_env()
+                if user_settings.ai_provider:
+                    ai_config.provider = user_settings.ai_provider
+                if user_settings.ai_model:
+                    ai_config.model = user_settings.ai_model
+                
                 from src.ai_analyzer import AIAnalyzer
                 ai_analyzer = AIAnalyzer(ai_config)
             else:
