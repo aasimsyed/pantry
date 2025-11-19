@@ -457,15 +457,35 @@ class RecipeGenerator:
             
             # If still failing, try to fix common issues
             if 'recipe' not in locals():
-                # Fix unescaped quotes in strings (common issue)
-                # This is a simple heuristic - replace unescaped quotes in string values
-                try:
-                    # Try to fix by escaping quotes that aren't already escaped
-                    fixed_content = re.sub(r'(?<!\\)"(?![,}\]:\s])', '\\"', content)
-                    recipe = json_module.loads(fixed_content)
-                    self.analyzer.logger.info("Successfully repaired JSON by escaping quotes")
-                except:
-                    pass
+                # Try to find the JSON object and fix it more carefully
+                # Look for the main JSON object
+                brace_count = 0
+                json_start = -1
+                json_end = -1
+                
+                for i, char in enumerate(content):
+                    if char == '{':
+                        if brace_count == 0:
+                            json_start = i
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if brace_count == 0 and json_start != -1:
+                            json_end = i + 1
+                            break
+                
+                if json_start != -1 and json_end != -1:
+                    json_str = content[json_start:json_end]
+                    # Try to fix common issues in the extracted JSON
+                    # Fix unescaped newlines in strings
+                    json_str = re.sub(r'(?<!\\)\n', '\\n', json_str)
+                    # Fix unescaped tabs
+                    json_str = re.sub(r'(?<!\\)\t', '\\t', json_str)
+                    try:
+                        recipe = json_module.loads(json_str)
+                        self.analyzer.logger.info("Successfully repaired JSON by fixing escape sequences")
+                    except:
+                        pass
             
             # If all repair attempts failed, raise with helpful error
             if 'recipe' not in locals():
