@@ -432,16 +432,42 @@ class RecipeGenerator:
                 after_error = content[error_pos:]
                 
                 # Count quotes to see if we have an unclosed string
-                quote_count = before_error.count('"') - before_error.count('\\"')
+                # Need to properly count escaped vs unescaped quotes
+                quote_count = 0
+                i = 0
+                while i < len(before_error):
+                    if before_error[i] == '"':
+                        # Check if it's escaped
+                        if i == 0 or before_error[i-1] != '\\':
+                            quote_count += 1
+                        elif i > 1 and before_error[i-2] == '\\':
+                            # Double backslash = escaped backslash, so quote is not escaped
+                            quote_count += 1
+                    i += 1
+                
                 if quote_count % 2 != 0:
                     # Odd number of quotes = unclosed string
                     # Try to close it at the error position
-                    content = before_error + '"' + after_error
-                    try:
-                        recipe = json_module.loads(content)
-                        self.analyzer.logger.info("Successfully repaired JSON by closing unterminated string")
-                    except:
-                        pass
+                    # Look for the start of the unclosed string (last unescaped quote)
+                    last_quote_pos = -1
+                    for i in range(len(before_error) - 1, -1, -1):
+                        if before_error[i] == '"':
+                            # Check if it's escaped
+                            if i == 0 or before_error[i-1] != '\\':
+                                last_quote_pos = i
+                                break
+                            elif i > 1 and before_error[i-2] == '\\':
+                                last_quote_pos = i
+                                break
+                    
+                    if last_quote_pos != -1:
+                        # Insert closing quote before the error
+                        content = before_error + '"' + after_error
+                        try:
+                            recipe = json_module.loads(content)
+                            self.analyzer.logger.info("Successfully repaired JSON by closing unterminated string")
+                        except:
+                            pass
             
             # If still failing, try to extract JSON object from the content
             if 'recipe' not in locals():
