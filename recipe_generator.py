@@ -222,7 +222,22 @@ class RecipeGenerator:
         recipes = []
         import time
         start_time = time.time()
-        max_time_seconds = 50  # Leave 10 seconds buffer before Railway's 60s timeout
+        
+        # Adaptive timeout based on model speed
+        # Claude models are slower, so reduce time limit when using Claude
+        backend = self.analyzer._get_backend()
+        is_claude = backend.__class__.__name__ != 'OpenAIBackend'
+        
+        if is_claude:
+            # Claude is slower: allow ~40s for 3-4 recipes max
+            max_time_seconds = 40
+            # Also reduce max recipes for Claude to stay within timeout
+            if num_recipes > 3:
+                num_recipes = 3
+                print(f"    ⚠️  Reduced to 3 recipes max for Claude (slower than GPT-4)")
+        else:
+            # GPT-4 is faster: allow ~50s for 5 recipes
+            max_time_seconds = 50  # Leave 10 seconds buffer before Railway's 60s timeout
         
         for i in range(num_recipes):
             # Check if we're running out of time
@@ -322,23 +337,19 @@ class RecipeGenerator:
             )
             content = response.choices[0].message.content.strip()
         else:  # Claude
-            # Try models in order of preference, with fallbacks
+            # Optimize for speed: try user's model first, then only one fast fallback
+            # Claude models are slower than GPT-4, so we minimize fallback attempts
             models_to_try = []
             
             # Add user's selected model first if specified
             if backend.config.model and "claude" in backend.config.model:
                 models_to_try.append(backend.config.model)
             
-            # Add fallback models (trying most stable/available first)
-            models_to_try.extend([
-                "claude-3-opus-20240229",  # Most reliable older model
-                "claude-3-sonnet-20240229",  # Alternative stable model
-                "claude-3-5-sonnet-20240620",  # Newer but may not be available
-            ])
-            
-            # Remove duplicates while preserving order
-            seen = set()
-            models_to_try = [m for m in models_to_try if m not in seen and not seen.add(m)]
+            # Only add ONE fast fallback (Sonnet is faster than Opus)
+            # Skip fallback if user explicitly selected a model to save time
+            if not (backend.config.model and "claude" in backend.config.model):
+                # Only add fallback if no user model specified
+                models_to_try.append("claude-3-sonnet-20240229")  # Fast, reliable model
             
             last_error = None
             messages = [{"role": "user", "content": prompt}]
@@ -360,11 +371,16 @@ class RecipeGenerator:
                     last_error = e
                     error_msg = str(e)
                     self.analyzer.logger.warning(f"Model {model_name} failed: {error_msg}")
-                    continue  # Try next model
+                    # Only try one fallback to save time
+                    if len(models_to_try) > 1:
+                        continue  # Try next model
+                    else:
+                        # If user's model failed and no fallback, raise immediately
+                        raise ValueError(f"Failed to generate recipe with Claude: {error_msg}") from e
             
             # If all models failed, raise error
             if 'content' not in locals() or not content:
-                error_detail = f"All Claude models failed. Last error: {str(last_error)}"
+                error_detail = f"Claude model failed. Last error: {str(last_error)}"
                 raise ValueError(f"Failed to generate recipe with Claude: {error_detail}") from last_error
         
         # Remove markdown code blocks if present
