@@ -2026,7 +2026,8 @@ def generate_single_recipe(
             "instructions": recipe.get('instructions', []),
             "available_ingredients": used_ingredients,
             "missing_ingredients": recipe.get('missing_ingredients', []),
-            "flavor_pairings": recipe.get('flavor_pairings', [])
+            "flavor_pairings": recipe.get('flavor_pairings', []),
+            "ai_model": recipe.get('ai_model')  # Track which AI model generated this recipe
         }
         
         logger.info(f"Successfully generated recipe: {result['name']}")
@@ -2216,7 +2217,8 @@ def generate_recipes(
                 "instructions": recipe.get('instructions', []),
                 "available_ingredients": used_ingredients,
                 "missing_ingredients": recipe.get('missing_ingredients', []),
-                "flavor_pairings": recipe.get('flavor_pairings', [])
+                "flavor_pairings": recipe.get('flavor_pairings', []),
+                "ai_model": recipe.get('ai_model')  # Track which AI model generated this recipe
             })
         
         logger.info(f"Successfully generated {len(result)} recipes")
@@ -2289,7 +2291,8 @@ def save_recipe(
             instructions=recipe_data.instructions,
             notes=recipe_data.notes,
             rating=recipe_data.rating,
-            tags=recipe_data.tags
+            tags=recipe_data.tags,
+            ai_model=recipe_data.ai_model
         )
         
         logger.info(f"Saved recipe: {recipe.name} (ID: {recipe.id})")

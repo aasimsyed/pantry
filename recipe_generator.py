@@ -297,7 +297,10 @@ class RecipeGenerator:
         # Recipes don't need 2000 tokens - 1500 is sufficient for quality recipes
         recipe_max_tokens = min(1500, backend.config.max_tokens)  # Cap at 1500 for speed
         
+        model_used = None  # Track which model was actually used
+        
         if backend.__class__.__name__ == 'OpenAIBackend':
+            model_used = backend.config.model
             response = backend.client.chat.completions.create(
                 model=backend.config.model,
                 messages=[
@@ -340,6 +343,7 @@ class RecipeGenerator:
                         messages=messages
                     )
                     content = message.content[0].text.strip()
+                    model_used = model_name  # Track which model succeeded
                     self.analyzer.logger.info(f"Successfully used Claude model: {model_name}")
                     break  # Success, exit loop
                 except Exception as e:
@@ -363,6 +367,10 @@ class RecipeGenerator:
         # Parse JSON
         import json as json_module
         recipe = json_module.loads(content)
+        
+        # Add model metadata to recipe
+        if model_used:
+            recipe['ai_model'] = model_used
         
         return recipe
     

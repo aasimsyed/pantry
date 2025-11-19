@@ -222,12 +222,14 @@ def init_database():
             add_user_id_to_saved_recipes,
             add_pantries_table_and_pantry_id,
             assign_null_items_to_default_pantry,
-            add_user_settings_table
+            add_user_settings_table,
+            add_ai_model_to_saved_recipes
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
         assign_null_items_to_default_pantry()
         add_user_settings_table()
+        add_ai_model_to_saved_recipes()
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
@@ -776,6 +778,9 @@ class SavedRecipe(Base):
     rating = Column(Integer, nullable=True)  # 1-5 stars
     tags = Column(Text, nullable=True)  # JSON: List of tag strings
     
+    # AI metadata
+    ai_model = Column(String(100), nullable=True)  # AI model used to generate recipe (e.g., "gpt-4o", "claude-3-opus-20240229")
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
@@ -823,6 +828,7 @@ class SavedRecipe(Base):
             "notes": self.notes,
             "rating": self.rating,
             "tags": json.loads(self.tags) if self.tags else [],
+            "ai_model": self.ai_model,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

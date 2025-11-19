@@ -372,12 +372,47 @@ def assign_null_items_to_default_pantry():
             raise
 
 
+def add_ai_model_to_saved_recipes():
+    """
+    Add ai_model column to saved_recipes table to track which AI model generated each recipe.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    
+    if 'saved_recipes' not in inspector.get_table_names():
+        logger.info("saved_recipes table doesn't exist yet, will be created by init_database()")
+        return
+    
+    columns = [col['name'] for col in inspector.get_columns('saved_recipes')]
+    if 'ai_model' in columns:
+        logger.info("ai_model column already exists in saved_recipes table")
+        return
+    
+    logger.info("Adding ai_model column to saved_recipes table...")
+    
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            conn.execute(text("""
+                ALTER TABLE saved_recipes 
+                ADD COLUMN ai_model VARCHAR(100)
+            """))
+            trans.commit()
+            logger.info("✅ Migration completed: ai_model added to saved_recipes")
+        except Exception as e:
+            trans.rollback()
+            logger.error(f"Migration failed: {e}", exc_info=True)
+            raise
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
     add_user_id_to_saved_recipes()
     add_pantries_table_and_pantry_id()
     assign_null_items_to_default_pantry()
+    add_user_settings_table()
+    add_ai_model_to_saved_recipes()
     logger.info("✅ All migrations completed")
 
 

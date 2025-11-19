@@ -58,6 +58,7 @@ export interface Recipe {
   available_ingredients: string[];
   missing_ingredients: string[];
   flavor_pairings?: FlavorPairing[];
+  ai_model?: string;
 }
 
 export interface RecipeIngredient {
@@ -86,6 +87,7 @@ export interface SavedRecipe {
   notes?: string;
   rating?: number;
   tags?: string;
+  ai_model?: string;
   created_at: string;
   updated_at: string;
 }

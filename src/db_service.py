@@ -743,7 +743,8 @@ class PantryService:
             instructions=json.dumps(instructions or []),
             notes=notes,
             rating=rating,
-            tags=json.dumps(tags or []) if tags else None
+            tags=json.dumps(tags or []) if tags else None,
+            ai_model=ai_model
         )
         
         self.session.add(recipe)
