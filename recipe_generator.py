@@ -348,15 +348,28 @@ class RecipeGenerator:
         
         if backend.__class__.__name__ == 'OpenAIBackend':
             model_used = backend.config.model
-            response = backend.client.chat.completions.create(
-                model=backend.config.model,
-                messages=[
+            # Newer OpenAI models (GPT-4o, GPT-4 Classic, GPT-5, etc.) require max_completion_tokens instead of max_tokens
+            # Check if model name suggests it's a newer model
+            model_name = backend.config.model.lower()
+            # Models that use max_completion_tokens: gpt-4o, gpt-4 (classic), gpt-5, o1, o3, and newer
+            use_max_completion_tokens = any(x in model_name for x in ['gpt-4o', 'gpt-4-', 'gpt-5', 'o1', 'o3']) or model_name == 'gpt-4'
+            
+            api_params = {
+                "model": backend.config.model,
+                "messages": [
                     {"role": "system", "content": "You are a creative chef. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,  # More creative for recipes
-                max_tokens=recipe_max_tokens,
-            )
+                "temperature": 0.7,  # More creative for recipes
+            }
+            
+            # Use the appropriate parameter based on model
+            if use_max_completion_tokens:
+                api_params["max_completion_tokens"] = recipe_max_tokens
+            else:
+                api_params["max_tokens"] = recipe_max_tokens
+            
+            response = backend.client.chat.completions.create(**api_params)
             content = response.choices[0].message.content.strip()
         else:  # Claude
             # Optimize for speed: try user's model first, then only one fast fallback
@@ -545,34 +558,50 @@ class RecipeGenerator:
                                 break
                     
                     if last_quote_pos != -1:
-                        # Insert closing quote before the error (or at end if error is at end)
+                        # Try multiple strategies to close the string
+                        repair_attempts = []
+                        
+                        # Strategy 1a: Close immediately at error position
+                        repair_attempts.append(before_error + '"' + after_error)
+                        
+                        # Strategy 1b: Look for natural break points in after_error
+                        # Find the next comma, closing brace, or newline that would end the value
+                        for i, char in enumerate(after_error[:200]):  # Look ahead up to 200 chars
+                            if char in [',', '}', '\n', '\r']:
+                                # Close the string before this character
+                                repair_attempts.append(before_error + '"' + after_error[i:])
+                                break
+                        
+                        # Strategy 1c: If at end of content, close and add necessary braces
                         if len(after_error) == 0 or after_error.strip() == '':
-                            # String is unclosed at the end, close it and add closing brace if needed
-                            repaired_content = before_error + '"'
-                            # Check if we need to close the JSON object
-                            if repaired_content.count('{') > repaired_content.count('}'):
-                                repaired_content += '}'
-                        else:
-                            # Insert closing quote before the error
-                            repaired_content = before_error + '"' + after_error
-                        try:
-                            parsed = json_module.loads(repaired_content)
-                            # Only use if it's not an empty object AND not just an ingredient object
-                            if parsed and isinstance(parsed, dict) and len(parsed) > 0:
-                                # Reject if it only has ingredient fields (item, amount, notes)
-                                keys = set(parsed.keys())
-                                ingredient_only_fields = {'item', 'amount', 'notes'}
-                                if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
-                                    self.analyzer.logger.warning(f"Strategy 1: Rejected ingredient-only object")
-                                    pass
-                                else:
+                            repaired = before_error + '"'
+                            # Count braces to see if we need to close the object
+                            open_braces = repaired.count('{') - repaired.count('}')
+                            if open_braces > 0:
+                                repaired += '}' * open_braces
+                            repair_attempts.append(repaired)
+                        
+                        # Try each repair attempt
+                        for attempt_num, repaired_content in enumerate(repair_attempts):
+                            try:
+                                parsed = json_module.loads(repaired_content)
+                                # Only use if it's not an empty object AND not just an ingredient object
+                                if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                                    # Reject if it only has ingredient fields (item, amount, notes)
+                                    keys = set(parsed.keys())
+                                    ingredient_only_fields = {'item', 'amount', 'notes'}
+                                    if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
+                                        self.analyzer.logger.warning(f"Strategy 1: Rejected ingredient-only object (attempt {attempt_num+1})")
+                                        continue
                                     recipe = parsed
-                                    self.analyzer.logger.info(f"Successfully repaired JSON by closing unterminated string. Fields: {list(parsed.keys())}")
-                            else:
-                                self.analyzer.logger.warning(f"Strategy 1: Parsed but got empty/invalid object: {parsed}")
-                        except (json_module.JSONDecodeError, ValueError) as e:
-                            self.analyzer.logger.debug(f"Strategy 1: Still failed after repair: {e}")
-                            pass
+                                    self.analyzer.logger.info(f"Successfully repaired JSON by closing unterminated string (attempt {attempt_num+1}). Fields: {list(parsed.keys())}")
+                                    break  # Success, exit loop
+                            except (json_module.JSONDecodeError, ValueError) as e:
+                                self.analyzer.logger.debug(f"Strategy 1 attempt {attempt_num+1} failed: {e}")
+                                continue
+                        
+                        if recipe is None:
+                            self.analyzer.logger.warning("Strategy 1: All repair attempts failed for unterminated string")
             
             # Strategy 2: Extract JSON object boundaries more carefully
             if recipe is None:
@@ -591,6 +620,27 @@ class RecipeGenerator:
                         if brace_count == 0 and json_start != -1:
                             json_end = i + 1
                             break
+                
+                # If we didn't find a complete object, try to find where it should end
+                if json_start != -1 and json_end == -1:
+                    # Object is incomplete, try to find a reasonable end point
+                    # Look for the last closing brace or add one
+                    remaining = content[json_start:]
+                    # Count how many braces we need to close
+                    open_braces = remaining.count('{') - remaining.count('}')
+                    if open_braces > 0:
+                        # Try to find a good place to close by looking for structural breaks
+                        # Find the last comma or newline that might indicate end of a value
+                        last_comma = remaining.rfind(',')
+                        if last_comma > len(remaining) * 0.8:  # If comma is in last 20% of content
+                            # Close after the last comma
+                            json_end = json_start + last_comma + 1
+                            # Add closing braces
+                            remaining = content[json_start:json_end] + '}' * open_braces
+                            json_end = json_start + len(remaining)
+                        else:
+                            # Just close at the end
+                            json_end = len(content)
                 
                 if json_start != -1 and json_end != -1:
                     json_str = content[json_start:json_end]
@@ -623,6 +673,26 @@ class RecipeGenerator:
                         return ''.join(result)
                     
                     json_str = fix_control_chars(json_str)
+                    
+                    # Try to fix unterminated strings in the extracted JSON
+                    try:
+                        parsed = json_module.loads(json_str)
+                    except json_module.JSONDecodeError as e2:
+                        if "Unterminated string" in str(e2):
+                            # Try to close unterminated strings in the extracted JSON
+                            error_pos2 = getattr(e2, 'pos', None)
+                            if error_pos2:
+                                before_err = json_str[:error_pos2]
+                                after_err = json_str[error_pos2:]
+                                # Look for natural break point
+                                for i, char in enumerate(after_err[:100]):
+                                    if char in [',', '}', '\n']:
+                                        json_str = before_err + '"' + after_err[i:]
+                                        break
+                                else:
+                                    # No break point found, close at error position
+                                    json_str = before_err + '"' + after_err
+                    
                     try:
                         parsed = json_module.loads(json_str)
                         # Only use if it's not an empty object AND not just an ingredient object
