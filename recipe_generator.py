@@ -294,7 +294,9 @@ class RecipeGenerator:
         print(f"✅ Generated {len(recipes)} recipes!")
         print(f"{'='*70}\n")
         
-        return recipes
+        # Return list if not streaming, otherwise recipes were already yielded
+        if not stream:
+            return recipes
     
     def _generate_single_recipe(
         self,
