@@ -155,38 +155,6 @@ export default function RecipesScreen() {
     ing.toLowerCase().includes(excludedSearchQuery.toLowerCase())
   );
 
-  if (loadingIngredients) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0284c7" />
-        <Text variant="bodyLarge" style={{ marginTop: 16 }}>
-          Loading ingredients...
-        </Text>
-      </View>
-    );
-  }
-
-  if (ingredientsError && availableIngredients.length === 0) {
-    return (
-      <View style={styles.center}>
-        <Text variant="bodyLarge" style={{ color: '#dc2626', marginBottom: 16 }}>
-          {ingredientsError}
-        </Text>
-        <Button mode="contained" onPress={loadAvailableIngredients}>
-          Retry
-        </Button>
-      </View>
-    );
-  }
-
-  if (availableIngredients.length === 0 && !loadingIngredients && selectedPantryId !== undefined) {
-    return (
-      <View style={styles.center}>
-        <Text variant="bodyLarge">No items in stock. Add items to your pantry first!</Text>
-      </View>
-    );
-  }
-  
   if (selectedPantryId === undefined) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -201,6 +169,73 @@ export default function RecipesScreen() {
           <Text variant="bodyLarge" style={{ marginTop: 16, textAlign: 'center' }}>
             Please select a pantry to view recipes
           </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadingIngredients) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+          <Text variant="titleLarge" style={styles.title}>
+            Recipe Suggestions
+          </Text>
+          <PantrySelector
+            selectedPantryId={selectedPantryId}
+            onPantryChange={setSelectedPantryId}
+          />
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#0284c7" />
+            <Text variant="bodyLarge" style={{ marginTop: 16 }}>
+              Loading ingredients...
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (ingredientsError && availableIngredients.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+          <Text variant="titleLarge" style={styles.title}>
+            Recipe Suggestions
+          </Text>
+          <PantrySelector
+            selectedPantryId={selectedPantryId}
+            onPantryChange={setSelectedPantryId}
+          />
+          <View style={styles.center}>
+            <Text variant="bodyLarge" style={{ color: '#dc2626', marginBottom: 16 }}>
+              {ingredientsError}
+            </Text>
+            <Button mode="contained" onPress={loadAvailableIngredients}>
+              Retry
+            </Button>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (availableIngredients.length === 0 && !loadingIngredients && selectedPantryId !== undefined) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+          <Text variant="titleLarge" style={styles.title}>
+            Recipe Suggestions
+          </Text>
+          <PantrySelector
+            selectedPantryId={selectedPantryId}
+            onPantryChange={setSelectedPantryId}
+          />
+          <View style={styles.center}>
+            <Text variant="bodyLarge" style={{ marginTop: 16, textAlign: 'center' }}>
+              No items in stock. Add items to your pantry first!
+            </Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
     );
