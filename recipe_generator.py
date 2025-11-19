@@ -427,21 +427,29 @@ class RecipeGenerator:
         recipe = None
         try:
             parsed = json_module.loads(content)
-            # Validate that it's not an empty object
+            # Validate that it's not an empty object AND not just an ingredient object
             if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                # Reject if it only has ingredient fields (item, amount, notes)
+                keys = set(parsed.keys())
+                ingredient_only_fields = {'item', 'amount', 'notes'}
+                if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
+                    self.analyzer.logger.warning(f"AI returned ingredient-only object instead of recipe: {parsed}")
+                    # Treat as parse error to trigger repair strategies
+                    # Create a fake JSONDecodeError to trigger repair
+                    raise json_module.JSONDecodeError("Ingredient-only object, not a recipe", content, 0)
                 recipe = parsed
                 self.analyzer.logger.info(f"Initial JSON parse succeeded. Fields: {list(parsed.keys())}")
             else:
                 # Empty object or invalid structure
                 self.analyzer.logger.warning(f"AI returned empty or invalid JSON object: {parsed}")
-                # Raise ValueError to be caught by outer handler
-                raise ValueError("AI model returned empty or invalid recipe object")
-        except json_module.JSONDecodeError as e:
+                # Raise JSONDecodeError to trigger repair strategies
+                raise json_module.JSONDecodeError("Empty or invalid recipe object", content, 0)
+        except (json_module.JSONDecodeError, ValueError) as e:
             # Try to repair common JSON issues
             self.analyzer.logger.warning(f"JSON parse error: {e}. Attempting to repair...")
             
-            # Get error position
-            error_pos = getattr(e, 'pos', None)
+            # Get error position (only available for JSONDecodeError)
+            error_pos = getattr(e, 'pos', None) if isinstance(e, json_module.JSONDecodeError) else None
             error_msg_str = str(e)
             
             # Strategy 0: Fix invalid control characters (unescaped newlines/tabs) first
@@ -481,10 +489,17 @@ class RecipeGenerator:
                 fixed_content = fix_control_chars(content)
                 try:
                     parsed = json_module.loads(fixed_content)
-                    # Only use if it's not an empty object
+                    # Only use if it's not an empty object AND not just an ingredient object
                     if parsed and isinstance(parsed, dict) and len(parsed) > 0:
-                        recipe = parsed
-                        self.analyzer.logger.info(f"Successfully repaired JSON by fixing control characters. Fields: {list(parsed.keys())}")
+                        # Reject if it only has ingredient fields (item, amount, notes)
+                        keys = set(parsed.keys())
+                        ingredient_only_fields = {'item', 'amount', 'notes'}
+                        if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
+                            self.analyzer.logger.warning(f"Strategy 0: Rejected ingredient-only object")
+                            pass
+                        else:
+                            recipe = parsed
+                            self.analyzer.logger.info(f"Successfully repaired JSON by fixing control characters. Fields: {list(parsed.keys())}")
                     else:
                         self.analyzer.logger.warning(f"Strategy 0: Parsed but got empty/invalid object: {parsed}")
                 except (json_module.JSONDecodeError, ValueError) as e:
@@ -542,10 +557,17 @@ class RecipeGenerator:
                             repaired_content = before_error + '"' + after_error
                         try:
                             parsed = json_module.loads(repaired_content)
-                            # Only use if it's not an empty object
+                            # Only use if it's not an empty object AND not just an ingredient object
                             if parsed and isinstance(parsed, dict) and len(parsed) > 0:
-                                recipe = parsed
-                                self.analyzer.logger.info(f"Successfully repaired JSON by closing unterminated string. Fields: {list(parsed.keys())}")
+                                # Reject if it only has ingredient fields (item, amount, notes)
+                                keys = set(parsed.keys())
+                                ingredient_only_fields = {'item', 'amount', 'notes'}
+                                if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
+                                    self.analyzer.logger.warning(f"Strategy 1: Rejected ingredient-only object")
+                                    pass
+                                else:
+                                    recipe = parsed
+                                    self.analyzer.logger.info(f"Successfully repaired JSON by closing unterminated string. Fields: {list(parsed.keys())}")
                             else:
                                 self.analyzer.logger.warning(f"Strategy 1: Parsed but got empty/invalid object: {parsed}")
                         except (json_module.JSONDecodeError, ValueError) as e:
@@ -603,10 +625,17 @@ class RecipeGenerator:
                     json_str = fix_control_chars(json_str)
                     try:
                         parsed = json_module.loads(json_str)
-                        # Only use if it's not an empty object
+                        # Only use if it's not an empty object AND not just an ingredient object
                         if parsed and isinstance(parsed, dict) and len(parsed) > 0:
-                            recipe = parsed
-                            self.analyzer.logger.info(f"Successfully repaired JSON by fixing escape sequences. Fields: {list(parsed.keys())}")
+                            # Reject if it only has ingredient fields (item, amount, notes)
+                            keys = set(parsed.keys())
+                            ingredient_only_fields = {'item', 'amount', 'notes'}
+                            if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
+                                self.analyzer.logger.warning(f"Strategy 2: Rejected ingredient-only object")
+                                pass
+                            else:
+                                recipe = parsed
+                                self.analyzer.logger.info(f"Successfully repaired JSON by fixing escape sequences. Fields: {list(parsed.keys())}")
                         else:
                             self.analyzer.logger.warning(f"Strategy 2: Parsed but got empty/invalid object: {parsed}")
                     except (json_module.JSONDecodeError, ValueError) as e:
@@ -614,22 +643,50 @@ class RecipeGenerator:
                         pass
             
             # Strategy 3: Try to extract JSON from markdown code blocks or text
+            # Find the LARGEST/OUTERMOST JSON object (the full recipe, not nested objects)
             if recipe is None:
-                # Look for JSON object in the content
-                json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
+                # Find all JSON objects and pick the largest one (most likely the full recipe)
+                json_objects = []
+                brace_count = 0
+                start_pos = -1
+                
+                for i, char in enumerate(content):
+                    if char == '{':
+                        if brace_count == 0:
+                            start_pos = i
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if brace_count == 0 and start_pos != -1:
+                            json_str = content[start_pos:i+1]
+                            json_objects.append((len(json_str), json_str, start_pos))
+                            start_pos = -1
+                
+                # Sort by length (descending) to get the largest object first
+                json_objects.sort(reverse=True, key=lambda x: x[0])
+                
+                for length, json_str, pos in json_objects:
                     try:
                         parsed = json_module.loads(json_str)
-                        # Only use if it's not an empty object
+                        # Only use if it's not an empty object AND has recipe-like structure
+                        # (not just an ingredient object with item/amount/notes)
                         if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                            # Check if this looks like a recipe (has name/description) or at least has multiple fields
+                            # Reject if it only has ingredient fields (item, amount, notes)
+                            keys = set(parsed.keys())
+                            ingredient_only_fields = {'item', 'amount', 'notes'}
+                            if keys == ingredient_only_fields or keys.issubset(ingredient_only_fields):
+                                self.analyzer.logger.warning(f"Strategy 3: Rejected ingredient-only object at pos {pos}")
+                                continue
+                            
                             recipe = parsed
-                            self.analyzer.logger.info(f"Successfully extracted JSON object from response. Fields: {list(parsed.keys())}")
+                            self.analyzer.logger.info(f"Successfully extracted JSON object from response (length: {length}, pos: {pos}). Fields: {list(parsed.keys())}")
+                            break
                         else:
-                            self.analyzer.logger.warning(f"Strategy 3: Parsed but got empty/invalid object: {parsed}")
+                            self.analyzer.logger.warning(f"Strategy 3: Parsed but got empty/invalid object at pos {pos}: {parsed}")
                     except (json_module.JSONDecodeError, ValueError) as e:
-                        self.analyzer.logger.debug(f"Strategy 3: Still failed: {e}")
-                        pass
+                        self.analyzer.logger.debug(f"Strategy 3: Failed to parse object at pos {pos}: {e}")
+                        continue
             
             # If all repair attempts failed, raise with helpful error
             if recipe is None:
