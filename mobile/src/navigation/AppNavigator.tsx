@@ -11,7 +11,6 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import InventoryScreen from '../screens/InventoryScreen';
-import ExpiringScreen from '../screens/ExpiringScreen';
 import RecipesScreen from '../screens/RecipesScreen';
 import RecipeBoxScreen from '../screens/RecipeBoxScreen';
 import StatisticsScreen from '../screens/StatisticsScreen';
@@ -45,15 +44,6 @@ function MainTabs() {
         options={{
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <MaterialCommunityIcons name="package-variant" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Expiring"
-        component={ExpiringScreen}
-        options={{
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-            <MaterialCommunityIcons name="alert" size={size} color={color} />
           ),
         }}
       />

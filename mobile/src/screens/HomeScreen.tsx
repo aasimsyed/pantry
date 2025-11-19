@@ -22,12 +22,6 @@ export default function HomeScreen() {
       color: '#3b82f6'
     },
     { 
-      title: 'Check Expiring', 
-      icon: 'alert', 
-      screen: 'Expiring',
-      color: '#f97316'
-    },
-    { 
       title: 'Generate Recipes', 
       icon: 'chef-hat', 
       screen: 'Recipes',
