@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -10,18 +10,27 @@ export default function RecipeBoxScreen() {
   const navigation = useNavigation();
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadRecipes = useCallback(async () => {
+  const loadRecipes = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const data = await apiClient.getSavedRecipes();
       setRecipes(data);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to load recipes');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadRecipes(false);
+  }, [loadRecipes]);
 
   // Reload recipes when screen comes into focus (e.g., after saving a recipe)
   useFocusEffect(
@@ -72,7 +81,12 @@ export default function RecipeBoxScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+      <ScrollView 
+        contentContainerStyle={[styles.content, { paddingTop: 16 }]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
       <Text variant="titleLarge" style={styles.title}>
         Recipe Box
       </Text>
