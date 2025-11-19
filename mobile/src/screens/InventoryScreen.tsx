@@ -23,7 +23,7 @@ import type { InventoryItem } from '../types';
 export default function InventoryScreen() {
   const navigation = useNavigation();
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState<string>('All');
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
@@ -199,14 +199,6 @@ export default function InventoryScreen() {
     return true;
   });
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
@@ -214,6 +206,12 @@ export default function InventoryScreen() {
           selectedPantryId={selectedPantryId}
           onPantryChange={setSelectedPantryId}
         />
+        
+        {loading && (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" />
+          </View>
+        )}
         
         <Searchbar
           placeholder="Search inventory..."

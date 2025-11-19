@@ -179,11 +179,30 @@ export default function RecipesScreen() {
     );
   }
 
-  if (availableIngredients.length === 0 && !loadingIngredients) {
+  if (availableIngredients.length === 0 && !loadingIngredients && selectedPantryId !== undefined) {
     return (
       <View style={styles.center}>
         <Text variant="bodyLarge">No items in stock. Add items to your pantry first!</Text>
       </View>
+    );
+  }
+  
+  if (selectedPantryId === undefined) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+          <Text variant="titleLarge" style={styles.title}>
+            Recipe Suggestions
+          </Text>
+          <PantrySelector
+            selectedPantryId={selectedPantryId}
+            onPantryChange={setSelectedPantryId}
+          />
+          <Text variant="bodyLarge" style={{ marginTop: 16, textAlign: 'center' }}>
+            Please select a pantry to view recipes
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
