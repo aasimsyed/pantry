@@ -2318,7 +2318,8 @@ async def generate_recipes_stream(
                 missing_required = required_names - available_names
                 
                 if missing_required:
-                    yield f"data: {json.dumps({'error': f'Required ingredients not available: {', '.join(missing_required)}'})}\n\n"
+                    missing_list = ', '.join(missing_required)
+                    yield f"data: {json.dumps({'error': f'Required ingredients not available: {missing_list}'})}\n\n"
                     return
             
             # Convert to format expected by RecipeGenerator

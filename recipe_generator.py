@@ -27,7 +27,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Iterator
+from typing import Dict, Iterator, List, Optional, Union
 
 from src.ai_analyzer import AIConfig, create_ai_analyzer
 
