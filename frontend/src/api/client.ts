@@ -373,7 +373,7 @@ class APIClient {
 
     return this.request<Recipe>('POST', '/api/recipes/generate-one', {
       data,
-      timeout: 60000, // 60 seconds
+      timeout: 180000, // 3 minutes - AI generation can take time
     });
   }
 
@@ -400,7 +400,8 @@ class APIClient {
     if (options.dietary_restrictions) data.dietary_restrictions = options.dietary_restrictions;
     if (options.pantry_id) data.pantry_id = options.pantry_id;
 
-    const timeout = Math.max(300000, (options.max_recipes || 5) * 30000 + 60000); // 5 minutes default
+    // Calculate timeout: 90 seconds per recipe + 60 seconds buffer, minimum 5 minutes
+    const timeout = Math.max(300000, (options.max_recipes || 5) * 90000 + 60000);
 
     return this.request<Recipe[]>('POST', '/api/recipes/generate', {
       data,

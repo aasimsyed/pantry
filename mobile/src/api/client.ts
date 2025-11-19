@@ -352,7 +352,7 @@ class APIClient {
 
     return this.request<Recipe>('POST', '/api/recipes/generate-one', {
       data,
-      timeout: 60000, // 60 seconds
+      timeout: 180000, // 3 minutes - AI generation can take time
     });
   }
 
