@@ -132,6 +132,29 @@ export default function InventoryScreen() {
     }
   };
 
+  const handleDeleteItem = async (item: InventoryItem) => {
+    Alert.alert(
+      'Delete Item',
+      `Are you sure you want to delete "${item.product_name || 'this item'}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.deleteInventoryItem(item.id);
+              Alert.alert('Success', 'Item deleted successfully');
+              await loadInventory();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete item');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleEditItem = (item: InventoryItem) => {
     setEditingItem(item);
     setEditFormData({
@@ -249,11 +272,19 @@ export default function InventoryScreen() {
                     </Text>
                   )}
                 </View>
-                <IconButton
-                  icon="pencil"
-                  size={20}
-                  onPress={() => handleEditItem(item)}
-                />
+                <View style={styles.cardActions}>
+                  <IconButton
+                    icon="pencil"
+                    size={20}
+                    onPress={() => handleEditItem(item)}
+                  />
+                  <IconButton
+                    icon="delete"
+                    size={20}
+                    iconColor="#dc2626"
+                    onPress={() => handleDeleteItem(item)}
+                  />
+                </View>
               </View>
               <View style={styles.details}>
                 <Text variant="bodyMedium">
@@ -497,6 +528,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  cardActions: {
+    flexDirection: 'row',
   },
   cardTitle: {
     flex: 1,

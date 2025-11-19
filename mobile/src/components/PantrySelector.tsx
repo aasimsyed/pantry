@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Button, Portal, Dialog, TextInput, Text, List } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Button, Portal, Dialog, TextInput, Text, List, IconButton } from 'react-native-paper';
 import apiClient from '../api/client';
 import type { Pantry } from '../types';
 
@@ -72,6 +72,44 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
     setSelectorDialogVisible(false);
   };
 
+  const handleDeletePantry = async (pantry: Pantry) => {
+    if (pantry.is_default) {
+      Alert.alert('Cannot Delete', 'You cannot delete the default pantry. Set another pantry as default first.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Pantry',
+      `Are you sure you want to delete "${pantry.name}"? Items in this pantry will be unassigned (pantry_id set to NULL).`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.deletePantry(pantry.id);
+              await loadPantries();
+              // If deleted pantry was selected, switch to default
+              if (selectedPantryId === pantry.id) {
+                const remainingPantries = pantries.filter(p => p.id !== pantry.id);
+                if (remainingPantries.length > 0) {
+                  const defaultPantry = remainingPantries.find(p => p.is_default) || remainingPantries[0];
+                  onPantryChange(defaultPantry.id);
+                } else {
+                  onPantryChange(undefined);
+                }
+              }
+              Alert.alert('Success', 'Pantry deleted successfully');
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete pantry');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const selectedPantry = pantries.find(p => p.id === selectedPantryId);
 
   return (
@@ -112,11 +150,24 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                         icon={pantry.is_default ? "home" : "store"} 
                       />
                     )}
-                    right={(props) => 
-                      selectedPantryId === pantry.id ? (
-                        <List.Icon {...props} icon="check" color="#0284c7" />
-                      ) : null
-                    }
+                    right={(props) => (
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {selectedPantryId === pantry.id && (
+                          <List.Icon {...props} icon="check" color="#0284c7" />
+                        )}
+                        {!pantry.is_default && (
+                          <IconButton
+                            icon="delete"
+                            size={20}
+                            iconColor="#dc2626"
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleDeletePantry(pantry);
+                            }}
+                          />
+                        )}
+                      </View>
+                    )}
                   />
                 </TouchableOpacity>
               ))}
