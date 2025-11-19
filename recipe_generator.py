@@ -236,8 +236,10 @@ class RecipeGenerator:
                 num_recipes = 3
                 print(f"    ⚠️  Reduced to 3 recipes max for Claude (slower than GPT-4)")
         else:
-            # GPT-4 is faster: allow ~50s for 5 recipes
-            max_time_seconds = 50  # Leave 10 seconds buffer before Railway's 60s timeout
+            # GPT-4 is faster and can handle more recipes
+            # Allow up to 55s (leaving 5s buffer) to maximize recipe generation
+            # GPT-4 can generate 10 recipes in ~60-90s, so we're more lenient
+            max_time_seconds = 55  # Leave 5 seconds buffer before Railway's 60s timeout
         
         for i in range(num_recipes):
             # Check if we're running out of time
@@ -245,6 +247,12 @@ class RecipeGenerator:
             if elapsed > max_time_seconds:
                 print(f"    ⚠️  Time limit approaching ({elapsed:.1f}s), stopping generation")
                 print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes before timeout")
+                break
+            
+            # For GPT-4, be more lenient - only stop if we're very close to 60s
+            if not is_claude and elapsed > 58:
+                print(f"    ⚠️  Very close to Railway timeout ({elapsed:.1f}s), stopping generation")
+                print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes")
                 break
             
             print(f"[{i+1}/{num_recipes}] Generating recipe... (elapsed: {elapsed:.1f}s)")
