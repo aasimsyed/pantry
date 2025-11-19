@@ -120,21 +120,19 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                   />
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectorDialogVisible(false);
-                  setCreateDialogVisible(true);
-                }}
-                style={styles.newPantryButton}
-              >
-                <List.Item
-                  title="+ New Pantry"
-                  left={(props) => <List.Icon {...props} icon="plus" color="#0284c7" />}
-                />
-              </TouchableOpacity>
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
+            <Button 
+              onPress={() => {
+                setSelectorDialogVisible(false);
+                setCreateDialogVisible(true);
+              }}
+              icon="plus"
+              mode="contained"
+            >
+              New Pantry
+            </Button>
             <Button onPress={() => setSelectorDialogVisible(false)}>Close</Button>
           </Dialog.Actions>
         </Dialog>
@@ -202,11 +200,6 @@ const styles = StyleSheet.create({
   },
   selectedPantryItem: {
     backgroundColor: '#eff6ff',
-  },
-  newPantryButton: {
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    marginTop: 8,
   },
   input: {
     marginBottom: 8,
