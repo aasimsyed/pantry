@@ -414,7 +414,15 @@ Use these scientifically-proven flavor pairings to create harmonious, complex fl
             prompt += f"- Cuisine style: {cuisine}\n"
         
         if difficulty:
-            prompt += f"- Difficulty level: {difficulty}\n"
+            # Provide clear guidance on what each difficulty level means
+            difficulty_guidance = {
+                "easy": "Simple recipes with basic techniques, minimal steps, and common ingredients. Suitable for beginners. Prep time typically under 15 minutes.",
+                "medium": "Moderate complexity with some advanced techniques, multiple steps, and may require some cooking experience. Prep time typically 15-30 minutes.",
+                "hard": "Complex recipes requiring advanced techniques, multiple components, precise timing, and significant cooking experience. Prep time typically 30+ minutes with intricate steps."
+            }
+            guidance = difficulty_guidance.get(difficulty.lower(), "")
+            prompt += f"- CRITICAL: Difficulty level MUST be exactly '{difficulty.lower()}'. {guidance}\n"
+            prompt += f"  The recipe MUST match this difficulty level in complexity, techniques, and time required.\n"
         
         if dietary_restrictions:
             prompt += f"- Dietary requirements: {', '.join(dietary_restrictions)}\n"
@@ -429,7 +437,7 @@ Return ONLY valid JSON (no markdown, no code blocks) with this structure:
   "name": "Recipe Name",
   "description": "Brief appetizing description",
   "cuisine": "cuisine type",
-  "difficulty": "easy/medium/hard",
+  "difficulty": "easy/medium/hard" (MUST match the requested difficulty level exactly),
   "prep_time": "X minutes",
   "cook_time": "X minutes",
   "total_time": "X minutes",

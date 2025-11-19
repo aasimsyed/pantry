@@ -2150,7 +2150,7 @@ def generate_recipes(
             result.append({
                 "name": recipe.get('name', 'Unnamed Recipe'),
                 "description": recipe.get('description', ''),
-                "difficulty": recipe.get('difficulty', 'medium'),
+                "difficulty": recipe.get('difficulty') or recipe_request.difficulty or 'medium',
                 "prep_time": _parse_time(recipe.get('prep_time', '0 minutes')),
                 "cook_time": _parse_time(recipe.get('cook_time', '0 minutes')),
                 "servings": recipe.get('servings', 4),
