@@ -416,75 +416,116 @@ class RecipeGenerator:
         import json as json_module
         import re
         
+        recipe = None
         try:
             recipe = json_module.loads(content)
         except json_module.JSONDecodeError as e:
             # Try to repair common JSON issues
             self.analyzer.logger.warning(f"JSON parse error: {e}. Attempting to repair...")
             
-            # Try to find and fix unterminated strings
-            # Look for the error position
+            # Get error position
             error_pos = getattr(e, 'pos', None)
-            if error_pos:
-                # Try to close unterminated strings
-                # Find the last quote before the error
+            error_msg_str = str(e)
+            
+            # Strategy 0: Fix invalid control characters (unescaped newlines/tabs) first
+            if "Invalid control character" in error_msg_str:
+                # Fix unescaped control characters by processing character by character
+                # This properly handles escaped sequences
+                def fix_control_chars(text):
+                    result = []
+                    i = 0
+                    while i < len(text):
+                        char = text[i]
+                        # Check if this is an unescaped control character
+                        if char in ['\n', '\t', '\r']:
+                            # Count backslashes before this character
+                            backslash_count = 0
+                            j = i - 1
+                            while j >= 0 and text[j] == '\\':
+                                backslash_count += 1
+                                j -= 1
+                            # If even number of backslashes, character is not escaped
+                            if backslash_count % 2 == 0:
+                                # Replace with escaped version
+                                if char == '\n':
+                                    result.append('\\n')
+                                elif char == '\t':
+                                    result.append('\\t')
+                                elif char == '\r':
+                                    result.append('\\r')
+                            else:
+                                # Already escaped, keep as is
+                                result.append(char)
+                        else:
+                            result.append(char)
+                        i += 1
+                    return ''.join(result)
+                
+                fixed_content = fix_control_chars(content)
+                try:
+                    recipe = json_module.loads(fixed_content)
+                    self.analyzer.logger.info("Successfully repaired JSON by fixing control characters")
+                except (json_module.JSONDecodeError, ValueError):
+                    pass
+            
+            # Strategy 1: Try to close unterminated strings
+            if recipe is None and error_pos and "Unterminated string" in error_msg_str:
                 before_error = content[:error_pos]
                 after_error = content[error_pos:]
                 
-                # Count quotes to see if we have an unclosed string
-                # Need to properly count escaped vs unescaped quotes
+                # Improved quote counting - properly handle escaped quotes
                 quote_count = 0
                 i = 0
                 while i < len(before_error):
                     if before_error[i] == '"':
-                        # Check if it's escaped
-                        if i == 0 or before_error[i-1] != '\\':
-                            quote_count += 1
-                        elif i > 1 and before_error[i-2] == '\\':
-                            # Double backslash = escaped backslash, so quote is not escaped
+                        # Count backslashes before this quote
+                        backslash_count = 0
+                        j = i - 1
+                        while j >= 0 and before_error[j] == '\\':
+                            backslash_count += 1
+                            j -= 1
+                        # If even number of backslashes, quote is not escaped
+                        if backslash_count % 2 == 0:
                             quote_count += 1
                     i += 1
                 
                 if quote_count % 2 != 0:
                     # Odd number of quotes = unclosed string
-                    # Try to close it at the error position
-                    # Look for the start of the unclosed string (last unescaped quote)
+                    # Find the start of the unclosed string (last unescaped quote)
                     last_quote_pos = -1
                     for i in range(len(before_error) - 1, -1, -1):
                         if before_error[i] == '"':
-                            # Check if it's escaped
-                            if i == 0 or before_error[i-1] != '\\':
-                                last_quote_pos = i
-                                break
-                            elif i > 1 and before_error[i-2] == '\\':
+                            # Count backslashes before this quote
+                            backslash_count = 0
+                            j = i - 1
+                            while j >= 0 and before_error[j] == '\\':
+                                backslash_count += 1
+                                j -= 1
+                            # If even number of backslashes, quote is not escaped
+                            if backslash_count % 2 == 0:
                                 last_quote_pos = i
                                 break
                     
                     if last_quote_pos != -1:
-                        # Insert closing quote before the error
-                        content = before_error + '"' + after_error
+                        # Insert closing quote before the error (or at end if error is at end)
+                        if len(after_error) == 0 or after_error.strip() == '':
+                            # String is unclosed at the end, close it and add closing brace if needed
+                            repaired_content = before_error + '"'
+                            # Check if we need to close the JSON object
+                            if repaired_content.count('{') > repaired_content.count('}'):
+                                repaired_content += '}'
+                        else:
+                            # Insert closing quote before the error
+                            repaired_content = before_error + '"' + after_error
                         try:
-                            recipe = json_module.loads(content)
+                            recipe = json_module.loads(repaired_content)
                             self.analyzer.logger.info("Successfully repaired JSON by closing unterminated string")
-                        except:
+                        except (json_module.JSONDecodeError, ValueError):
                             pass
             
-            # If still failing, try to extract JSON object from the content
-            if 'recipe' not in locals():
-                # Try to find JSON object boundaries
-                json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
-                    try:
-                        recipe = json_module.loads(json_str)
-                        self.analyzer.logger.info("Successfully extracted JSON object from response")
-                    except:
-                        pass
-            
-            # If still failing, try to fix common issues
-            if 'recipe' not in locals():
-                # Try to find the JSON object and fix it more carefully
-                # Look for the main JSON object
+            # Strategy 2: Extract JSON object boundaries more carefully
+            if recipe is None:
+                # Find the main JSON object by counting braces
                 brace_count = 0
                 json_start = -1
                 json_end = -1
@@ -502,31 +543,68 @@ class RecipeGenerator:
                 
                 if json_start != -1 and json_end != -1:
                     json_str = content[json_start:json_end]
-                    # Try to fix common issues in the extracted JSON
-                    # Fix unescaped newlines in strings
-                    json_str = re.sub(r'(?<!\\)\n', '\\n', json_str)
-                    # Fix unescaped tabs
-                    json_str = re.sub(r'(?<!\\)\t', '\\t', json_str)
+                    # Fix unescaped control characters using the same function
+                    def fix_control_chars(text):
+                        result = []
+                        i = 0
+                        while i < len(text):
+                            char = text[i]
+                            if char in ['\n', '\t', '\r']:
+                                # Count backslashes before this character
+                                backslash_count = 0
+                                j = i - 1
+                                while j >= 0 and text[j] == '\\':
+                                    backslash_count += 1
+                                    j -= 1
+                                # If even number of backslashes, character is not escaped
+                                if backslash_count % 2 == 0:
+                                    if char == '\n':
+                                        result.append('\\n')
+                                    elif char == '\t':
+                                        result.append('\\t')
+                                    elif char == '\r':
+                                        result.append('\\r')
+                                else:
+                                    result.append(char)
+                            else:
+                                result.append(char)
+                            i += 1
+                        return ''.join(result)
+                    
+                    json_str = fix_control_chars(json_str)
                     try:
                         recipe = json_module.loads(json_str)
                         self.analyzer.logger.info("Successfully repaired JSON by fixing escape sequences")
-                    except:
+                    except (json_module.JSONDecodeError, ValueError):
+                        pass
+            
+            # Strategy 3: Try to extract JSON from markdown code blocks or text
+            if recipe is None:
+                # Look for JSON object in the content
+                json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    try:
+                        recipe = json_module.loads(json_str)
+                        self.analyzer.logger.info("Successfully extracted JSON object from response")
+                    except (json_module.JSONDecodeError, ValueError):
                         pass
             
             # If all repair attempts failed, raise with helpful error
-            if 'recipe' not in locals():
-                error_msg = f"Failed to parse JSON response: {str(e)}"
+            if recipe is None:
+                # Create a clean, single-line error message
+                error_msg = f"Failed to parse JSON response from AI model: {error_msg_str}"
                 if error_pos:
-                    # Show context around the error
-                    start = max(0, error_pos - 100)
-                    end = min(len(content), error_pos + 100)
-                    context = content[start:end]
-                    error_msg += f"\nError at position {error_pos}. Context: ...{context}..."
+                    # Show limited context (first 50 chars before and after)
+                    start = max(0, error_pos - 50)
+                    end = min(len(content), error_pos + 50)
+                    context = content[start:end].replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+                    error_msg += f" (at position {error_pos}, context: {context})"
                 self.analyzer.logger.error(error_msg)
-                raise ValueError(f"Invalid JSON from AI model: {error_msg}")
+                raise ValueError(error_msg)
         
         # Add model metadata to recipe
-        if model_used:
+        if recipe and model_used:
             recipe['ai_model'] = model_used
         
         return recipe
