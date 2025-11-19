@@ -412,13 +412,24 @@ class RecipeGenerator:
                 content = content[4:]
             content = content.strip()
         
+        # Log the content for debugging (first 500 chars)
+        self.analyzer.logger.debug(f"AI response content (first 500 chars): {content[:500]}")
+        
         # Parse JSON with error handling and repair
         import json as json_module
         import re
         
         recipe = None
         try:
-            recipe = json_module.loads(content)
+            parsed = json_module.loads(content)
+            # Validate that it's not an empty object
+            if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                recipe = parsed
+            else:
+                # Empty object or invalid structure
+                self.analyzer.logger.warning(f"AI returned empty or invalid JSON object: {parsed}")
+                # Raise ValueError to be caught by outer handler
+                raise ValueError("AI model returned empty or invalid recipe object")
         except json_module.JSONDecodeError as e:
             # Try to repair common JSON issues
             self.analyzer.logger.warning(f"JSON parse error: {e}. Attempting to repair...")
@@ -463,8 +474,11 @@ class RecipeGenerator:
                 
                 fixed_content = fix_control_chars(content)
                 try:
-                    recipe = json_module.loads(fixed_content)
-                    self.analyzer.logger.info("Successfully repaired JSON by fixing control characters")
+                    parsed = json_module.loads(fixed_content)
+                    # Only use if it's not an empty object
+                    if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                        recipe = parsed
+                        self.analyzer.logger.info("Successfully repaired JSON by fixing control characters")
                 except (json_module.JSONDecodeError, ValueError):
                     pass
             
@@ -518,8 +532,11 @@ class RecipeGenerator:
                             # Insert closing quote before the error
                             repaired_content = before_error + '"' + after_error
                         try:
-                            recipe = json_module.loads(repaired_content)
-                            self.analyzer.logger.info("Successfully repaired JSON by closing unterminated string")
+                            parsed = json_module.loads(repaired_content)
+                            # Only use if it's not an empty object
+                            if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                                recipe = parsed
+                                self.analyzer.logger.info("Successfully repaired JSON by closing unterminated string")
                         except (json_module.JSONDecodeError, ValueError):
                             pass
             
@@ -573,8 +590,11 @@ class RecipeGenerator:
                     
                     json_str = fix_control_chars(json_str)
                     try:
-                        recipe = json_module.loads(json_str)
-                        self.analyzer.logger.info("Successfully repaired JSON by fixing escape sequences")
+                        parsed = json_module.loads(json_str)
+                        # Only use if it's not an empty object
+                        if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                            recipe = parsed
+                            self.analyzer.logger.info("Successfully repaired JSON by fixing escape sequences")
                     except (json_module.JSONDecodeError, ValueError):
                         pass
             
@@ -585,8 +605,11 @@ class RecipeGenerator:
                 if json_match:
                     json_str = json_match.group(0)
                     try:
-                        recipe = json_module.loads(json_str)
-                        self.analyzer.logger.info("Successfully extracted JSON object from response")
+                        parsed = json_module.loads(json_str)
+                        # Only use if it's not an empty object
+                        if parsed and isinstance(parsed, dict) and len(parsed) > 0:
+                            recipe = parsed
+                            self.analyzer.logger.info("Successfully extracted JSON object from response")
                     except (json_module.JSONDecodeError, ValueError):
                         pass
             
@@ -603,8 +626,18 @@ class RecipeGenerator:
                 self.analyzer.logger.error(error_msg)
                 raise ValueError(error_msg)
         
+        # Validate that recipe is not empty and has required fields
+        if not recipe or not isinstance(recipe, dict):
+            raise ValueError("AI model returned invalid or empty recipe")
+        
+        # Check if recipe has at least a name or description (basic validation)
+        if not recipe.get('name') and not recipe.get('description'):
+            # Log the content for debugging
+            self.analyzer.logger.warning(f"Recipe missing required fields. Recipe content: {recipe}")
+            raise ValueError("AI model returned recipe without name or description")
+        
         # Add model metadata to recipe
-        if recipe and model_used:
+        if model_used:
             recipe['ai_model'] = model_used
         
         return recipe
