@@ -412,8 +412,13 @@ class RecipeGenerator:
                 content = content[4:]
             content = content.strip()
         
-        # Log the content for debugging (first 500 chars)
-        self.analyzer.logger.debug(f"AI response content (first 500 chars): {content[:500]}")
+        # Log the content for debugging (first 1000 chars and last 200 chars)
+        content_preview = content[:1000] if len(content) > 1000 else content
+        content_suffix = content[-200:] if len(content) > 200 else ""
+        self.analyzer.logger.info(f"AI response content length: {len(content)} chars")
+        self.analyzer.logger.info(f"AI response content (first 1000 chars): {content_preview}")
+        if content_suffix and len(content) > 1000:
+            self.analyzer.logger.info(f"AI response content (last 200 chars): {content_suffix}")
         
         # Parse JSON with error handling and repair
         import json as json_module
@@ -425,6 +430,7 @@ class RecipeGenerator:
             # Validate that it's not an empty object
             if parsed and isinstance(parsed, dict) and len(parsed) > 0:
                 recipe = parsed
+                self.analyzer.logger.info(f"Initial JSON parse succeeded. Fields: {list(parsed.keys())}")
             else:
                 # Empty object or invalid structure
                 self.analyzer.logger.warning(f"AI returned empty or invalid JSON object: {parsed}")
@@ -478,8 +484,11 @@ class RecipeGenerator:
                     # Only use if it's not an empty object
                     if parsed and isinstance(parsed, dict) and len(parsed) > 0:
                         recipe = parsed
-                        self.analyzer.logger.info("Successfully repaired JSON by fixing control characters")
-                except (json_module.JSONDecodeError, ValueError):
+                        self.analyzer.logger.info(f"Successfully repaired JSON by fixing control characters. Fields: {list(parsed.keys())}")
+                    else:
+                        self.analyzer.logger.warning(f"Strategy 0: Parsed but got empty/invalid object: {parsed}")
+                except (json_module.JSONDecodeError, ValueError) as e:
+                    self.analyzer.logger.debug(f"Strategy 0: Still failed after fix: {e}")
                     pass
             
             # Strategy 1: Try to close unterminated strings
@@ -536,8 +545,11 @@ class RecipeGenerator:
                             # Only use if it's not an empty object
                             if parsed and isinstance(parsed, dict) and len(parsed) > 0:
                                 recipe = parsed
-                                self.analyzer.logger.info("Successfully repaired JSON by closing unterminated string")
-                        except (json_module.JSONDecodeError, ValueError):
+                                self.analyzer.logger.info(f"Successfully repaired JSON by closing unterminated string. Fields: {list(parsed.keys())}")
+                            else:
+                                self.analyzer.logger.warning(f"Strategy 1: Parsed but got empty/invalid object: {parsed}")
+                        except (json_module.JSONDecodeError, ValueError) as e:
+                            self.analyzer.logger.debug(f"Strategy 1: Still failed after repair: {e}")
                             pass
             
             # Strategy 2: Extract JSON object boundaries more carefully
@@ -594,8 +606,11 @@ class RecipeGenerator:
                         # Only use if it's not an empty object
                         if parsed and isinstance(parsed, dict) and len(parsed) > 0:
                             recipe = parsed
-                            self.analyzer.logger.info("Successfully repaired JSON by fixing escape sequences")
-                    except (json_module.JSONDecodeError, ValueError):
+                            self.analyzer.logger.info(f"Successfully repaired JSON by fixing escape sequences. Fields: {list(parsed.keys())}")
+                        else:
+                            self.analyzer.logger.warning(f"Strategy 2: Parsed but got empty/invalid object: {parsed}")
+                    except (json_module.JSONDecodeError, ValueError) as e:
+                        self.analyzer.logger.debug(f"Strategy 2: Still failed after repair: {e}")
                         pass
             
             # Strategy 3: Try to extract JSON from markdown code blocks or text
@@ -609,8 +624,11 @@ class RecipeGenerator:
                         # Only use if it's not an empty object
                         if parsed and isinstance(parsed, dict) and len(parsed) > 0:
                             recipe = parsed
-                            self.analyzer.logger.info("Successfully extracted JSON object from response")
-                    except (json_module.JSONDecodeError, ValueError):
+                            self.analyzer.logger.info(f"Successfully extracted JSON object from response. Fields: {list(parsed.keys())}")
+                        else:
+                            self.analyzer.logger.warning(f"Strategy 3: Parsed but got empty/invalid object: {parsed}")
+                    except (json_module.JSONDecodeError, ValueError) as e:
+                        self.analyzer.logger.debug(f"Strategy 3: Still failed: {e}")
                         pass
             
             # If all repair attempts failed, raise with helpful error
@@ -630,11 +648,25 @@ class RecipeGenerator:
         if not recipe or not isinstance(recipe, dict):
             raise ValueError("AI model returned invalid or empty recipe")
         
+        # Log what fields are actually present for debugging
+        self.analyzer.logger.info(f"Parsed recipe fields: {list(recipe.keys())}")
+        
         # Check if recipe has at least a name or description (basic validation)
-        if not recipe.get('name') and not recipe.get('description'):
-            # Log the content for debugging
-            self.analyzer.logger.warning(f"Recipe missing required fields. Recipe content: {recipe}")
-            raise ValueError("AI model returned recipe without name or description")
+        # Also check for alternative field names the AI might use
+        name = recipe.get('name') or recipe.get('title') or recipe.get('recipe_name')
+        description = recipe.get('description') or recipe.get('desc') or recipe.get('summary')
+        
+        if not name and not description:
+            # Log the full recipe content for debugging
+            self.analyzer.logger.error(f"Recipe missing required fields. Recipe content: {recipe}")
+            self.analyzer.logger.error(f"Available fields: {list(recipe.keys())}")
+            raise ValueError(f"AI model returned recipe without name or description. Available fields: {list(recipe.keys())}")
+        
+        # Normalize field names if needed
+        if not recipe.get('name') and name:
+            recipe['name'] = name
+        if not recipe.get('description') and description:
+            recipe['description'] = description
         
         # Add model metadata to recipe
         if model_used:
