@@ -220,9 +220,19 @@ class RecipeGenerator:
         print(f"{'='*70}\n")
         
         recipes = []
+        import time
+        start_time = time.time()
+        max_time_seconds = 50  # Leave 10 seconds buffer before Railway's 60s timeout
         
         for i in range(num_recipes):
-            print(f"[{i+1}/{num_recipes}] Generating recipe...")
+            # Check if we're running out of time
+            elapsed = time.time() - start_time
+            if elapsed > max_time_seconds:
+                print(f"    ⚠️  Time limit approaching ({elapsed:.1f}s), stopping generation")
+                print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes before timeout")
+                break
+            
+            print(f"[{i+1}/{num_recipes}] Generating recipe... (elapsed: {elapsed:.1f}s)")
             
             try:
                 recipe = self._generate_single_recipe(

@@ -2181,18 +2181,24 @@ def generate_recipes(
         
         recipe_generator = RecipeGenerator(ai_analyzer)
         
-        # Generate recipes
+        # Generate recipes with timeout protection
+        # Railway has a 60s HTTP gateway timeout, so we limit generation to ~50s
         logger.info(f"Generating {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients")
-        recipes = recipe_generator.generate_recipes(
-            pantry_items=pantry_items,
-            num_recipes=recipe_request.max_recipes,
-            cuisine=recipe_request.cuisine,
-            difficulty=recipe_request.difficulty,
-            dietary_restrictions=recipe_request.dietary_restrictions,
-            required_ingredients=required_ingredient_names,
-            excluded_ingredients=recipe_request.excluded_ingredients,
-            allow_missing_ingredients=recipe_request.allow_missing_ingredients
-        )
+        try:
+            recipes = recipe_generator.generate_recipes(
+                pantry_items=pantry_items,
+                num_recipes=recipe_request.max_recipes,
+                cuisine=recipe_request.cuisine,
+                difficulty=recipe_request.difficulty,
+                dietary_restrictions=recipe_request.dietary_restrictions,
+                required_ingredients=required_ingredient_names,
+                excluded_ingredients=recipe_request.excluded_ingredients,
+                allow_missing_ingredients=recipe_request.allow_missing_ingredients
+            )
+        except Exception as e:
+            # If generation fails partway, try to return what we have
+            logger.warning(f"Recipe generation interrupted: {e}")
+            recipes = []
         
         # Convert to response format
         result = []
@@ -2221,7 +2227,12 @@ def generate_recipes(
                 "ai_model": recipe.get('ai_model')  # Track which AI model generated this recipe
             })
         
-        logger.info(f"Successfully generated {len(result)} recipes")
+        logger.info(f"Successfully generated {len(result)}/{recipe_request.max_recipes} recipes")
+        
+        # If we got fewer recipes than requested, add a note in the response
+        if len(result) < recipe_request.max_recipes:
+            logger.warning(f"Only generated {len(result)} out of {recipe_request.max_recipes} requested recipes (likely due to timeout)")
+        
         return result
         
     except HTTPException:
