@@ -234,6 +234,15 @@ def assign_null_items_to_default_pantry():
     with engine.connect() as conn:
         trans = conn.begin()
         try:
+            # Check if user_id column exists
+            columns = [col['name'] for col in inspector.get_columns('inventory_items')]
+            has_user_id = 'user_id' in columns
+            
+            if not has_user_id:
+                logger.info("user_id column doesn't exist in inventory_items, skipping assignment")
+                trans.commit()
+                return
+            
             # Get all users who have inventory items with NULL pantry_id
             result = conn.execute(text("""
                 SELECT DISTINCT user_id 
