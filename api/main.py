@@ -2259,6 +2259,200 @@ def generate_recipes(
         )
 
 
+@app.post("/api/recipes/generate-stream", tags=["Recipes"])
+@limiter.limit(f"{config.rate_limit_recipe_per_hour}/hour")
+async def generate_recipes_stream(
+    request: Request,
+    recipe_request: RecipeRequest,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service)
+):
+    """
+    Generate AI-powered recipes using streaming (Server-Sent Events).
+    
+    This endpoint streams recipes as they're generated, allowing for large
+    numbers of recipes (10-20+) without hitting Railway's 60s HTTP gateway timeout.
+    
+    Recipes are sent as Server-Sent Events (SSE) in JSON format.
+    Each recipe is sent as soon as it's generated.
+    
+    Use this endpoint when generating many recipes with Claude (which is slower).
+    """
+    async def generate_and_stream():
+        try:
+            # Get pantry_id from request or use default
+            pantry_id = recipe_request.pantry_id
+            if pantry_id is None and current_user:
+                default_pantry = service.get_or_create_default_pantry(current_user.id)
+                pantry_id = default_pantry.id
+            
+            # Get inventory items filtered by pantry
+            all_items = service.get_all_inventory(
+                user_id=current_user.id if current_user else None,
+                pantry_id=pantry_id
+            )
+            
+            # Filter to in_stock items only
+            available_items = [item for item in all_items if item.status == "in_stock"]
+            
+            if not available_items:
+                yield f"data: {json.dumps({'error': 'No items in stock. Add items to your pantry first.'})}\n\n"
+                return
+            
+            # Filter out excluded ingredients
+            excluded_names = set(recipe_request.excluded_ingredients or [])
+            filtered_items = []
+            for item in available_items:
+                product_name = item.product.product_name if item.product else None
+                if product_name and product_name not in excluded_names:
+                    filtered_items.append(item)
+            
+            if not filtered_items:
+                yield f"data: {json.dumps({'error': 'No available ingredients after applying exclusions.'})}\n\n"
+                return
+            
+            # Verify required ingredients are available
+            if recipe_request.required_ingredients:
+                required_names = set(recipe_request.required_ingredients)
+                available_names = {item.product.product_name for item in filtered_items if item.product}
+                missing_required = required_names - available_names
+                
+                if missing_required:
+                    yield f"data: {json.dumps({'error': f'Required ingredients not available: {', '.join(missing_required)}'})}\n\n"
+                    return
+            
+            # Convert to format expected by RecipeGenerator
+            pantry_items = []
+            for item in filtered_items:
+                product_name = item.product.product_name if item.product else "Unknown"
+                brand = item.product.brand if item.product else None
+                
+                pantry_items.append({
+                    "product": {
+                        "product_name": product_name,
+                        "brand": brand
+                    }
+                })
+            
+            # Extract required ingredient names (for prompt)
+            required_ingredient_names = None
+            if recipe_request.required_ingredients:
+                required_ingredient_names = []
+                for item in pantry_items:
+                    product = item['product']
+                    name = product['product_name']
+                    if name in recipe_request.required_ingredients:
+                        brand = product.get('brand')
+                        if brand:
+                            required_ingredient_names.append(f"{brand} {name}")
+                        else:
+                            required_ingredient_names.append(name)
+            
+            # Initialize AI analyzer with user's preferred model
+            try:
+                user_settings = service.get_user_settings(current_user.id)
+                ai_config = None
+                
+                if user_settings.ai_provider or user_settings.ai_model:
+                    from src.ai_analyzer import AIConfig
+                    import os
+                    
+                    # Create custom config with user preferences
+                    ai_config = AIConfig.from_env()
+                    if user_settings.ai_provider:
+                        ai_config.provider = user_settings.ai_provider
+                    if user_settings.ai_model:
+                        ai_config.model = user_settings.ai_model
+                    
+                    from src.ai_analyzer import AIAnalyzer
+                    ai_analyzer = AIAnalyzer(ai_config)
+                else:
+                    # Use default system config
+                    ai_analyzer = create_ai_analyzer()
+            except AttributeError:
+                logger.warning("get_user_settings method not available, using default AI config")
+                ai_analyzer = create_ai_analyzer()
+            except Exception as e:
+                logger.error(f"Error getting user settings, using default: {e}")
+                ai_analyzer = create_ai_analyzer()
+            
+            recipe_generator = RecipeGenerator(ai_analyzer)
+            
+            # Send initial status
+            yield f"data: {json.dumps({'status': 'started', 'total': recipe_request.max_recipes})}\n\n"
+            
+            # Generate recipes with streaming
+            logger.info(f"Streaming {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients")
+            
+            recipe_count = 0
+            for recipe in recipe_generator.generate_recipes(
+                pantry_items=pantry_items,
+                num_recipes=recipe_request.max_recipes,
+                cuisine=recipe_request.cuisine,
+                difficulty=recipe_request.difficulty,
+                dietary_restrictions=recipe_request.dietary_restrictions,
+                required_ingredients=required_ingredient_names,
+                excluded_ingredients=recipe_request.excluded_ingredients,
+                allow_missing_ingredients=recipe_request.allow_missing_ingredients,
+                stream=True  # Enable streaming
+            ):
+                if "error" in recipe:
+                    yield f"data: {json.dumps({'error': recipe['error']})}\n\n"
+                    continue
+                
+                # Extract available ingredients used
+                used_ingredients = []
+                for ing in recipe.get('ingredients', []):
+                    if isinstance(ing, dict):
+                        used_ingredients.append(ing.get('item', ing.get('name', '')))
+                    else:
+                        used_ingredients.append(str(ing))
+                
+                # Convert to response format
+                recipe_response = {
+                    "name": recipe.get('name', 'Unnamed Recipe'),
+                    "description": recipe.get('description', ''),
+                    "difficulty": recipe.get('difficulty') or recipe_request.difficulty or 'medium',
+                    "prep_time": _parse_time(recipe.get('prep_time', '0 minutes')),
+                    "cook_time": _parse_time(recipe.get('cook_time', '0 minutes')),
+                    "servings": recipe.get('servings', 4),
+                    "cuisine": recipe.get('cuisine', ''),
+                    "ingredients": recipe.get('ingredients', []),
+                    "instructions": recipe.get('instructions', []),
+                    "available_ingredients": used_ingredients,
+                    "missing_ingredients": recipe.get('missing_ingredients', []),
+                    "flavor_pairings": recipe.get('flavor_pairings', []),
+                    "ai_model": recipe.get('ai_model')
+                }
+                
+                recipe_count += 1
+                recipe_response['index'] = recipe_count
+                recipe_response['total'] = recipe_request.max_recipes
+                
+                # Send recipe as SSE
+                yield f"data: {json.dumps(recipe_response)}\n\n"
+                
+                # Small delay to prevent overwhelming the client
+                await asyncio.sleep(0.1)
+            
+            # Send completion status
+            yield f"data: {json.dumps({'status': 'completed', 'count': recipe_count})}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Error in streaming recipe generation: {e}", exc_info=True)
+            yield f"data: {json.dumps({'error': f'Failed to generate recipes: {str(e)}'})}\n\n"
+    
+    return StreamingResponse(
+        generate_and_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
+
+
 def _parse_time(time_str: str) -> int:
     """Parse time string like '30 minutes' to integer minutes."""
     try:
