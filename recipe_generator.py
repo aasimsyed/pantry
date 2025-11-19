@@ -171,6 +171,7 @@ class RecipeGenerator:
         required_ingredients: Optional[List[str]] = None,
         excluded_ingredients: Optional[List[str]] = None,
         allow_missing_ingredients: bool = False,
+        stream: bool = False,
     ) -> List[Dict]:
         """Generate recipes using available ingredients.
         
@@ -228,7 +229,10 @@ class RecipeGenerator:
         backend = self.analyzer._get_backend()
         is_claude = backend.__class__.__name__ != 'OpenAIBackend'
         
-        if is_claude:
+        # When streaming, no timeout limits - recipes are sent as they're generated
+        if stream:
+            max_time_seconds = float('inf')  # No timeout when streaming
+        elif is_claude:
             # Claude is slower: allow ~40s for 3-4 recipes max
             max_time_seconds = 40
             # Also reduce max recipes for Claude to stay within timeout
@@ -242,19 +246,21 @@ class RecipeGenerator:
             max_time_seconds = 55  # Leave 5 seconds buffer before Railway's 60s timeout
         
         for i in range(num_recipes):
-            # Check if we're running out of time
-            elapsed = time.time() - start_time
-            if elapsed > max_time_seconds:
-                print(f"    ⚠️  Time limit approaching ({elapsed:.1f}s), stopping generation")
-                print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes before timeout")
-                break
+            # Check if we're running out of time (skip if streaming)
+            if not stream:
+                elapsed = time.time() - start_time
+                if elapsed > max_time_seconds:
+                    print(f"    ⚠️  Time limit approaching ({elapsed:.1f}s), stopping generation")
+                    print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes before timeout")
+                    break
+                
+                # For GPT-4, be more lenient - only stop if we're very close to 60s
+                if not is_claude and elapsed > 58:
+                    print(f"    ⚠️  Very close to Railway timeout ({elapsed:.1f}s), stopping generation")
+                    print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes")
+                    break
             
-            # For GPT-4, be more lenient - only stop if we're very close to 60s
-            if not is_claude and elapsed > 58:
-                print(f"    ⚠️  Very close to Railway timeout ({elapsed:.1f}s), stopping generation")
-                print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes")
-                break
-            
+            elapsed = time.time() - start_time if not stream else 0
             print(f"[{i+1}/{num_recipes}] Generating recipe... (elapsed: {elapsed:.1f}s)")
             
             try:
@@ -273,9 +279,15 @@ class RecipeGenerator:
                     recipes.append(recipe)
                     print(f"    ✅ {recipe['name']}")
                     print(f"       Uses {len(recipe['ingredients'])} pantry items")
+                    
+                    # If streaming, yield the recipe immediately
+                    if stream:
+                        yield recipe
                 
             except Exception as e:
                 print(f"    ❌ Error: {e}")
+                if stream:
+                    yield {"error": str(e)}
                 continue
         
         print(f"\n{'='*70}")
