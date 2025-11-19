@@ -360,8 +360,12 @@ class RecipeGenerator:
                     {"role": "system", "content": "You are a creative chef. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                "temperature": 0.7,  # More creative for recipes
             }
+            
+            # GPT-5 and o1/o3 models don't support temperature parameter
+            # Only use temperature for models that support it
+            if not any(x in model_name for x in ['gpt-5', 'o1', 'o3']):
+                api_params["temperature"] = 0.7  # More creative for recipes
             
             # Use the appropriate parameter based on model
             if use_max_completion_tokens:
