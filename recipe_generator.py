@@ -309,48 +309,49 @@ class RecipeGenerator:
             )
             content = response.choices[0].message.content.strip()
         else:  # Claude
-            try:
-                # Determine model name - try user's model first, then fallback to known working models
-                if backend.config.model and "claude" in backend.config.model:
-                    model_name = backend.config.model
-                else:
-                    # Try latest model first, fallback to older stable model if it fails
-                    model_name = "claude-3-5-sonnet-20240620"  # Known working model
-                
-                # Claude supports system messages - use it for better results
-                messages = [{"role": "user", "content": prompt}]
-                
-                message = backend.client.messages.create(
-                    model=model_name,
-                    max_tokens=recipe_max_tokens,
-                    temperature=0.7,  # More creative for recipes
-                    messages=messages
-                )
-                content = message.content[0].text.strip()
-            except Exception as e:
-                # If using a newer model and it fails, try fallback to stable model
-                error_msg = str(e)
-                if "claude-sonnet-4" in model_name or "20250514" in model_name:
-                    try:
-                        # Fallback to known working model
-                        fallback_model = "claude-3-5-sonnet-20240620"
-                        self.analyzer.logger.warning(f"Model {model_name} failed, trying fallback {fallback_model}")
-                        message = backend.client.messages.create(
-                            model=fallback_model,
-                            max_tokens=recipe_max_tokens,
-                            temperature=0.7,
-                            messages=messages
-                        )
-                        content = message.content[0].text.strip()
-                    except Exception as fallback_error:
-                        # Both failed, raise original error with context
-                        error_msg = f"Original model ({model_name}) failed: {error_msg}. Fallback ({fallback_model}) also failed: {str(fallback_error)}"
-                        raise ValueError(f"Failed to generate recipe with Claude: {error_msg}") from e
-                else:
-                    # Re-raise with more context
-                    if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
-                        error_msg = f"Anthropic API error (status {e.response.status_code}): {error_msg}"
-                    raise ValueError(f"Failed to generate recipe with Claude: {error_msg}") from e
+            # Try models in order of preference, with fallbacks
+            models_to_try = []
+            
+            # Add user's selected model first if specified
+            if backend.config.model and "claude" in backend.config.model:
+                models_to_try.append(backend.config.model)
+            
+            # Add fallback models (trying most stable/available first)
+            models_to_try.extend([
+                "claude-3-opus-20240229",  # Most reliable older model
+                "claude-3-sonnet-20240229",  # Alternative stable model
+                "claude-3-5-sonnet-20240620",  # Newer but may not be available
+            ])
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            models_to_try = [m for m in models_to_try if m not in seen and not seen.add(m)]
+            
+            last_error = None
+            messages = [{"role": "user", "content": prompt}]
+            
+            for model_name in models_to_try:
+                try:
+                    self.analyzer.logger.info(f"Trying Claude model: {model_name}")
+                    message = backend.client.messages.create(
+                        model=model_name,
+                        max_tokens=recipe_max_tokens,
+                        temperature=0.7,  # More creative for recipes
+                        messages=messages
+                    )
+                    content = message.content[0].text.strip()
+                    self.analyzer.logger.info(f"Successfully used Claude model: {model_name}")
+                    break  # Success, exit loop
+                except Exception as e:
+                    last_error = e
+                    error_msg = str(e)
+                    self.analyzer.logger.warning(f"Model {model_name} failed: {error_msg}")
+                    continue  # Try next model
+            
+            # If all models failed, raise error
+            if 'content' not in locals() or not content:
+                error_detail = f"All Claude models failed. Last error: {str(last_error)}"
+                raise ValueError(f"Failed to generate recipe with Claude: {error_detail}") from last_error
         
         # Remove markdown code blocks if present
         if content.startswith("```"):
