@@ -363,17 +363,21 @@ AVAILABLE PANTRY INGREDIENTS:
 
 """
 
-        # Add flavor pairing information (condensed for faster processing)
+        # Add chemistry-based flavor pairing information (condensed but scientifically accurate)
+        prompt += "CHEMISTRY-BASED FLAVOR PAIRING PRINCIPLES (molecular gastronomy):\n"
         if flavor_pairings:
-            prompt += "FLAVOR PAIRINGS: "
-            pairing_list = []
             for ingredient, pairings in flavor_pairings.items():
                 if pairings:
-                    pairing_list.append(f"{ingredient.title()}: {', '.join(p.title() for p in pairings[:3])}")
-            if pairing_list:
-                prompt += "; ".join(pairing_list) + "\n\n"
+                    prompt += f"- {ingredient.title()}: Pairs with {', '.join(p.title() for p in pairings[:4])} (shared volatile compounds)\n"
+            prompt += "\n"
         else:
-            prompt += "FLAVOR GUIDANCE: Use shared compounds, umami, acidity, and aromatics for balanced flavors.\n\n"
+            prompt += """- Shared volatile compounds (vanillin, eugenol, terpenes) create harmonious flavors
+- Umami compounds enhance savory depth
+- Acidic compounds brighten and balance
+- Aromatic terpenes create complex layers
+- Complementary chemical profiles enhance each other
+
+"""
         
         if allow_missing_ingredients:
             prompt += "CONSTRAINTS: Prioritize pantry ingredients. May include 2-4 missing items if essential. Mark missing ingredients clearly.\n\n"
@@ -410,7 +414,9 @@ AVAILABLE PANTRY INGREDIENTS:
         
         prompt += """Return ONLY valid JSON (no markdown) with: name, description, cuisine, difficulty (match requested exactly), prep_time, cook_time, servings, ingredients[], instructions[], flavor_pairings[], missing_ingredients[], tips[], dietary_tags[].
 
-Be creative and delicious!"""
+IMPORTANT: The flavor_pairings array MUST explain the chemical basis (shared volatile compounds like vanillin, eugenol, terpenes, capsaicin, etc.) and how they create flavor harmony. This is essential for molecular gastronomy-based recipe generation.
+
+Be creative and delicious using scientifically-proven flavor chemistry!"""
         
         return prompt
     
