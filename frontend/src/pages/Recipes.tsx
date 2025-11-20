@@ -9,6 +9,7 @@ export default function Recipes() {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [loadingIngredients, setLoadingIngredients] = useState(true);
 
   // Pantry selection
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
@@ -29,17 +30,25 @@ export default function Recipes() {
   }, [selectedPantryId]);
 
   const loadAvailableIngredients = async () => {
-    if (selectedPantryId === undefined) return;
+    if (selectedPantryId === undefined) {
+      setLoadingIngredients(false);
+      return;
+    }
     
     try {
+      setLoadingIngredients(true);
       const items = await apiClient.getInventory(0, 1000, undefined, 'in_stock', selectedPantryId);
       const uniqueNames = new Set<string>();
       items.forEach((item) => {
         if (item.product_name) uniqueNames.add(item.product_name);
       });
       setAvailableIngredients(Array.from(uniqueNames).sort());
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load ingredients');
+      setAvailableIngredients([]);
+    } finally {
+      setLoadingIngredients(false);
     }
   };
 
@@ -122,7 +131,19 @@ export default function Recipes() {
     }
   };
 
-  if (availableIngredients.length === 0 && !error) {
+  // Show loading state while pantry is being selected or ingredients are loading
+  if (loadingIngredients || selectedPantryId === undefined) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="card">
+          <p className="text-gray-600 mb-4">Loading ingredients...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Only show warning if pantry is selected, ingredients are loaded, and there are no items
+  if (availableIngredients.length === 0 && !error && !loadingIngredients) {
     return (
       <div className="max-w-7xl mx-auto">
         <div className="card">
