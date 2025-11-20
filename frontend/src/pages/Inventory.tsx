@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
-import type { InventoryItem, SourceDirectory, RefreshInventoryResult } from '../types';
+import type { InventoryItem, RefreshInventoryResult } from '../types';
 
 export default function Inventory() {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -17,8 +17,6 @@ export default function Inventory() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   
   // Image processing
-  const [sourceDir, setSourceDir] = useState<SourceDirectory | null>(null);
-  const [newSourceDir, setNewSourceDir] = useState('');
   const [processingImage, setProcessingImage] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshResult, setRefreshResult] = useState<RefreshInventoryResult | null>(null);
@@ -56,7 +54,6 @@ export default function Inventory() {
     if (selectedPantryId !== undefined) {
       loadInventory();
     }
-    loadSourceDirectory();
   }, [locationFilter, statusFilter, selectedPantryId]);
 
   const loadInventory = async () => {
@@ -76,25 +73,6 @@ export default function Inventory() {
     }
   };
 
-  const loadSourceDirectory = async () => {
-    try {
-      const data = await apiClient.getSourceDirectory();
-      setSourceDir(data);
-      setNewSourceDir(data.source_directory);
-    } catch (err) {
-      console.error('Failed to load source directory:', err);
-    }
-  };
-
-  const handleSaveSourceDirectory = async () => {
-    try {
-      await apiClient.setSourceDirectory(newSourceDir);
-      await loadSourceDirectory();
-      alert('Source directory updated!');
-    } catch (err: any) {
-      alert(`Failed to update directory: ${err.message}`);
-    }
-  };
 
   const handleSelectDirectory = async () => {
     try {
@@ -403,54 +381,32 @@ export default function Inventory() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             {/* Source Directory */}
             <div>
-              <h3 className="font-semibold mb-2">📁 Source Directory</h3>
-              {sourceDir && (
-                <div className="mb-4">
-                  {sourceDir.exists ? (
-                    <p className="text-green-600 mb-2">✅ {sourceDir.source_directory}</p>
-                  ) : (
-                    <p className="text-orange-600 mb-2">⚠️ {sourceDir.source_directory} (does not exist)</p>
-                  )}
-                </div>
-              )}
+              <h3 className="font-semibold mb-2">📁 Process Images from Directory</h3>
               {selectedDirectoryPath && (
                 <div className="mb-4 p-2 bg-blue-50 rounded">
                   <p className="text-sm text-blue-800">📂 Selected: {selectedDirectoryPath}</p>
                 </div>
               )}
-              <div className="mb-2">
-                <button 
-                  onClick={handleSelectDirectory} 
-                  disabled={uploadingFiles}
-                  className="btn-primary w-full mb-2"
-                >
-                  {uploadingFiles ? '⏳ Processing...' : '📂 Choose Directory'}
-                </button>
-                {uploadProgress.total > 0 && (
-                  <div className="mt-2">
-                    <div className="text-sm text-gray-600 mb-1">
-                      Uploading: {uploadProgress.current} / {uploadProgress.total}
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="text-xs text-gray-500 mb-2 text-center">or</div>
-              <input
-                type="text"
-                value={newSourceDir}
-                onChange={(e) => setNewSourceDir(e.target.value)}
-                placeholder="~/Pictures/Pantry"
-                className="input mb-2"
-              />
-              <button onClick={handleSaveSourceDirectory} className="btn-secondary w-full">
-                💾 Save Directory Path
+              <button 
+                onClick={handleSelectDirectory} 
+                disabled={uploadingFiles}
+                className="btn-primary w-full mb-2"
+              >
+                {uploadingFiles ? '⏳ Processing...' : '📂 Choose Directory'}
               </button>
+              {uploadProgress.total > 0 && (
+                <div className="mt-2">
+                  <div className="text-sm text-gray-600 mb-1">
+                    Uploading: {uploadProgress.current} / {uploadProgress.total}
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Refresh Inventory */}
