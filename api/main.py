@@ -88,17 +88,19 @@ def get_cors_origins():
     """Get CORS origins, including Vercel preview deployments."""
     origins = config.cors_origins.copy()
     
-    # Add common Vercel patterns (you can add specific preview URLs here)
-    # Vercel preview deployments use patterns like:
-    # - https://your-app-git-branch-username.vercel.app
-    # - https://your-app-*.vercel.app
-    # For now, we'll use the configured origins and you can add specific preview URLs
-    
+    # Add Vercel deployment URLs
+    # Vercel uses patterns like: https://frontend-*.vercel.app
+    # We'll check these dynamically in the origin validator
     return origins
+
+def is_vercel_origin(origin: str) -> bool:
+    """Check if origin is a Vercel deployment."""
+    return origin.endswith('.vercel.app')
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel deployments
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

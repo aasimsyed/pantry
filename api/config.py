@@ -34,8 +34,9 @@ class APIConfig(BaseSettings):
         "http://localhost:3000",  # React default
         "http://localhost:5173",  # Vite dev server default
         # Production frontend URLs - Vercel deployments
-        "https://frontend-*.vercel.app",  # Vercel production and preview deployments
-        "https://*.vercel.app",  # All Vercel preview deployments
+        # Add specific Vercel deployment URLs here as needed
+        # Vercel uses patterns like: https://frontend-*.vercel.app
+        # For now, we'll use a custom origin checker in main.py
         # Add your custom domain here when configured
         # "https://pantry.yourdomain.com",
     ]
