@@ -22,6 +22,9 @@ export default function Inventory() {
   const [processingImage, setProcessingImage] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshResult, setRefreshResult] = useState<RefreshInventoryResult | null>(null);
+  const [selectedDirectoryPath, setSelectedDirectoryPath] = useState<string>('');
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   
   // Add item form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -90,6 +93,130 @@ export default function Inventory() {
       alert('Source directory updated!');
     } catch (err: any) {
       alert(`Failed to update directory: ${err.message}`);
+    }
+  };
+
+  const handleSelectDirectory = async () => {
+    try {
+      // Check if File System Access API is supported
+      if ('showDirectoryPicker' in window) {
+        // Modern browsers (Chrome, Edge)
+        const directoryHandle = await (window as any).showDirectoryPicker();
+        const dirName = directoryHandle.name;
+        setSelectedDirectoryPath(dirName);
+        
+        // Read all image files from the directory
+        const imageFiles: File[] = [];
+        await readDirectoryFiles(directoryHandle, imageFiles);
+        
+        if (imageFiles.length === 0) {
+          alert('No image files found in the selected directory.');
+          return;
+        }
+        
+        // Upload files
+        await uploadDirectoryFiles(imageFiles);
+      } else {
+        // Fallback: Use file input with webkitdirectory
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.webkitdirectory = true;
+        input.accept = 'image/*';
+        input.onchange = async (e: any) => {
+          const files = Array.from(e.target.files || []) as File[];
+          const imageFiles = files.filter(file => 
+            file.type.startsWith('image/') && 
+            (file.name.toLowerCase().endsWith('.jpg') || 
+             file.name.toLowerCase().endsWith('.jpeg') ||
+             file.name.toLowerCase().endsWith('.png'))
+          );
+          
+          if (imageFiles.length === 0) {
+            alert('No image files found in the selected directory.');
+            return;
+          }
+          
+          // Extract directory path if available
+          if (files.length > 0) {
+            const firstFile = files[0];
+            const path = (firstFile as any).webkitRelativePath || '';
+            const dirPath = path.substring(0, path.lastIndexOf('/'));
+            setSelectedDirectoryPath(dirPath || 'Selected Directory');
+          }
+          
+          await uploadDirectoryFiles(imageFiles);
+        };
+        input.click();
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Error selecting directory:', err);
+        alert(`Failed to select directory: ${err.message}`);
+      }
+    }
+  };
+
+  const readDirectoryFiles = async (directoryHandle: any, imageFiles: File[]): Promise<void> => {
+    for await (const entry of directoryHandle.values()) {
+      if (entry.kind === 'file') {
+        const file = await entry.getFile();
+        const name = file.name.toLowerCase();
+        if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png')) {
+          imageFiles.push(file);
+        }
+      } else if (entry.kind === 'directory') {
+        // Recursively read subdirectories
+        await readDirectoryFiles(entry, imageFiles);
+      }
+    }
+  };
+
+  const uploadDirectoryFiles = async (files: File[]) => {
+    try {
+      setUploadingFiles(true);
+      setUploadProgress({ current: 0, total: files.length });
+      
+      const results = [];
+      const batchSize = 3; // Upload 3 files at a time to avoid overwhelming the server
+      
+      for (let i = 0; i < files.length; i += batchSize) {
+        const batch = files.slice(i, i + batchSize);
+        const uploadPromises = batch.map(async (file) => {
+          try {
+            const result = await apiClient.processImage(file, 'pantry');
+            setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
+            return result;
+          } catch (err: any) {
+            console.error(`Failed to upload ${file.name}:`, err);
+            setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
+            return { success: false, message: `Failed to process ${file.name}: ${err.message}` };
+          }
+        });
+        
+        const batchResults = await Promise.all(uploadPromises);
+        results.push(...batchResults);
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+      
+      if (failCount === 0) {
+        alert(`✅ Successfully processed ${successCount} image(s)!`);
+      } else {
+        alert(`⚠️ Processed ${successCount} image(s), ${failCount} failed. Check console for details.`);
+      }
+      
+      setSelectedDirectoryPath('');
+      
+      // Refresh inventory
+      if (selectedPantryId !== undefined) {
+        await loadInventory();
+      }
+    } catch (err: any) {
+      alert(`Error uploading files: ${err.message}`);
+    } finally {
+      setUploadingFiles(false);
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -286,6 +413,34 @@ export default function Inventory() {
                   )}
                 </div>
               )}
+              {selectedDirectoryPath && (
+                <div className="mb-4 p-2 bg-blue-50 rounded">
+                  <p className="text-sm text-blue-800">📂 Selected: {selectedDirectoryPath}</p>
+                </div>
+              )}
+              <div className="mb-2">
+                <button 
+                  onClick={handleSelectDirectory} 
+                  disabled={uploadingFiles}
+                  className="btn-primary w-full mb-2"
+                >
+                  {uploadingFiles ? '⏳ Processing...' : '📂 Choose Directory'}
+                </button>
+                {uploadProgress.total > 0 && (
+                  <div className="mt-2">
+                    <div className="text-sm text-gray-600 mb-1">
+                      Uploading: {uploadProgress.current} / {uploadProgress.total}
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 mb-2 text-center">or</div>
               <input
                 type="text"
                 value={newSourceDir}
@@ -293,8 +448,8 @@ export default function Inventory() {
                 placeholder="~/Pictures/Pantry"
                 className="input mb-2"
               />
-              <button onClick={handleSaveSourceDirectory} className="btn-primary w-full">
-                💾 Save Directory
+              <button onClick={handleSaveSourceDirectory} className="btn-secondary w-full">
+                💾 Save Directory Path
               </button>
             </div>
 
