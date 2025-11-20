@@ -33,9 +33,9 @@ class APIConfig(BaseSettings):
         "http://localhost:8501",  # Streamlit default
         "http://localhost:3000",  # React default
         "http://localhost:5173",  # Vite dev server default
-        # Production frontend URLs - add your Vercel domain here after deployment
-        # "https://smart-pantry-frontend.vercel.app",  # Your Vercel production URL
-        # "https://smart-pantry-frontend-git-main-yourusername.vercel.app",  # Preview deployments
+        # Production frontend URLs - Vercel deployments
+        "https://frontend-*.vercel.app",  # Vercel production and preview deployments
+        "https://*.vercel.app",  # All Vercel preview deployments
         # Add your custom domain here when configured
         # "https://pantry.yourdomain.com",
     ]

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Select, MenuItem, FormControl, InputLabel, Typography, Box, Alert } from '@mui/material';
 import apiClient from '../api/client';
 
 interface UserSettings {
@@ -84,83 +83,97 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading settings...</Typography>
-      </Box>
+      <div className="p-6">
+        <p>Loading settings...</p>
+      </div>
     );
   }
 
   if (!settings) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">Failed to load settings</Alert>
-      </Box>
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+          Failed to load settings
+        </div>
+      </div>
     );
   }
 
   const availableModels = settings.ai_provider ? AI_MODELS[settings.ai_provider as keyof typeof AI_MODELS] || [] : [];
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h4" gutterBottom>
-        Settings
-      </Typography>
+    <div className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Settings</h1>
 
       {message && (
-        <Alert severity={message.type} sx={{ mb: 2 }} onClose={() => setMessage(null)}>
-          {message.text}
-        </Alert>
+        <div className={`mb-4 px-4 py-3 rounded ${
+          message.type === 'success' 
+            ? 'bg-green-50 border border-green-200 text-green-800' 
+            : 'bg-red-50 border border-red-200 text-red-800'
+        }`}>
+          <div className="flex justify-between items-center">
+            <span>{message.text}</span>
+            <button
+              onClick={() => setMessage(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
 
-      <Card sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          AI Model Preferences
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-2">AI Model Preferences</h2>
+        <p className="text-gray-600 mb-6">
           Choose which AI model to use for recipe generation. GPT-5 offers the best quality and reasoning, GPT-4o provides excellent balance, while Claude models excel at creative recipes.
-        </Typography>
+        </p>
 
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>AI Provider</InputLabel>
-          <Select
+        <div className="mb-4">
+          <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 mb-2">
+            AI Provider
+          </label>
+          <select
+            id="ai-provider"
             value={settings.ai_provider || ''}
-            label="AI Provider"
-            onChange={(e) => handleProviderChange(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleProviderChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <MenuItem value="">Use System Default</MenuItem>
-            <MenuItem value="openai">OpenAI</MenuItem>
-            <MenuItem value="anthropic">Anthropic (Claude)</MenuItem>
-          </Select>
-        </FormControl>
+            <option value="">Use System Default</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+          </select>
+        </div>
 
         {settings.ai_provider && (
-          <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel>AI Model</InputLabel>
-            <Select
+          <div className="mb-6">
+            <label htmlFor="ai-model" className="block text-sm font-medium text-gray-700 mb-2">
+              AI Model
+            </label>
+            <select
+              id="ai-model"
               value={settings.ai_model || ''}
-              label="AI Model"
-              onChange={(e) => handleModelChange(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleModelChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <MenuItem value="">Use Provider Default</MenuItem>
+              <option value="">Use Provider Default</option>
               {availableModels.map((model) => (
-                <MenuItem key={model.value} value={model.value}>
+                <option key={model.value} value={model.value}>
                   {model.label}
-                </MenuItem>
+                </option>
               ))}
-            </Select>
-          </FormControl>
+            </select>
+          </div>
         )}
 
-        <Button
-          variant="contained"
+        <button
           onClick={handleSave}
           disabled={saving}
-          sx={{ mt: 2 }}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           {saving ? 'Saving...' : 'Save Settings'}
-        </Button>
-      </Card>
-    </Box>
+        </button>
+      </div>
+    </div>
   );
 }
-
