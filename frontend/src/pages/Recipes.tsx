@@ -9,7 +9,7 @@ export default function Recipes() {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [loadingIngredients, setLoadingIngredients] = useState(true);
+  const [loadingIngredients, setLoadingIngredients] = useState(false);
 
   // Pantry selection
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
@@ -31,19 +31,20 @@ export default function Recipes() {
 
   const loadAvailableIngredients = async () => {
     if (selectedPantryId === undefined) {
+      setAvailableIngredients([]);
       setLoadingIngredients(false);
       return;
     }
     
     try {
       setLoadingIngredients(true);
+      setError(null);
       const items = await apiClient.getInventory(0, 1000, undefined, 'in_stock', selectedPantryId);
       const uniqueNames = new Set<string>();
       items.forEach((item) => {
         if (item.product_name) uniqueNames.add(item.product_name);
       });
       setAvailableIngredients(Array.from(uniqueNames).sort());
-      setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load ingredients');
       setAvailableIngredients([]);
@@ -131,31 +132,6 @@ export default function Recipes() {
     }
   };
 
-  // Show loading state while pantry is being selected or ingredients are loading
-  if (loadingIngredients || selectedPantryId === undefined) {
-    return (
-      <div className="max-w-7xl mx-auto">
-        <div className="card">
-          <p className="text-gray-600 mb-4">Loading ingredients...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Only show warning if pantry is selected, ingredients are loaded, and there are no items
-  if (availableIngredients.length === 0 && !error && !loadingIngredients) {
-    return (
-      <div className="max-w-7xl mx-auto">
-        <div className="card">
-          <p className="text-orange-600 mb-4">⚠️ No items in stock. Add items to your pantry first!</p>
-          <a href="/inventory" className="btn-primary">
-            Go to Inventory
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-6">
@@ -169,6 +145,23 @@ export default function Recipes() {
           />
         </div>
       </div>
+
+      {/* Show loading state while ingredients are being loaded */}
+      {loadingIngredients && (
+        <div className="card mb-6">
+          <p className="text-gray-600 mb-4">Loading ingredients...</p>
+        </div>
+      )}
+
+      {/* Show warning if pantry is selected, ingredients are loaded, and there are no items */}
+      {!loadingIngredients && selectedPantryId !== undefined && availableIngredients.length === 0 && !error && (
+        <div className="card mb-6">
+          <p className="text-orange-600 mb-4">⚠️ No items in stock. Add items to your pantry first!</p>
+          <a href="/inventory" className="btn-primary">
+            Go to Inventory
+          </a>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
