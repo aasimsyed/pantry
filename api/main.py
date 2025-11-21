@@ -839,7 +839,7 @@ def create_inventory_item(
     """
     try:
         # Verify product exists
-        product = service.get_product_by_id(item_data.product_id)
+        product = service.get_product(item_data.product_id)
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -920,7 +920,7 @@ def update_inventory_item(
         
         # If product_id is being updated, verify it exists
         if 'product_id' in update_data:
-            product = service.get_product_by_id(update_data['product_id'])
+            product = service.get_product(update_data['product_id'])
             if not product:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
