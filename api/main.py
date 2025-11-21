@@ -552,7 +552,7 @@ def create_product(
         product = service.add_product(
             product_name=product_data.product_name,
             brand=product_data.brand,
-            category=product_data.category,
+            category=product_data.category or "Other",
             subcategory=product_data.subcategory,
             barcode=product_data.barcode,
             default_storage_location=product_data.default_storage_location,
