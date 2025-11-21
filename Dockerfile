@@ -25,11 +25,12 @@ COPY . .
 # Expose port (platforms will set PORT env var)
 EXPOSE 8000
 
-# Health check
+# Health check (uses PORT env var, defaults to 8000)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+  CMD sh -c 'python -c "import requests, os; port=os.environ.get(\"PORT\", \"8000\"); requests.get(f\"http://localhost:{port}/health\")"' || exit 1
 
 # Run the application
+# Use start_server.py which handles database initialization and then starts uvicorn
 # Platforms like Railway and Fly.io will override PORT via environment variable
-CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["python", "start_server.py"]
 
