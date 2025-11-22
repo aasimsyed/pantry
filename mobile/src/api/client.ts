@@ -359,7 +359,8 @@ class APIClient {
   // Image Processing
   async processImage(
     uri: string,
-    storageLocation: string = 'pantry'
+    storageLocation: string = 'pantry',
+    pantryId?: number
   ): Promise<ProcessImageResult> {
     // Create FormData for file upload
     // React Native FormData requires specific format
@@ -377,6 +378,9 @@ class APIClient {
       name: filename,
     } as any);
     formData.append('storage_location', storageLocation);
+    if (pantryId !== undefined) {
+      formData.append('pantry_id', pantryId.toString());
+    }
 
     try {
       const response = await this.client.post<ProcessImageResult>(

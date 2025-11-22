@@ -161,7 +161,7 @@ export default function Inventory() {
         const batch = files.slice(i, i + batchSize);
         const uploadPromises = batch.map(async (file) => {
           try {
-            const result = await apiClient.processImage(file, 'pantry');
+            const result = await apiClient.processImage(file, 'pantry', selectedPantryId);
             setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
             return result;
           } catch (err: any) {
@@ -218,7 +218,7 @@ export default function Inventory() {
   const handleProcessImage = async (file: File) => {
     try {
       setProcessingImage(true);
-      const result = await apiClient.processImage(file, 'pantry');
+      const result = await apiClient.processImage(file, 'pantry', selectedPantryId);
       if (result.success) {
         alert(`Successfully processed: ${result.item.product_name || 'Unknown'}`);
         await loadInventory();

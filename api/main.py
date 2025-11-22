@@ -1433,6 +1433,7 @@ def process_single_image(
     request: Request,
     file: UploadFile = File(...),
     storage_location: str = Form("pantry"),
+    pantry_id: Optional[int] = Form(None),
     current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service),
     db: Session = Depends(get_db)
@@ -1580,8 +1581,20 @@ def process_single_image(
                     logger.warning(f"Could not parse expiration date: {product_data.expiration_date}, error: {e}")
                     exp_date = None
             
-            # Get or create default pantry for user
-            default_pantry = service.get_or_create_default_pantry(current_user.id)
+            # Get or create pantry for user
+            # Use provided pantry_id if given, otherwise use default pantry
+            if pantry_id is not None:
+                # Verify pantry belongs to user
+                pantry = service.get_pantry(pantry_id, user_id=current_user.id)
+                if not pantry:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Pantry not found or access denied"
+                    )
+                target_pantry_id = pantry_id
+            else:
+                default_pantry = service.get_or_create_default_pantry(current_user.id)
+                target_pantry_id = default_pantry.id
             
             # Create inventory item
             item = service.add_inventory_item(
@@ -1593,7 +1606,7 @@ def process_single_image(
                 image_path=file.filename,
                 notes=f"Processed from uploaded image",
                 user_id=current_user.id,
-                pantry_id=default_pantry.id
+                pantry_id=target_pantry_id
             )
             
             # Create processing log

@@ -422,11 +422,15 @@ class APIClient {
 
   async processImage(
     file: File,
-    storageLocation: string = 'pantry'
+    storageLocation: string = 'pantry',
+    pantryId?: number
   ): Promise<ProcessImageResult> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('storage_location', storageLocation);
+    if (pantryId !== undefined) {
+      formData.append('pantry_id', pantryId.toString());
+    }
 
     const response = await this.client.post<ProcessImageResult>(
       '/api/inventory/process-image',

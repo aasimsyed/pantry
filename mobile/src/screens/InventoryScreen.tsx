@@ -130,7 +130,7 @@ export default function InventoryScreen() {
     try {
       setProcessing(true);
       setDialogVisible(false);
-      const result = await apiClient.processImage(uri, 'pantry');
+      const result = await apiClient.processImage(uri, 'pantry', selectedPantryId);
       if (result.success) {
         Alert.alert('Success', `Processed: ${result.item.product_name || 'Unknown'}`);
         await loadInventory();
