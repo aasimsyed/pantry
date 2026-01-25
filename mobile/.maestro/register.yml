@@ -25,7 +25,7 @@ appId: com.aasimsyed.smartpantry
 # Handle result (success or error)
 - runFlow:
     when:
-      id: "home-title"
+      visible: "Smart Pantry"
     commands:
       - assertVisible:
           id: "home-title"
