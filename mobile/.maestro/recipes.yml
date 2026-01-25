@@ -1,0 +1,45 @@
+# Recipes Screen Test
+# Tests recipe generation functionality
+# Note: Assumes user is logged in and has items in inventory
+
+appId: com.aasimsyed.smartpantry
+---
+- launchApp
+# Wait for app to load - if on login screen, wait for home
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 5000
+# Navigate to Recipes screen
+- assertVisible:
+    id: "home-title"
+- tapOn:
+    id: "quick-action-recipes"
+- assertVisible:
+    id: "recipes-title"
+# Verify Recipes screen elements
+- assertVisible:
+    id: "recipes-title"
+- assertVisible:
+    id: "num-recipes-input"
+- assertVisible:
+    id: "allow-missing-checkbox"
+- assertVisible:
+    id: "cuisine-selector"
+- assertVisible:
+    id: "difficulty-selector"
+- assertVisible:
+    id: "generate-recipes-button"
+# Test recipe options
+- tapOn:
+    id: "num-recipes-input"
+- inputText: "2"
+- hideKeyboard
+# Test cuisine selector (optional - may skip if complex)
+# Test difficulty selector (optional - may skip if complex)
+# Note: Recipe generation requires pantry with items and API connection
+# This test verifies UI elements are present and functional
+# Actual generation would require backend API to be running

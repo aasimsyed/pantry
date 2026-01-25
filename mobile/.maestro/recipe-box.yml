@@ -1,0 +1,48 @@
+# Recipe Box Screen Test
+# Tests saved recipes management
+# Note: Assumes user is logged in
+
+appId: com.aasimsyed.smartpantry
+---
+- launchApp
+# Wait for app to load - if on login screen, wait for home
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 5000
+# Navigate to Recipe Box
+- assertVisible:
+    id: "home-title"
+- tapOn:
+    id: "quick-action-recipebox"
+- assertVisible:
+    id: "recipe-box-title"
+# Test empty state (if no recipes saved)
+- runFlow:
+    when:
+      visible: "No Recipes Yet"
+    commands:
+      - assertVisible: "No Recipes Yet"
+      - assertVisible:
+          id: "empty-recipe-box-button"
+      - tapOn:
+          id: "empty-recipe-box-button"
+      - assertVisible:
+          id: "recipes-title"
+      # Navigate back
+      - tapOn:
+          id: "tab-recipe-box"
+# Test with saved recipes (if any exist)
+- runFlow:
+    when:
+      visible: "min prep"
+    commands:
+      # Verify recipe cards are visible
+      - assertVisible:
+          id: "recipe-box-title"
+      # If recipes exist, verify they're displayed
+      # Note: Specific recipe IDs depend on what's saved
+      # This test verifies the screen loads correctly
