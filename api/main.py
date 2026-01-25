@@ -6,57 +6,86 @@ Provides CRUD operations, search, filtering, and statistics.
 """
 
 import logging
-from typing import List, Optional, Dict, Any
-from datetime import date, timedelta, datetime
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-from fastapi import FastAPI, Depends, HTTPException, Query, status, UploadFile, File, Form, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
-import json
 import asyncio
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-import tempfile
+import json
+import os
 import shutil
+import tempfile
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from recipe_generator import RecipeGenerator
+from src.ai_analyzer import create_ai_analyzer
+from src.auth_service import (
+    authenticate_user,
+    create_access_token,
+    create_refresh_token,
+    create_user,
+    get_valid_refresh_token,
+    hash_refresh_token,
+    revoke_refresh_token,
+    store_refresh_token,
+    verify_token,
+)
+from src.database import InventoryItem, Product, User
+from src.db_service import PantryService
+from src.file_validation import validate_image_file
+from src.ocr_service import create_ocr_service
+from src.security_logger import get_client_ip, get_user_agent, log_security_event
 
 from .config import config
-from .dependencies import get_pantry_service, get_db, get_current_user, get_current_admin_user
+from .dependencies import get_current_admin_user, get_current_user, get_db, get_pantry_service
 from .models import (
-    ProductCreate, ProductUpdate, ProductResponse,
-    InventoryItemCreate, InventoryItemUpdate, InventoryItemResponse,
-    ConsumeRequest, StatisticsResponse, MessageResponse,
-    HealthResponse, ErrorResponse, RecipeRequest, SingleRecipeRequest, RecipeResponse,
-    SavedRecipeCreate, SavedRecipeUpdate, SavedRecipeResponse,
-    RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest, RefreshTokenResponse, UserResponse,
-    PantryCreate, PantryUpdate, PantryResponse,
-    UserSettingsResponse, UserSettingsUpdate
+    ConsumeRequest,
+    ErrorResponse,
+    HealthResponse,
+    InventoryItemCreate,
+    InventoryItemResponse,
+    InventoryItemUpdate,
+    LoginRequest,
+    MessageResponse,
+    PantryCreate,
+    PantryResponse,
+    PantryUpdate,
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+    RecipeRequest,
+    RecipeResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+    RegisterRequest,
+    SavedRecipeCreate,
+    SavedRecipeResponse,
+    SavedRecipeUpdate,
+    SingleRecipeRequest,
+    StatisticsResponse,
+    TokenResponse,
+    UserResponse,
+    UserSettingsResponse,
+    UserSettingsUpdate,
 )
-from src.db_service import PantryService
-from src.database import Product, InventoryItem, User
-from src.ai_analyzer import create_ai_analyzer
-from src.ocr_service import create_ocr_service
-from src.auth_service import (
-    authenticate_user, create_user, create_access_token, create_refresh_token,
-    verify_token, store_refresh_token, revoke_refresh_token, hash_refresh_token,
-    get_valid_refresh_token
-)
-from src.file_validation import validate_image_file
-from src.security_logger import log_security_event, get_client_ip, get_user_agent
-from recipe_generator import RecipeGenerator
-from pathlib import Path
-import os
 
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, config.log_level.upper()),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -69,12 +98,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
     """Initialize database schema on application startup."""
     try:
-        from src.database import init_database, get_database_url
+        from src.database import get_database_url, init_database
+
         db_url = get_database_url()
         logger.info(f"Initializing database: {db_url[:50]}...")
         init_database()
@@ -83,19 +114,22 @@ async def startup_event():
         logger.warning(f"⚠️  Database initialization warning: {e}")
         # Continue anyway - tables might already exist
 
+
 # Add CORS middleware with support for Vercel preview deployments
 def get_cors_origins():
     """Get CORS origins, including Vercel preview deployments."""
     origins = config.cors_origins.copy()
-    
+
     # Add Vercel deployment URLs
     # Vercel uses patterns like: https://frontend-*.vercel.app
     # We'll check these dynamically in the origin validator
     return origins
 
+
 def is_vercel_origin(origin: str) -> bool:
     """Check if origin is a Vercel deployment."""
-    return origin.endswith('.vercel.app')
+    return origin.endswith(".vercel.app")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -106,11 +140,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Add rate limiting with user-based key function
 def get_user_id_for_rate_limit(request: Request) -> str:
     """
     Get user ID for rate limiting (if authenticated), otherwise use IP address.
-    
+
     This allows per-user rate limiting for authenticated requests,
     while falling back to IP-based limiting for anonymous requests.
     """
@@ -118,9 +153,11 @@ def get_user_id_for_rate_limit(request: Request) -> str:
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             token = auth_header.replace("Bearer ", "")
-            from src.auth_service import verify_token
-            from api.config import config
             import os
+
+            from api.config import config
+            from src.auth_service import verify_token
+
             payload = verify_token(token, token_type="access")
             user_id = payload.get("sub")
             if user_id:
@@ -130,8 +167,10 @@ def get_user_id_for_rate_limit(request: Request) -> str:
     # Fallback to IP address
     return get_remote_address(request)
 
+
 limiter = Limiter(key_func=get_user_id_for_rate_limit)
 app.state.limiter = limiter
+
 
 # Custom rate limit exception handler with security logging
 @app.exception_handler(RateLimitExceeded)
@@ -140,11 +179,12 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     try:
         # Get database session for logging
         from api.dependencies import SessionLocal
+
         db = SessionLocal()
         try:
             ip_address = get_client_ip(request)
             user_agent = get_user_agent(request)
-            
+
             # Try to get user ID if authenticated
             user_id = None
             try:
@@ -155,7 +195,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
                     user_id = int(payload.get("sub"))
             except Exception:
                 pass
-            
+
             # Log rate limit exceeded event
             log_security_event(
                 db=db,
@@ -165,27 +205,29 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
                 details={
                     "endpoint": str(request.url.path),
                     "method": request.method,
-                    "limit": str(exc.detail) if hasattr(exc, 'detail') else "unknown"
+                    "limit": str(exc.detail) if hasattr(exc, "detail") else "unknown",
                 },
                 severity="warning",
-                user_agent=user_agent
+                user_agent=user_agent,
             )
         finally:
             db.close()
     except Exception as e:
         logger.error(f"Error logging rate limit event: {e}")
-    
+
     # Use default handler
     return _rate_limit_exceeded_handler(request, exc)
 
+
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
 
 # Add security headers and rate limit headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers and rate limit headers to all responses."""
     response = await call_next(request)
-    
+
     # Security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -193,7 +235,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    
+
     # Rate limit headers (if rate limiting is enabled)
     if config.rate_limit_enabled:
         try:
@@ -204,13 +246,14 @@ async def add_security_headers(request: Request, call_next):
             response.headers["X-RateLimit-Enabled"] = "true"
         except Exception:
             pass
-    
+
     return response
 
 
 # ============================================================================
 # Root & Health Endpoints
 # ============================================================================
+
 
 @app.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
@@ -222,44 +265,46 @@ def root() -> RedirectResponse:
 def health_check() -> HealthResponse:
     """
     Check API health status.
-    
+
     Returns basic health information and confirms the API is running.
     """
-    return HealthResponse(
-        status="healthy",
-        service="Smart Pantry API",
-        version=config.api_version
-    )
+    return HealthResponse(status="healthy", service="Smart Pantry API", version=config.api_version)
 
 
 # ============================================================================
 # Authentication Endpoints
 # ============================================================================
 
-@app.post("/api/auth/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED, tags=["Authentication"])
+
+@app.post(
+    "/api/auth/register",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Authentication"],
+)
 @limiter.limit("10/minute")
 def register(
     request: Request,
     email: str = Form(...),
     password: str = Form(..., min_length=8),
     full_name: Optional[str] = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> MessageResponse:
     """
     Register a new user account.
-    
+
     Security: Logs registration attempts for audit trail.
-    
+
     - **email**: User email address (must be unique)
     - **password**: Password (minimum 8 characters)
     - **full_name**: Optional full name
     """
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
-    
+
     try:
         user = create_user(db, email, password, full_name)
-        
+
         # Log successful registration
         log_security_event(
             db=db,
@@ -268,12 +313,12 @@ def register(
             ip_address=ip_address,
             details={"email": email, "full_name": full_name},
             severity="info",
-            user_agent=user_agent
+            user_agent=user_agent,
         )
-        
+
         return MessageResponse(
             message="User registered successfully",
-            details={"user_id": user.id, "email": user.email}
+            details={"user_id": user.id, "email": user.email},
         )
     except HTTPException as e:
         # Log failed registration attempt
@@ -284,12 +329,12 @@ def register(
             ip_address=ip_address,
             details={"email": email, "error": str(e.detail)},
             severity="warning",
-            user_agent=user_agent
+            user_agent=user_agent,
         )
         raise
     except Exception as e:
         logger.error(f"Registration error: {e}", exc_info=True)
-        
+
         # Log registration error
         log_security_event(
             db=db,
@@ -298,12 +343,12 @@ def register(
             ip_address=ip_address,
             details={"email": email, "error": str(e)},
             severity="error",
-            user_agent=user_agent
+            user_agent=user_agent,
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            detail=f"Registration failed: {str(e)}",
         )
 
 
@@ -313,21 +358,26 @@ def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> TokenResponse:
     """
     Login and get access/refresh tokens.
-    
+
     Security: Logs all login attempts (success and failure) for audit trail.
-    
+
     - **email**: User email address
     - **password**: User password
-    
+
     Returns JWT access token and refresh token.
     """
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
-    
+
+    # DEBUG: Log received password (for debugging - remove in production)
+    logger.info(
+        f"🔍 Login attempt - Email: {email}, Password received: '{password}' (length: {len(password)})"
+    )
+
     # Log login attempt
     log_security_event(
         db=db,
@@ -336,9 +386,9 @@ def login(
         ip_address=ip_address,
         details={"email": email},
         severity="info",
-        user_agent=user_agent
+        user_agent=user_agent,
     )
-    
+
     user = authenticate_user(db, email, password)
     if not user:
         # Log failed login
@@ -349,24 +399,25 @@ def login(
             ip_address=ip_address,
             details={"email": email, "reason": "invalid_credentials"},
             severity="warning",
-            user_agent=user_agent
+            user_agent=user_agent,
         )
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password"
         )
-    
+
     # Update last login
     user.last_login = datetime.utcnow()
     db.commit()
-    
+
     # Create tokens
-    access_token = create_access_token(data={"sub": str(user.id), "email": user.email, "role": user.role})
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email, "role": user.role}
+    )
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
+
     # Store refresh token
     store_refresh_token(db, user.id, refresh_token)
-    
+
     # Log successful login
     log_security_event(
         db=db,
@@ -375,90 +426,82 @@ def login(
         ip_address=ip_address,
         details={"email": email, "role": user.role},
         severity="info",
-        user_agent=user_agent
+        user_agent=user_agent,
     )
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer",
-        user=user.to_dict()
+        user=user.to_dict(),
     )
 
 
 @app.post("/api/auth/refresh", response_model=RefreshTokenResponse, tags=["Authentication"])
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def refresh_token_endpoint(
-    request: Request,
-    refresh_token: str = Form(...),
-    db: Session = Depends(get_db)
+    request: Request, refresh_token: str = Form(...), db: Session = Depends(get_db)
 ) -> RefreshTokenResponse:
     """
     Refresh access token using refresh token.
-    
+
     - **refresh_token**: Valid refresh token
-    
+
     Returns new access token.
     """
     # Verify refresh token
     payload = verify_token(refresh_token, token_type="refresh")
     user_id = int(payload.get("sub"))
-    
+
     # Check if token is valid in database
     token_hash = hash_refresh_token(refresh_token)
     token_record = get_valid_refresh_token(db, token_hash)
-    
+
     if not token_record:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token"
         )
-    
+
     # Get user
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive"
         )
-    
+
     # Create new access token
-    access_token = create_access_token(data={"sub": str(user.id), "email": user.email, "role": user.role})
-    
-    return RefreshTokenResponse(
-        access_token=access_token,
-        token_type="bearer"
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email, "role": user.role}
     )
+
+    return RefreshTokenResponse(access_token=access_token, token_type="bearer")
 
 
 @app.post("/api/auth/logout", response_model=MessageResponse, tags=["Authentication"])
 @limiter.limit("10/minute")
 def logout(
-    request: Request,
-    refresh_token: str = Form(...),
-    db: Session = Depends(get_db)
+    request: Request, refresh_token: str = Form(...), db: Session = Depends(get_db)
 ) -> MessageResponse:
     """
     Logout and revoke refresh token.
-    
+
     - **refresh_token**: Refresh token to revoke
     """
     token_hash = hash_refresh_token(refresh_token)
     if revoke_refresh_token(db, token_hash):
         return MessageResponse(message="Logged out successfully")
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Invalid refresh token"
-    )
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token")
 
 
 @app.get("/api/auth/me", response_model=UserResponse, tags=["Authentication"])
+@limiter.limit("60/minute")
 def get_current_user_info(
-    current_user: User = Depends(get_current_user)
+    request: Request,
+    current_user: User = Depends(get_current_user),
 ) -> UserResponse:
     """
     Get current authenticated user information.
-    
+
     Returns user details for the authenticated user.
     """
     try:
@@ -468,10 +511,11 @@ def get_current_user_info(
     except Exception as e:
         logger.error(f"Error getting current user info: {e}", exc_info=True)
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve user information: {str(e)}"
+            detail=f"Failed to retrieve user information: {str(e)}",
         )
 
 
@@ -479,15 +523,16 @@ def get_current_user_info(
 # Product Endpoints
 # ============================================================================
 
+
 @app.get("/api/products", response_model=List[ProductResponse], tags=["Products"])
 def get_products(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum records to return"),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> List[Product]:
     """
     Get all products with pagination.
-    
+
     - **skip**: Number of records to skip (for pagination)
     - **limit**: Maximum number of records to return
     """
@@ -499,19 +544,15 @@ def get_products(
     except SQLAlchemyError as e:
         logger.error(f"Database error retrieving products: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve products"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve products"
         )
 
 
 @app.get("/api/products/{product_id}", response_model=ProductResponse, tags=["Products"])
-def get_product(
-    product_id: int,
-    service: PantryService = Depends(get_pantry_service)
-) -> Product:
+def get_product(product_id: int, service: PantryService = Depends(get_pantry_service)) -> Product:
     """
     Get a specific product by ID.
-    
+
     - **product_id**: Product ID to retrieve
     """
     try:
@@ -519,7 +560,7 @@ def get_product(
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with ID {product_id} not found"
+                detail=f"Product with ID {product_id} not found",
             )
         return product
     except HTTPException:
@@ -527,19 +568,22 @@ def get_product(
     except Exception as e:
         logger.error(f"Error retrieving product {product_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve product"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve product"
         )
 
 
-@app.post("/api/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED, tags=["Products"])
+@app.post(
+    "/api/products",
+    response_model=ProductResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Products"],
+)
 def create_product(
-    product_data: ProductCreate,
-    service: PantryService = Depends(get_pantry_service)
+    product_data: ProductCreate, service: PantryService = Depends(get_pantry_service)
 ) -> Product:
     """
     Create a new product.
-    
+
     - **product_name**: Required product name
     - **brand**: Optional brand name
     - **category**: Optional category
@@ -556,7 +600,7 @@ def create_product(
             subcategory=product_data.subcategory,
             barcode=product_data.barcode,
             default_storage_location=product_data.default_storage_location,
-            typical_shelf_life_days=product_data.typical_shelf_life_days
+            typical_shelf_life_days=product_data.typical_shelf_life_days,
         )
         logger.info(f"Created product: {product.product_name} (ID: {product.id})")
         return product
@@ -564,13 +608,12 @@ def create_product(
         logger.error(f"Integrity error creating product: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Product with this barcode already exists or invalid data"
+            detail="Product with this barcode already exists or invalid data",
         )
     except Exception as e:
         logger.error(f"Error creating product: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create product"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create product"
         )
 
 
@@ -578,13 +621,13 @@ def create_product(
 def update_product(
     product_id: int,
     product_data: ProductUpdate,
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Product:
     """
     Update an existing product.
-    
+
     Only provided fields will be updated. Omitted fields remain unchanged.
-    
+
     - **product_id**: ID of product to update
     """
     try:
@@ -592,47 +635,44 @@ def update_product(
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with ID {product_id} not found"
+                detail=f"Product with ID {product_id} not found",
             )
-        
+
         # Update only provided fields
         update_data = product_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(product, field, value)
-        
+
         service.session.commit()
         service.session.refresh(product)
         logger.info(f"Updated product ID {product_id}")
         return product
-        
+
     except HTTPException:
         raise
     except IntegrityError as e:
         service.session.rollback()
         logger.error(f"Integrity error updating product: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid data or duplicate barcode"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid data or duplicate barcode"
         )
     except Exception as e:
         service.session.rollback()
         logger.error(f"Error updating product {product_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update product"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update product"
         )
 
 
 @app.delete("/api/products/{product_id}", response_model=MessageResponse, tags=["Products"])
 def delete_product(
-    product_id: int,
-    service: PantryService = Depends(get_pantry_service)
+    product_id: int, service: PantryService = Depends(get_pantry_service)
 ) -> MessageResponse:
     """
     Delete a product.
-    
+
     This will also delete all associated inventory items due to cascade.
-    
+
     - **product_id**: ID of product to delete
     """
     try:
@@ -640,25 +680,22 @@ def delete_product(
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with ID {product_id} not found"
+                detail=f"Product with ID {product_id} not found",
             )
-        
+
         service.session.delete(product)
         service.session.commit()
         logger.info(f"Deleted product ID {product_id}")
-        
-        return MessageResponse(
-            message=f"Product {product_id} deleted successfully"
-        )
-        
+
+        return MessageResponse(message=f"Product {product_id} deleted successfully")
+
     except HTTPException:
         raise
     except Exception as e:
         service.session.rollback()
         logger.error(f"Error deleting product {product_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete product"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete product"
         )
 
 
@@ -667,28 +704,23 @@ def search_products(
     q: str = Query(..., min_length=1, description="Search query"),
     category: Optional[str] = Query(None, description="Filter by category"),
     brand: Optional[str] = Query(None, description="Filter by brand"),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> List[Product]:
     """
     Search products by name, brand, or category.
-    
+
     - **q**: Search query (searches name, brand, category)
     - **category**: Optional category filter
     - **brand**: Optional brand filter
     """
     try:
-        products = service.search_products(
-            query=q,
-            category=category,
-            brand=brand
-        )
+        products = service.search_products(query=q, category=category, brand=brand)
         logger.info(f"Search for '{q}' returned {len(products)} products")
         return products
     except Exception as e:
         logger.error(f"Error searching products: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to search products"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to search products"
         )
 
 
@@ -696,13 +728,14 @@ def search_products(
 # Helper Functions
 # ============================================================================
 
+
 def enrich_inventory_item(item: InventoryItem) -> Dict:
     """
     Enrich inventory item with product information from relationship.
-    
+
     Args:
         item: InventoryItem ORM object
-        
+
     Returns:
         Dictionary with item data including product information
     """
@@ -732,6 +765,7 @@ def enrich_inventory_item(item: InventoryItem) -> Dict:
 # Inventory Endpoints
 # ============================================================================
 
+
 @app.get("/api/inventory", response_model=List[InventoryItemResponse], tags=["Inventory"])
 @limiter.limit("100/minute")
 def get_inventory(
@@ -739,14 +773,14 @@ def get_inventory(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum records to return"),
     location: Optional[str] = Query(None, description="Filter by storage location"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    item_status: Optional[str] = Query(None, alias="status", description="Filter by status"),
     pantry_id: Optional[int] = Query(None, description="Filter by pantry ID"),
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> List[Dict]:
     """
     Get all inventory items with optional filtering.
-    
+
     - **skip**: Number of records to skip (pagination)
     - **limit**: Maximum number of records to return
     - **location**: Filter by storage location (pantry/fridge/freezer)
@@ -758,44 +792,37 @@ def get_inventory(
         if pantry_id is None and current_user:
             default_pantry = service.get_or_create_default_pantry(current_user.id)
             pantry_id = default_pantry.id
-        
+
         # Filter by user_id and pantry_id
         items = service.get_all_inventory(
-            user_id=current_user.id if current_user else None,
-            pantry_id=pantry_id
+            user_id=current_user.id if current_user else None, pantry_id=pantry_id
         )
-        
+
         # Apply filters
         if location:
             items = [i for i in items if i.storage_location == location]
-        if status:
-            items = [i for i in items if i.status == status]
-        
+        if item_status:
+            items = [i for i in items if i.status == item_status]
+
         # Apply pagination
-        items = items[skip:skip + limit]
-        
+        items = items[skip : skip + limit]
+
         # Enrich with product information
         result = [enrich_inventory_item(item) for item in items]
-        
+
         logger.info(f"Retrieved {len(result)} inventory items")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error retrieving inventory: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve inventory"
-        )
+        raise HTTPException(status_code=500, detail="Failed to retrieve inventory")
 
 
 @app.get("/api/inventory/{item_id}", response_model=InventoryItemResponse, tags=["Inventory"])
-def get_inventory_item(
-    item_id: int,
-    service: PantryService = Depends(get_pantry_service)
-) -> Dict:
+def get_inventory_item(item_id: int, service: PantryService = Depends(get_pantry_service)) -> Dict:
     """
     Get a specific inventory item by ID.
-    
+
     - **item_id**: Inventory item ID to retrieve
     """
     try:
@@ -803,9 +830,9 @@ def get_inventory_item(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Inventory item with ID {item_id} not found"
+                detail=f"Inventory item with ID {item_id} not found",
             )
-        
+
         # Enrich with product information
         return enrich_inventory_item(item)
     except HTTPException:
@@ -814,21 +841,26 @@ def get_inventory_item(
         logger.error(f"Error retrieving inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve inventory item"
+            detail="Failed to retrieve inventory item",
         )
 
 
-@app.post("/api/inventory", response_model=InventoryItemResponse, status_code=status.HTTP_201_CREATED, tags=["Inventory"])
+@app.post(
+    "/api/inventory",
+    response_model=InventoryItemResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Inventory"],
+)
 @limiter.limit("20/minute")
 def create_inventory_item(
     request: Request,
     item_data: InventoryItemCreate,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Add a new inventory item.
-    
+
     - **product_id**: ID of the product
     - **quantity**: Quantity
     - **unit**: Unit of measurement
@@ -843,15 +875,15 @@ def create_inventory_item(
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with ID {item_data.product_id} not found"
+                detail=f"Product with ID {item_data.product_id} not found",
             )
-        
+
         # Get or create default pantry if pantry_id not provided
         pantry_id = item_data.pantry_id
         if pantry_id is None:
             default_pantry = service.get_or_create_default_pantry(current_user.id)
             pantry_id = default_pantry.id
-        
+
         item = service.add_inventory_item(
             product_id=item_data.product_id,
             quantity=item_data.quantity,
@@ -863,18 +895,18 @@ def create_inventory_item(
             notes=item_data.notes,
             status=item_data.status,
             user_id=current_user.id,
-            pantry_id=pantry_id
+            pantry_id=pantry_id,
         )
         logger.info(f"Created inventory item ID {item.id}")
         return enrich_inventory_item(item)
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating inventory item: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create inventory item"
+            detail="Failed to create inventory item",
         )
 
 
@@ -883,13 +915,13 @@ def update_inventory_item(
     item_id: int,
     item_data: InventoryItemUpdate,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Update an existing inventory item.
-    
+
     Only provided fields will be updated. Omitted fields remain unchanged.
-    
+
     - **item_id**: ID of item to update
     """
     try:
@@ -897,67 +929,66 @@ def update_inventory_item(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Inventory item with ID {item_id} not found"
+                detail=f"Inventory item with ID {item_id} not found",
             )
-        
+
         # Ensure user can only update their own items
         if item.user_id and item.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only update your own inventory items"
+                detail="You can only update your own inventory items",
             )
-        
+
         # Update only provided fields
         update_data = item_data.model_dump(exclude_unset=True)
-        
+
         # Convert date objects to strings for the service method
-        if 'purchase_date' in update_data and update_data['purchase_date']:
-            if isinstance(update_data['purchase_date'], date):
-                update_data['purchase_date'] = update_data['purchase_date'].isoformat()
-        if 'expiration_date' in update_data and update_data['expiration_date']:
-            if isinstance(update_data['expiration_date'], date):
-                update_data['expiration_date'] = update_data['expiration_date'].isoformat()
-        
+        if "purchase_date" in update_data and update_data["purchase_date"]:
+            if isinstance(update_data["purchase_date"], date):
+                update_data["purchase_date"] = update_data["purchase_date"].isoformat()
+        if "expiration_date" in update_data and update_data["expiration_date"]:
+            if isinstance(update_data["expiration_date"], date):
+                update_data["expiration_date"] = update_data["expiration_date"].isoformat()
+
         # If product_id is being updated, verify it exists
-        if 'product_id' in update_data:
-            product = service.get_product(update_data['product_id'])
+        if "product_id" in update_data:
+            product = service.get_product(update_data["product_id"])
             if not product:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Product with ID {update_data['product_id']} not found"
+                    detail=f"Product with ID {update_data['product_id']} not found",
                 )
-        
+
         # If pantry_id is being updated, verify it belongs to the user
-        if 'pantry_id' in update_data and update_data['pantry_id'] is not None:
-            pantry = service.get_pantry(update_data['pantry_id'], current_user.id)
+        if "pantry_id" in update_data and update_data["pantry_id"] is not None:
+            pantry = service.get_pantry(update_data["pantry_id"], current_user.id)
             if not pantry:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Pantry with ID {update_data['pantry_id']} not found"
+                    detail=f"Pantry with ID {update_data['pantry_id']} not found",
                 )
-        
+
         updated_item = service.update_inventory_item(item_id, **update_data)
         logger.info(f"Updated inventory item ID {item_id}")
         return enrich_inventory_item(updated_item)
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update inventory item"
+            detail="Failed to update inventory item",
         )
 
 
 @app.delete("/api/inventory/{item_id}", response_model=MessageResponse, tags=["Inventory"])
 def delete_inventory_item(
-    item_id: int,
-    service: PantryService = Depends(get_pantry_service)
+    item_id: int, service: PantryService = Depends(get_pantry_service)
 ) -> MessageResponse:
     """
     Delete an inventory item.
-    
+
     - **item_id**: ID of item to delete
     """
     try:
@@ -965,17 +996,15 @@ def delete_inventory_item(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Inventory item with ID {item_id} not found"
+                detail=f"Inventory item with ID {item_id} not found",
             )
-        
+
         service.session.delete(item)
         service.session.commit()
         logger.info(f"Deleted inventory item ID {item_id}")
-        
-        return MessageResponse(
-            message=f"Inventory item {item_id} deleted successfully"
-        )
-        
+
+        return MessageResponse(message=f"Inventory item {item_id} deleted successfully")
+
     except HTTPException:
         raise
     except Exception as e:
@@ -983,50 +1012,49 @@ def delete_inventory_item(
         logger.error(f"Error deleting inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete inventory item"
+            detail="Failed to delete inventory item",
         )
 
 
-@app.post("/api/inventory/{item_id}/consume", response_model=InventoryItemResponse, tags=["Inventory"])
+@app.post(
+    "/api/inventory/{item_id}/consume", response_model=InventoryItemResponse, tags=["Inventory"]
+)
 def consume_inventory_item(
     item_id: int,
     consume_data: Optional[ConsumeRequest] = None,
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Consume an inventory item.
-    
+
     If quantity is provided, decrements by that amount.
     If no quantity provided, marks entire item as consumed.
-    
+
     - **item_id**: ID of item to consume
     - **quantity**: Optional quantity to consume (partial consumption)
     """
     try:
         quantity = consume_data.quantity if consume_data else None
         item = service.consume_item(item_id, quantity)
-        
+
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Inventory item with ID {item_id} not found"
+                detail=f"Inventory item with ID {item_id} not found",
             )
-        
+
         logger.info(f"Consumed inventory item ID {item_id}")
         return enrich_inventory_item(item)
-        
+
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Error consuming inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to consume inventory item"
+            detail="Failed to consume inventory item",
         )
 
 
@@ -1034,14 +1062,15 @@ def consume_inventory_item(
 # Expiration Endpoints
 # ============================================================================
 
+
 @app.get("/api/expiring", response_model=List[InventoryItemResponse], tags=["Expiration"])
 def get_expiring_items(
     days: int = Query(7, ge=1, le=365, description="Days to look ahead"),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> List[Dict]:
     """
     Get items expiring within specified number of days.
-    
+
     - **days**: Number of days to look ahead (default: 7)
     """
     try:
@@ -1053,17 +1082,15 @@ def get_expiring_items(
         logger.error(f"Error retrieving expiring items: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve expiring items"
+            detail="Failed to retrieve expiring items",
         )
 
 
 @app.get("/api/expired", response_model=List[InventoryItemResponse], tags=["Expiration"])
-def get_expired_items(
-    service: PantryService = Depends(get_pantry_service)
-) -> List[Dict]:
+def get_expired_items(service: PantryService = Depends(get_pantry_service)) -> List[Dict]:
     """
     Get all expired items.
-    
+
     Returns items where expiration_date < today.
     """
     try:
@@ -1075,7 +1102,7 @@ def get_expired_items(
         logger.error(f"Error retrieving expired items: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve expired items"
+            detail="Failed to retrieve expired items",
         )
 
 
@@ -1083,17 +1110,18 @@ def get_expired_items(
 # Pantry Endpoints
 # ============================================================================
 
+
 @app.post("/api/pantries", response_model=PantryResponse, tags=["Pantries"])
 @limiter.limit("20/minute")
 def create_pantry(
     request: Request,
     pantry_data: PantryCreate,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> PantryResponse:
     """
     Create a new pantry for the current user.
-    
+
     - **name**: Pantry name (required)
     - **description**: Optional description
     - **location**: Optional location/address
@@ -1105,16 +1133,15 @@ def create_pantry(
             name=pantry_data.name,
             description=pantry_data.description,
             location=pantry_data.location,
-            is_default=pantry_data.is_default
+            is_default=pantry_data.is_default,
         )
         logger.info(f"Created pantry '{pantry.name}' for user {current_user.id}")
         return pantry
-        
+
     except Exception as e:
         logger.error(f"Error creating pantry: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create pantry"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create pantry"
         )
 
 
@@ -1123,29 +1150,28 @@ def create_pantry(
 def get_pantries(
     request: Request,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> List[PantryResponse]:
     """
     Get all pantries for the current user.
-    
+
     Returns list of pantries, with default pantry first.
     """
     try:
         pantries = service.get_user_pantries(current_user.id)
-        
+
         # If user has no pantries, create a default one
         if not pantries:
             default_pantry = service.get_or_create_default_pantry(current_user.id)
             pantries = [default_pantry]
-        
+
         logger.info(f"Retrieved {len(pantries)} pantries for user {current_user.id}")
         return pantries
-        
+
     except Exception as e:
         logger.error(f"Error retrieving pantries: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve pantries"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve pantries"
         )
 
 
@@ -1155,11 +1181,11 @@ def get_pantry(
     request: Request,
     pantry_id: int,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> PantryResponse:
     """
     Get a specific pantry by ID.
-    
+
     - **pantry_id**: Pantry ID
     """
     try:
@@ -1167,18 +1193,17 @@ def get_pantry(
         if not pantry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Pantry with ID {pantry_id} not found"
+                detail=f"Pantry with ID {pantry_id} not found",
             )
-        
+
         return pantry
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error retrieving pantry {pantry_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve pantry"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve pantry"
         )
 
 
@@ -1187,22 +1212,21 @@ def get_pantry(
 def get_default_pantry(
     request: Request,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> PantryResponse:
     """
     Get or create the default pantry for the current user.
-    
+
     If no default pantry exists, creates one named "Home".
     """
     try:
         pantry = service.get_or_create_default_pantry(current_user.id)
         return pantry
-        
+
     except Exception as e:
         logger.error(f"Error getting default pantry: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get default pantry"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get default pantry"
         )
 
 
@@ -1213,11 +1237,11 @@ def update_pantry(
     pantry_id: int,
     pantry_data: PantryUpdate,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> PantryResponse:
     """
     Update a pantry.
-    
+
     - **pantry_id**: Pantry ID
     - Only provided fields will be updated
     """
@@ -1228,25 +1252,24 @@ def update_pantry(
             name=pantry_data.name,
             description=pantry_data.description,
             location=pantry_data.location,
-            is_default=pantry_data.is_default
+            is_default=pantry_data.is_default,
         )
-        
+
         if not pantry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Pantry with ID {pantry_id} not found"
+                detail=f"Pantry with ID {pantry_id} not found",
             )
-        
+
         logger.info(f"Updated pantry ID {pantry_id}")
         return pantry
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating pantry {pantry_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update pantry"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update pantry"
         )
 
 
@@ -1256,36 +1279,33 @@ def delete_pantry(
     request: Request,
     pantry_id: int,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> MessageResponse:
     """
     Delete a pantry.
-    
+
     Note: Inventory items in this pantry will have pantry_id set to NULL.
-    
+
     - **pantry_id**: Pantry ID
     """
     try:
         deleted = service.delete_pantry(pantry_id, current_user.id)
-        
+
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Pantry with ID {pantry_id} not found"
+                detail=f"Pantry with ID {pantry_id} not found",
             )
-        
+
         logger.info(f"Deleted pantry ID {pantry_id}")
-        return MessageResponse(
-            message=f"Pantry {pantry_id} deleted successfully"
-        )
-        
+        return MessageResponse(message=f"Pantry {pantry_id} deleted successfully")
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting pantry {pantry_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete pantry"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete pantry"
         )
 
 
@@ -1293,13 +1313,12 @@ def delete_pantry(
 # Statistics Endpoints
 # ============================================================================
 
+
 @app.get("/api/statistics", response_model=StatisticsResponse, tags=["Statistics"])
-def get_statistics(
-    service: PantryService = Depends(get_pantry_service)
-) -> StatisticsResponse:
+def get_statistics(service: PantryService = Depends(get_pantry_service)) -> StatisticsResponse:
     """
     Get overall pantry statistics.
-    
+
     Returns comprehensive statistics including:
     - Total counts
     - Status breakdown
@@ -1309,71 +1328,68 @@ def get_statistics(
     try:
         stats = service.get_statistics()
         logger.info("Retrieved pantry statistics")
-        
+
         return StatisticsResponse(
-            total_items=stats.get('total_items', 0),
-            total_products=stats.get('total_products', 0),
-            in_stock=stats.get('by_status', {}).get('in_stock', 0),
-            low_stock=stats.get('by_status', {}).get('low', 0),
-            expired=stats.get('by_status', {}).get('expired', 0),
-            consumed=stats.get('by_status', {}).get('consumed', 0),
-            expiring_soon=stats.get('expiring_soon', 0),
-            by_category=stats.get('by_category', {}),
-            by_location=stats.get('by_location', {}),
-            by_status=stats.get('by_status', {})
+            total_items=stats.get("total_items", 0),
+            total_products=stats.get("total_products", 0),
+            in_stock=stats.get("by_status", {}).get("in_stock", 0),
+            low_stock=stats.get("by_status", {}).get("low", 0),
+            expired=stats.get("by_status", {}).get("expired", 0),
+            consumed=stats.get("by_status", {}).get("consumed", 0),
+            expiring_soon=stats.get("expiring_soon", 0),
+            by_category=stats.get("by_category", {}),
+            by_location=stats.get("by_location", {}),
+            by_status=stats.get("by_status", {}),
         )
-        
+
     except Exception as e:
         logger.error(f"Error retrieving statistics: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve statistics"
+            detail="Failed to retrieve statistics",
         )
 
 
 @app.get("/api/statistics/by-category", tags=["Statistics"])
-def get_statistics_by_category(
-    service: PantryService = Depends(get_pantry_service)
-) -> dict:
+def get_statistics_by_category(service: PantryService = Depends(get_pantry_service)) -> dict:
     """
     Get statistics grouped by category.
-    
+
     Returns item counts per category.
     """
     try:
         stats = service.get_statistics()
-        return stats.get('by_category', {})
+        return stats.get("by_category", {})
     except Exception as e:
         logger.error(f"Error retrieving category statistics: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve category statistics"
+            detail="Failed to retrieve category statistics",
         )
 
 
 @app.get("/api/statistics/by-location", tags=["Statistics"])
-def get_statistics_by_location(
-    service: PantryService = Depends(get_pantry_service)
-) -> dict:
+def get_statistics_by_location(service: PantryService = Depends(get_pantry_service)) -> dict:
     """
     Get statistics grouped by storage location.
-    
+
     Returns item counts per location (pantry/fridge/freezer).
     """
     try:
         stats = service.get_statistics()
-        return stats.get('by_location', {})
+        return stats.get("by_location", {})
     except Exception as e:
         logger.error(f"Error retrieving location statistics: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve location statistics"
+            detail="Failed to retrieve location statistics",
         )
 
 
 # ============================================================================
 # Image Processing & Source Directory Management
 # ============================================================================
+
 
 @app.get("/api/config/source-directory", tags=["Configuration"])
 def get_source_directory() -> Dict:
@@ -1382,7 +1398,7 @@ def get_source_directory() -> Dict:
     return {
         "source_directory": source_dir,
         "exists": os.path.exists(source_dir),
-        "is_directory": os.path.isdir(source_dir) if os.path.exists(source_dir) else False
+        "is_directory": os.path.isdir(source_dir) if os.path.exists(source_dir) else False,
     }
 
 
@@ -1393,37 +1409,33 @@ def set_source_directory(request: Dict) -> Dict:
         directory = request.get("directory")
         if not directory:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Directory parameter is required"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Directory parameter is required"
             )
-        
+
         dir_path = Path(directory).expanduser().resolve()
-        
+
         if not dir_path.exists():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Directory does not exist: {directory}"
+                detail=f"Directory does not exist: {directory}",
             )
-        
+
         if not dir_path.is_dir():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Path is not a directory: {directory}"
+                detail=f"Path is not a directory: {directory}",
             )
-        
+
         # Store in environment or config file (for now, just validate)
         # In production, you'd want to persist this to a config file
-        return {
-            "source_directory": str(dir_path),
-            "message": "Source directory set successfully"
-        }
+        return {"source_directory": str(dir_path), "message": "Source directory set successfully"}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error setting source directory: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to set source directory: {str(e)}"
+            detail=f"Failed to set source directory: {str(e)}",
         )
 
 
@@ -1436,24 +1448,24 @@ def process_single_image(
     pantry_id: Optional[int] = Form(None),
     current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> Dict:
     """
     Process a single uploaded image through OCR and AI analysis.
-    
+
     Security: Enhanced file validation and security event logging.
     """
     ip_address = get_client_ip(request)
     user_agent = get_user_agent(request)
-    
+
     try:
         # Validate storage_location
         if storage_location not in ["pantry", "fridge", "freezer"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="storage_location must be one of: pantry, fridge, freezer"
+                detail="storage_location must be one of: pantry, fridge, freezer",
             )
-        
+
         # Enhanced file validation (Phase 2 security)
         try:
             validate_image_file(file)
@@ -1467,10 +1479,10 @@ def process_single_image(
                 details={
                     "filename": file.filename,
                     "content_type": file.content_type,
-                    "error": str(e.detail)
+                    "error": str(e.detail),
                 },
                 severity="warning",
-                user_agent=user_agent
+                user_agent=user_agent,
             )
             raise
         except Exception as e:
@@ -1480,21 +1492,17 @@ def process_single_image(
                 event_type="file_upload_validation_error",
                 user_id=current_user.id,
                 ip_address=ip_address,
-                details={
-                    "filename": file.filename,
-                    "error": str(e)
-                },
+                details={"filename": file.filename, "error": str(e)},
                 severity="error",
-                user_agent=user_agent
+                user_agent=user_agent,
             )
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File validation failed: {str(e)}"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"File validation failed: {str(e)}"
             )
-        
+
         # Save uploaded file temporarily
         try:
-            suffix = Path(file.filename).suffix if file.filename else '.jpg'
+            suffix = Path(file.filename).suffix if file.filename else ".jpg"
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
                 shutil.copyfileobj(file.file, tmp_file)
                 tmp_path = Path(tmp_file.name)
@@ -1502,9 +1510,9 @@ def process_single_image(
             logger.error(f"Error saving uploaded file: {e}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to save uploaded file: {str(e)}"
+                detail=f"Failed to save uploaded file: {str(e)}",
             )
-        
+
         try:
             # Initialize services with error handling
             try:
@@ -1513,36 +1521,70 @@ def process_single_image(
                 logger.error(f"Failed to initialize OCR service: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"OCR service unavailable: {str(e)}"
+                    detail=f"OCR service unavailable: {str(e)}",
                 )
-            
+
             try:
                 ai_analyzer = create_ai_analyzer()
             except Exception as e:
                 logger.error(f"Failed to initialize AI analyzer: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"AI analyzer unavailable: {str(e)}"
+                    detail=f"AI analyzer unavailable: {str(e)}",
                 )
-            
+
             # Run OCR
             logger.info(f"Processing image: {file.filename}")
+
+            # DEBUG: Check if temporary file exists and has content
+            if tmp_path.exists():
+                file_size = tmp_path.stat().st_size
+                logger.info(f"🔍 [OCR DEBUG] Temporary image file: {tmp_path}, size: {file_size} bytes")
+                # DEBUG: Inspect file content
+                with open(tmp_path, "rb") as f:
+                    head = f.read(32)
+                logger.info(f"🔍 [OCR DEBUG] First 32 bytes (hex): {head.hex()}")
+                try:
+                    from PIL import Image as PILImage
+                    with PILImage.open(tmp_path) as img:
+                        info = getattr(img, "info") or {}
+                        logger.info(
+                            f"🔍 [OCR DEBUG] PIL: format={img.format}, size={img.size}, "
+                            f"mode={img.mode}, exif={'exif' in info}"
+                        )
+                        if img.mode in ("RGB", "RGBA", "L"):
+                            ex = img.getextrema()
+                            logger.info(f"🔍 [OCR DEBUG] PIL getextrema: {ex}")
+                except Exception as pe:
+                    logger.warning(f"🔍 [OCR DEBUG] PIL open failed: {pe}")
+            else:
+                logger.error(f"❌ Temporary image file does NOT exist: {tmp_path}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to save uploaded image file",
+                )
+
             try:
                 ocr_result = ocr_service.extract_text(str(tmp_path))
             except Exception as e:
                 logger.error(f"OCR extraction failed: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"OCR extraction failed: {str(e)}"
+                    detail=f"OCR extraction failed: {str(e)}",
                 )
             ocr_confidence = ocr_result.get("confidence", 0)
-            
+
             if not ocr_result.get("raw_text", "").strip():
+                logger.warning(
+                    f"🔍 [OCR DEBUG] No text extracted. raw_text={repr(ocr_result.get('raw_text', '')[:200])!r}, "
+                    f"confidence={ocr_confidence}, backend={ocr_result.get('backend_used')}, "
+                    f"bounding_boxes_count={len(ocr_result.get('bounding_boxes', []))}"
+                )
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No text extracted from image. Please ensure the image contains readable product labels."
+                    detail="No text extracted from image. Please ensure the image contains readable product labels.",
                 )
-            
+
             # Run AI analysis
             try:
                 product_data = ai_analyzer.analyze_product(ocr_result)
@@ -1551,23 +1593,23 @@ def process_single_image(
                 logger.error(f"AI analysis failed: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"AI analysis failed: {str(e)}"
+                    detail=f"AI analysis failed: {str(e)}",
                 )
-            
+
             if not product_data.product_name:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Could not identify product from image. Please try a clearer image."
+                    detail="Could not identify product from image. Please try a clearer image.",
                 )
-            
+
             # Create or get product
             product = service.add_product(
                 product_name=product_data.product_name,
                 brand=product_data.brand,
                 category=product_data.category or "Other",
-                subcategory=product_data.subcategory
+                subcategory=product_data.subcategory,
             )
-            
+
             # Parse expiration date if available
             exp_date = None
             if product_data.expiration_date:
@@ -1578,9 +1620,11 @@ def process_single_image(
                         date_str = date_str.replace("Z", "+00:00")
                     exp_date = datetime.fromisoformat(date_str).date()
                 except (ValueError, AttributeError, TypeError) as e:
-                    logger.warning(f"Could not parse expiration date: {product_data.expiration_date}, error: {e}")
+                    logger.warning(
+                        f"Could not parse expiration date: {product_data.expiration_date}, error: {e}"
+                    )
                     exp_date = None
-            
+
             # Get or create pantry for user
             # Use provided pantry_id if given, otherwise use default pantry
             if pantry_id is not None:
@@ -1589,13 +1633,13 @@ def process_single_image(
                 if not pantry:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Pantry not found or access denied"
+                        detail="Pantry not found or access denied",
                     )
                 target_pantry_id = pantry_id
             else:
                 default_pantry = service.get_or_create_default_pantry(current_user.id)
                 target_pantry_id = default_pantry.id
-            
+
             # Create inventory item
             item = service.add_inventory_item(
                 product_id=product.id,
@@ -1606,9 +1650,9 @@ def process_single_image(
                 image_path=file.filename,
                 notes=f"Processed from uploaded image",
                 user_id=current_user.id,
-                pantry_id=target_pantry_id
+                pantry_id=target_pantry_id,
             )
-            
+
             # Create processing log
             service.add_processing_log(
                 image_path=file.filename,
@@ -1617,16 +1661,16 @@ def process_single_image(
                 status="success" if ai_confidence >= 0.6 else "manual_review",
                 raw_ocr_data=ocr_result,
                 raw_ai_data=product_data.to_dict(),
-                inventory_item_id=item.id
+                inventory_item_id=item.id,
             )
-            
+
             # Enrich response
             # Refresh item to ensure relationship is loaded
             service.session.refresh(item)
             result = enrich_inventory_item(item)
-            
+
             logger.info(f"Successfully processed image: {product_data.product_name}")
-            
+
             # Log successful file upload
             log_security_event(
                 db=db,
@@ -1636,14 +1680,14 @@ def process_single_image(
                 details={
                     "filename": file.filename,
                     "product_name": product_data.product_name,
-                    "file_size": file.size if hasattr(file, 'size') else None,
+                    "file_size": file.size if hasattr(file, "size") else None,
                     "ocr_confidence": ocr_confidence,
-                    "ai_confidence": ai_confidence
+                    "ai_confidence": ai_confidence,
                 },
                 severity="info",
-                user_agent=user_agent
+                user_agent=user_agent,
             )
-            
+
             return {
                 "success": True,
                 "message": f"Successfully processed {product_data.product_name}",
@@ -1651,118 +1695,119 @@ def process_single_image(
                 "confidence": {
                     "ocr": ocr_confidence,
                     "ai": ai_confidence,
-                    "combined": (ocr_confidence + ai_confidence) / 2
-                }
+                    "combined": (ocr_confidence + ai_confidence) / 2,
+                },
             }
-            
+
         finally:
             # Clean up temporary file
             if tmp_path.exists():
                 tmp_path.unlink()
-                
+
     except HTTPException as e:
         # Log HTTP exceptions (validation errors, etc.)
         log_security_event(
             db=db,
             event_type="file_upload_failed",
-            user_id=current_user.id if 'current_user' in locals() else None,
-            ip_address=ip_address if 'ip_address' in locals() else get_client_ip(request),
+            user_id=current_user.id if "current_user" in locals() else None,
+            ip_address=ip_address if "ip_address" in locals() else get_client_ip(request),
             details={
                 "filename": file.filename if file else None,
                 "error": str(e.detail),
-                "status_code": e.status_code
+                "status_code": e.status_code,
             },
             severity="warning",
-            user_agent=user_agent if 'user_agent' in locals() else get_user_agent(request)
+            user_agent=user_agent if "user_agent" in locals() else get_user_agent(request),
         )
         raise
     except Exception as e:
         logger.error(f"Error processing image: {e}", exc_info=True)
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
-        
+
         # Log file upload error
         log_security_event(
             db=db,
             event_type="file_upload_error",
-            user_id=current_user.id if 'current_user' in locals() else None,
-            ip_address=ip_address if 'ip_address' in locals() else get_client_ip(request),
-            details={
-                "filename": file.filename if file else None,
-                "error": str(e)
-            },
+            user_id=current_user.id if "current_user" in locals() else None,
+            ip_address=ip_address if "ip_address" in locals() else get_client_ip(request),
+            details={"filename": file.filename if file else None, "error": str(e)},
             severity="error",
-            user_agent=user_agent if 'user_agent' in locals() else get_user_agent(request)
+            user_agent=user_agent if "user_agent" in locals() else get_user_agent(request),
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process image: {str(e)}"
+            detail=f"Failed to process image: {str(e)}",
         )
 
 
 @app.post("/api/inventory/refresh", tags=["Inventory"])
-def refresh_inventory(
-    request: Dict,
-    service: PantryService = Depends(get_pantry_service)
-) -> Dict:
+def refresh_inventory(request: Dict, service: PantryService = Depends(get_pantry_service)) -> Dict:
     """Refresh inventory by processing all images in the source directory."""
     try:
         # Get parameters from request
         source_directory = request.get("source_directory")
         storage_location = request.get("storage_location", "pantry")
         min_confidence = request.get("min_confidence", 0.6)
-        
+
         # Validate storage_location
         if storage_location not in ["pantry", "fridge", "freezer"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="storage_location must be one of: pantry, fridge, freezer"
+                detail="storage_location must be one of: pantry, fridge, freezer",
             )
-        
+
         # Validate min_confidence
-        if not isinstance(min_confidence, (int, float)) or min_confidence < 0.0 or min_confidence > 1.0:
+        if (
+            not isinstance(min_confidence, (int, float))
+            or min_confidence < 0.0
+            or min_confidence > 1.0
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="min_confidence must be between 0.0 and 1.0"
+                detail="min_confidence must be between 0.0 and 1.0",
             )
-        
+
         # Get source directory
         if not source_directory:
-            source_directory = os.getenv("SOURCE_IMAGES_DIR", str(Path.home() / "Pictures" / "Pantry"))
-        
+            source_directory = os.getenv(
+                "SOURCE_IMAGES_DIR", str(Path.home() / "Pictures" / "Pantry")
+            )
+
         source_dir = Path(source_directory).expanduser().resolve()
-        
+
         if not source_dir.exists():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Source directory does not exist: {source_directory}"
+                detail=f"Source directory does not exist: {source_directory}",
             )
-        
+
         if not source_dir.is_dir():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Path is not a directory: {source_directory}"
+                detail=f"Path is not a directory: {source_directory}",
             )
-        
+
         # Find all images
         image_files = list(source_dir.glob("*.jpg")) + list(source_dir.glob("*.jpeg"))
         image_files.sort()
-        
+
         if not image_files:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No images found in {source_directory}"
+                detail=f"No images found in {source_directory}",
             )
-        
+
         # Initialize services
         ocr_service = create_ocr_service()
         ai_analyzer = create_ai_analyzer()
-        
+
         # Get existing processed images from logs
         existing_logs = service.get_processing_logs(limit=10000)
         processed_images = {log.image_path for log in existing_logs if log.image_path}
-        
+
         # Process images
         results = {
             "processed": 0,
@@ -1770,56 +1815,59 @@ def refresh_inventory(
             "failed": 0,
             "items_created": 0,
             "items_updated": 0,
-            "errors": []
+            "errors": [],
         }
-        
+
         for image_path in image_files:
             image_name = image_path.name
-            
+
             # Skip if already processed
             if image_name in processed_images:
                 results["skipped"] += 1
                 continue
-            
+
             try:
                 # Run OCR
                 ocr_result = ocr_service.extract_text(str(image_path))
                 ocr_confidence = ocr_result.get("confidence", 0)
-                
+
                 if not ocr_result.get("raw_text", "").strip():
                     results["skipped"] += 1
                     continue
-                
+
                 # Run AI analysis
                 product_data = ai_analyzer.analyze_product(ocr_result)
                 ai_confidence = product_data.confidence
-                
+
                 # Check confidence threshold
                 if ai_confidence < min_confidence:
                     results["skipped"] += 1
                     continue
-                
+
                 if not product_data.product_name:
                     results["skipped"] += 1
                     continue
-                
+
                 # Create or get product
                 product = service.add_product(
                     product_name=product_data.product_name,
                     brand=product_data.brand,
                     category=product_data.category or "Other",
-                    subcategory=product_data.subcategory
+                    subcategory=product_data.subcategory,
                 )
-                
+
                 # Parse expiration date if available
                 exp_date = None
                 if product_data.expiration_date:
                     try:
                         from datetime import datetime
-                        exp_date = datetime.fromisoformat(product_data.expiration_date.replace("Z", "+00:00"))
+
+                        exp_date = datetime.fromisoformat(
+                            product_data.expiration_date.replace("Z", "+00:00")
+                        )
                     except (ValueError, AttributeError):
                         pass
-                
+
                 # Create inventory item
                 item = service.add_inventory_item(
                     product_id=product.id,
@@ -1828,9 +1876,9 @@ def refresh_inventory(
                     storage_location=storage_location,
                     expiration_date=exp_date,
                     image_path=image_name,
-                    notes=f"Processed from {source_directory}"
+                    notes=f"Processed from {source_directory}",
                 )
-                
+
                 # Create processing log
                 service.add_processing_log(
                     image_path=image_name,
@@ -1839,35 +1887,34 @@ def refresh_inventory(
                     status="success" if ai_confidence >= 0.6 else "manual_review",
                     raw_ocr_data=ocr_result,
                     raw_ai_data=product_data.to_dict(),
-                    inventory_item_id=item.id
+                    inventory_item_id=item.id,
                 )
-                
+
                 results["processed"] += 1
                 results["items_created"] += 1
-                
+
             except Exception as e:
                 results["failed"] += 1
-                results["errors"].append({
-                    "image": image_name,
-                    "error": str(e)
-                })
+                results["errors"].append({"image": image_name, "error": str(e)})
                 logger.error(f"Error processing {image_name}: {e}")
-        
-        logger.info(f"Refresh complete: {results['processed']} processed, {results['skipped']} skipped, {results['failed']} failed")
+
+        logger.info(
+            f"Refresh complete: {results['processed']} processed, {results['skipped']} skipped, {results['failed']} failed"
+        )
         return {
             "success": True,
             "message": f"Processed {results['processed']} images",
             "source_directory": str(source_dir),
-            "results": results
+            "results": results,
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error refreshing inventory: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refresh inventory: {str(e)}"
+            detail=f"Failed to refresh inventory: {str(e)}",
         )
 
 
@@ -1875,17 +1922,18 @@ def refresh_inventory(
 # Recipe Generation Endpoints
 # ============================================================================
 
+
 @app.post("/api/recipes/generate-one", response_model=RecipeResponse, tags=["Recipes"])
 @limiter.limit(f"{config.rate_limit_recipe_per_hour}/hour")
 def generate_single_recipe(
     request: Request,
     recipe_request: SingleRecipeRequest,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Generate a single recipe (for incremental display).
-    
+
     Uses the user's default pantry if pantry_id is not specified in the request.
     """
     try:
@@ -1894,20 +1942,19 @@ def generate_single_recipe(
         if pantry_id is None and current_user:
             default_pantry = service.get_or_create_default_pantry(current_user.id)
             pantry_id = default_pantry.id
-        
+
         # Get inventory items filtered by pantry
         all_items = service.get_all_inventory(
-            user_id=current_user.id if current_user else None,
-            pantry_id=pantry_id
+            user_id=current_user.id if current_user else None, pantry_id=pantry_id
         )
         available_items = [item for item in all_items if item.status == "in_stock"]
-        
+
         if not available_items:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No items in stock. Add items to your pantry first."
+                detail="No items in stock. Add items to your pantry first.",
             )
-        
+
         # Filter out excluded ingredients
         excluded_names = set(recipe_request.excluded_ingredients or [])
         filtered_items = []
@@ -1915,80 +1962,77 @@ def generate_single_recipe(
             product_name = item.product.product_name if item.product else None
             if product_name and product_name not in excluded_names:
                 filtered_items.append(item)
-        
+
         if not filtered_items:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No available ingredients after applying exclusions."
+                detail="No available ingredients after applying exclusions.",
             )
-        
+
         # Verify required ingredients are available
         if recipe_request.required_ingredients:
             required_names = set(recipe_request.required_ingredients)
             available_names = {item.product.product_name for item in filtered_items if item.product}
             missing_required = required_names - available_names
-            
+
             if missing_required:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Required ingredients not available: {', '.join(missing_required)}"
+                    detail=f"Required ingredients not available: {', '.join(missing_required)}",
                 )
-        
+
         # Convert to format expected by RecipeGenerator
         pantry_items = []
         for item in filtered_items:
             product_name = item.product.product_name if item.product else "Unknown"
             brand = item.product.brand if item.product else None
-            
-            pantry_items.append({
-                "product": {
-                    "product_name": product_name,
-                    "brand": brand
-                }
-            })
-        
+
+            pantry_items.append({"product": {"product_name": product_name, "brand": brand}})
+
         # Extract ingredient list (all available, minus excluded)
         ingredient_list = []
         for item in pantry_items:
-            product = item['product']
-            name = product['product_name']
-            brand = product.get('brand')
+            product = item["product"]
+            name = product["product_name"]
+            brand = product.get("brand")
             if brand:
                 ingredient_list.append(f"{brand} {name}")
             else:
                 ingredient_list.append(name)
-        
+
         # Extract required ingredient names (for prompt)
         required_ingredient_names = None
         if recipe_request.required_ingredients:
             required_ingredient_names = []
             for item in pantry_items:
-                product = item['product']
-                name = product['product_name']
+                product = item["product"]
+                name = product["product_name"]
                 if name in recipe_request.required_ingredients:
-                    brand = product.get('brand')
+                    brand = product.get("brand")
                     if brand:
                         required_ingredient_names.append(f"{brand} {name}")
                     else:
                         required_ingredient_names.append(name)
-        
+
         # Initialize AI analyzer with user's preferred model
         try:
             user_settings = service.get_user_settings(current_user.id)
             ai_config = None
-            
+
             if user_settings.ai_provider or user_settings.ai_model:
-                from src.ai_analyzer import AIConfig
                 import os
-                
+
+                from src.ai_analyzer import AIConfig
+
                 # Create custom config with user preferences
                 ai_config = AIConfig.from_env()
                 if user_settings.ai_provider:
                     ai_config.provider = user_settings.ai_provider
                 if user_settings.ai_model:
                     ai_config.model = user_settings.ai_model
-                
+
                 from src.ai_analyzer import AIAnalyzer
+
                 ai_analyzer = AIAnalyzer(ai_config)
             else:
                 # Use default system config
@@ -2001,9 +2045,9 @@ def generate_single_recipe(
             # Fallback on any other error
             logger.error(f"Error getting user settings, using default: {e}")
             ai_analyzer = create_ai_analyzer()
-        
+
         recipe_generator = RecipeGenerator(ai_analyzer)
-        
+
         # Generate single recipe
         logger.info(f"Generating 1 recipe from {len(pantry_items)} ingredients")
         recipe = recipe_generator._generate_single_recipe(
@@ -2014,42 +2058,42 @@ def generate_single_recipe(
             avoid_previous=recipe_request.avoid_names or [],
             required_ingredients=required_ingredient_names,
             excluded_ingredients=recipe_request.excluded_ingredients,
-            allow_missing_ingredients=recipe_request.allow_missing_ingredients
+            allow_missing_ingredients=recipe_request.allow_missing_ingredients,
         )
-        
+
         if not recipe:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate recipe"
+                detail="Failed to generate recipe",
             )
-        
+
         # Convert to response format
         used_ingredients = []
-        for ing in recipe.get('ingredients', []):
+        for ing in recipe.get("ingredients", []):
             if isinstance(ing, dict):
-                used_ingredients.append(ing.get('item', ing.get('name', '')))
+                used_ingredients.append(ing.get("item", ing.get("name", "")))
             else:
                 used_ingredients.append(str(ing))
-        
+
         result = {
-            "name": recipe.get('name', 'Unnamed Recipe'),
-            "description": recipe.get('description', ''),
-            "difficulty": recipe.get('difficulty') or recipe_request.difficulty or 'medium',
-            "prep_time": _parse_time(recipe.get('prep_time', '0 minutes')),
-            "cook_time": _parse_time(recipe.get('cook_time', '0 minutes')),
-            "servings": recipe.get('servings', 4),
-            "cuisine": recipe.get('cuisine', ''),
-            "ingredients": recipe.get('ingredients', []),
-            "instructions": recipe.get('instructions', []),
+            "name": recipe.get("name", "Unnamed Recipe"),
+            "description": recipe.get("description", ""),
+            "difficulty": recipe.get("difficulty") or recipe_request.difficulty or "medium",
+            "prep_time": _parse_time(recipe.get("prep_time", "0 minutes")),
+            "cook_time": _parse_time(recipe.get("cook_time", "0 minutes")),
+            "servings": recipe.get("servings", 4),
+            "cuisine": recipe.get("cuisine", ""),
+            "ingredients": recipe.get("ingredients", []),
+            "instructions": recipe.get("instructions", []),
             "available_ingredients": used_ingredients,
-            "missing_ingredients": recipe.get('missing_ingredients', []),
-            "flavor_pairings": recipe.get('flavor_pairings', []),
-            "ai_model": recipe.get('ai_model')  # Track which AI model generated this recipe
+            "missing_ingredients": recipe.get("missing_ingredients", []),
+            "flavor_pairings": recipe.get("flavor_pairings", []),
+            "ai_model": recipe.get("ai_model"),  # Track which AI model generated this recipe
         }
-        
+
         logger.info(f"Successfully generated recipe: {result['name']}")
         return result
-        
+
     except HTTPException:
         raise
     except ValueError as e:
@@ -2057,17 +2101,14 @@ def generate_single_recipe(
             logger.error("AI API keys not configured")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI service not available. Please configure OpenAI or Anthropic API key in .env file."
+                detail="AI service not available. Please configure OpenAI or Anthropic API key in .env file.",
             )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Error generating recipe: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate recipe: {str(e)}"
+            detail=f"Failed to generate recipe: {str(e)}",
         )
 
 
@@ -2077,11 +2118,11 @@ def generate_recipes(
     request: Request,
     recipe_request: RecipeRequest,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> List[Dict]:
     """
     Generate AI-powered recipes using available pantry ingredients.
-    
+
     - **required_ingredients**: Optional list of ingredient names that must be included. Recipes can also use other available ingredients.
     - **excluded_ingredients**: Optional list of ingredient names to exclude from recipes.
     - **max_recipes**: Number of recipes to generate (1-20)
@@ -2097,22 +2138,21 @@ def generate_recipes(
         if pantry_id is None and current_user:
             default_pantry = service.get_or_create_default_pantry(current_user.id)
             pantry_id = default_pantry.id
-        
+
         # Get inventory items filtered by pantry
         all_items = service.get_all_inventory(
-            user_id=current_user.id if current_user else None,
-            pantry_id=pantry_id
+            user_id=current_user.id if current_user else None, pantry_id=pantry_id
         )
-        
+
         # Filter to in_stock items only
         available_items = [item for item in all_items if item.status == "in_stock"]
-        
+
         if not available_items:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No items in stock. Add items to your pantry first."
+                detail="No items in stock. Add items to your pantry first.",
             )
-        
+
         # Filter out excluded ingredients
         excluded_names = set(recipe_request.excluded_ingredients or [])
         filtered_items = []
@@ -2120,69 +2160,66 @@ def generate_recipes(
             product_name = item.product.product_name if item.product else None
             if product_name and product_name not in excluded_names:
                 filtered_items.append(item)
-        
+
         if not filtered_items:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No available ingredients after applying exclusions."
+                detail="No available ingredients after applying exclusions.",
             )
-        
+
         # Verify required ingredients are available
         if recipe_request.required_ingredients:
             required_names = set(recipe_request.required_ingredients)
             available_names = {item.product.product_name for item in filtered_items if item.product}
             missing_required = required_names - available_names
-            
+
             if missing_required:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Required ingredients not available: {', '.join(missing_required)}"
+                    detail=f"Required ingredients not available: {', '.join(missing_required)}",
                 )
-        
+
         # Convert to format expected by RecipeGenerator
         pantry_items = []
         for item in filtered_items:
             product_name = item.product.product_name if item.product else "Unknown"
             brand = item.product.brand if item.product else None
-            
-            pantry_items.append({
-                "product": {
-                    "product_name": product_name,
-                    "brand": brand
-                }
-            })
-        
+
+            pantry_items.append({"product": {"product_name": product_name, "brand": brand}})
+
         # Extract required ingredient names (for prompt)
         required_ingredient_names = None
         if recipe_request.required_ingredients:
             required_ingredient_names = []
             for item in pantry_items:
-                product = item['product']
-                name = product['product_name']
+                product = item["product"]
+                name = product["product_name"]
                 if name in recipe_request.required_ingredients:
-                    brand = product.get('brand')
+                    brand = product.get("brand")
                     if brand:
                         required_ingredient_names.append(f"{brand} {name}")
                     else:
                         required_ingredient_names.append(name)
-        
+
         # Initialize AI analyzer with user's preferred model
         try:
             user_settings = service.get_user_settings(current_user.id)
             ai_config = None
-            
+
             if user_settings.ai_provider or user_settings.ai_model:
-                from src.ai_analyzer import AIConfig
                 import os
-                
+
+                from src.ai_analyzer import AIConfig
+
                 # Create custom config with user preferences
                 ai_config = AIConfig.from_env()
                 if user_settings.ai_provider:
                     ai_config.provider = user_settings.ai_provider
                 if user_settings.ai_model:
                     ai_config.model = user_settings.ai_model
-                
+
                 from src.ai_analyzer import AIAnalyzer
+
                 ai_analyzer = AIAnalyzer(ai_config)
             else:
                 # Use default system config
@@ -2195,12 +2232,14 @@ def generate_recipes(
             # Fallback on any other error
             logger.error(f"Error getting user settings, using default: {e}")
             ai_analyzer = create_ai_analyzer()
-        
+
         recipe_generator = RecipeGenerator(ai_analyzer)
-        
+
         # Generate recipes with timeout protection
         # Railway has a 60s HTTP gateway timeout, so we limit generation to ~50s
-        logger.info(f"Generating {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients")
+        logger.info(
+            f"Generating {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients"
+        )
         try:
             recipes = recipe_generator.generate_recipes(
                 pantry_items=pantry_items,
@@ -2210,48 +2249,54 @@ def generate_recipes(
                 dietary_restrictions=recipe_request.dietary_restrictions,
                 required_ingredients=required_ingredient_names,
                 excluded_ingredients=recipe_request.excluded_ingredients,
-                allow_missing_ingredients=recipe_request.allow_missing_ingredients
+                allow_missing_ingredients=recipe_request.allow_missing_ingredients,
             )
         except Exception as e:
             # If generation fails partway, try to return what we have
             logger.warning(f"Recipe generation interrupted: {e}")
             recipes = []
-        
+
         # Convert to response format
         result = []
         for recipe in recipes:
             # Extract available ingredients used
             used_ingredients = []
-            for ing in recipe.get('ingredients', []):
+            for ing in recipe.get("ingredients", []):
                 if isinstance(ing, dict):
-                    used_ingredients.append(ing.get('item', ing.get('name', '')))
+                    used_ingredients.append(ing.get("item", ing.get("name", "")))
                 else:
                     used_ingredients.append(str(ing))
-            
-            result.append({
-                "name": recipe.get('name', 'Unnamed Recipe'),
-                "description": recipe.get('description', ''),
-                "difficulty": recipe.get('difficulty') or recipe_request.difficulty or 'medium',
-                "prep_time": _parse_time(recipe.get('prep_time', '0 minutes')),
-                "cook_time": _parse_time(recipe.get('cook_time', '0 minutes')),
-                "servings": recipe.get('servings', 4),
-                "cuisine": recipe.get('cuisine', ''),
-                "ingredients": recipe.get('ingredients', []),
-                "instructions": recipe.get('instructions', []),
-                "available_ingredients": used_ingredients,
-                "missing_ingredients": recipe.get('missing_ingredients', []),
-                "flavor_pairings": recipe.get('flavor_pairings', []),
-                "ai_model": recipe.get('ai_model')  # Track which AI model generated this recipe
-            })
-        
+
+            result.append(
+                {
+                    "name": recipe.get("name", "Unnamed Recipe"),
+                    "description": recipe.get("description", ""),
+                    "difficulty": recipe.get("difficulty") or recipe_request.difficulty or "medium",
+                    "prep_time": _parse_time(recipe.get("prep_time", "0 minutes")),
+                    "cook_time": _parse_time(recipe.get("cook_time", "0 minutes")),
+                    "servings": recipe.get("servings", 4),
+                    "cuisine": recipe.get("cuisine", ""),
+                    "ingredients": recipe.get("ingredients", []),
+                    "instructions": recipe.get("instructions", []),
+                    "available_ingredients": used_ingredients,
+                    "missing_ingredients": recipe.get("missing_ingredients", []),
+                    "flavor_pairings": recipe.get("flavor_pairings", []),
+                    "ai_model": recipe.get(
+                        "ai_model"
+                    ),  # Track which AI model generated this recipe
+                }
+            )
+
         logger.info(f"Successfully generated {len(result)}/{recipe_request.max_recipes} recipes")
-        
+
         # If we got fewer recipes than requested, add a note in the response
         if len(result) < recipe_request.max_recipes:
-            logger.warning(f"Only generated {len(result)} out of {recipe_request.max_recipes} requested recipes (likely due to timeout)")
-        
+            logger.warning(
+                f"Only generated {len(result)} out of {recipe_request.max_recipes} requested recipes (likely due to timeout)"
+            )
+
         return result
-        
+
     except HTTPException:
         raise
     except ValueError as e:
@@ -2260,17 +2305,14 @@ def generate_recipes(
             logger.error("AI API keys not configured")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI service not available. Please configure OpenAI or Anthropic API key in .env file. See README for setup instructions."
+                detail="AI service not available. Please configure OpenAI or Anthropic API key in .env file. See README for setup instructions.",
             )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Error generating recipes: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate recipes: {str(e)}"
+            detail=f"Failed to generate recipes: {str(e)}",
         )
 
 
@@ -2280,19 +2322,20 @@ async def generate_recipes_stream(
     request: Request,
     recipe_request: RecipeRequest,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ):
     """
     Generate AI-powered recipes using streaming (Server-Sent Events).
-    
+
     This endpoint streams recipes as they're generated, allowing for large
     numbers of recipes (10-20+) without hitting Railway's 60s HTTP gateway timeout.
-    
+
     Recipes are sent as Server-Sent Events (SSE) in JSON format.
     Each recipe is sent as soon as it's generated.
-    
+
     Use this endpoint when generating many recipes with Claude (which is slower).
     """
+
     async def generate_and_stream():
         try:
             # Get pantry_id from request or use default
@@ -2300,20 +2343,19 @@ async def generate_recipes_stream(
             if pantry_id is None and current_user:
                 default_pantry = service.get_or_create_default_pantry(current_user.id)
                 pantry_id = default_pantry.id
-            
+
             # Get inventory items filtered by pantry
             all_items = service.get_all_inventory(
-                user_id=current_user.id if current_user else None,
-                pantry_id=pantry_id
+                user_id=current_user.id if current_user else None, pantry_id=pantry_id
             )
-            
+
             # Filter to in_stock items only
             available_items = [item for item in all_items if item.status == "in_stock"]
-            
+
             if not available_items:
                 yield f"data: {json.dumps({'error': 'No items in stock. Add items to your pantry first.'})}\n\n"
                 return
-            
+
             # Filter out excluded ingredients
             excluded_names = set(recipe_request.excluded_ingredients or [])
             filtered_items = []
@@ -2321,66 +2363,65 @@ async def generate_recipes_stream(
                 product_name = item.product.product_name if item.product else None
                 if product_name and product_name not in excluded_names:
                     filtered_items.append(item)
-            
+
             if not filtered_items:
                 yield f"data: {json.dumps({'error': 'No available ingredients after applying exclusions.'})}\n\n"
                 return
-            
+
             # Verify required ingredients are available
             if recipe_request.required_ingredients:
                 required_names = set(recipe_request.required_ingredients)
-                available_names = {item.product.product_name for item in filtered_items if item.product}
+                available_names = {
+                    item.product.product_name for item in filtered_items if item.product
+                }
                 missing_required = required_names - available_names
-                
+
                 if missing_required:
-                    missing_list = ', '.join(missing_required)
+                    missing_list = ", ".join(missing_required)
                     yield f"data: {json.dumps({'error': f'Required ingredients not available: {missing_list}'})}\n\n"
                     return
-            
+
             # Convert to format expected by RecipeGenerator
             pantry_items = []
             for item in filtered_items:
                 product_name = item.product.product_name if item.product else "Unknown"
                 brand = item.product.brand if item.product else None
-                
-                pantry_items.append({
-                    "product": {
-                        "product_name": product_name,
-                        "brand": brand
-                    }
-                })
-            
+
+                pantry_items.append({"product": {"product_name": product_name, "brand": brand}})
+
             # Extract required ingredient names (for prompt)
             required_ingredient_names = None
             if recipe_request.required_ingredients:
                 required_ingredient_names = []
                 for item in pantry_items:
-                    product = item['product']
-                    name = product['product_name']
+                    product = item["product"]
+                    name = product["product_name"]
                     if name in recipe_request.required_ingredients:
-                        brand = product.get('brand')
+                        brand = product.get("brand")
                         if brand:
                             required_ingredient_names.append(f"{brand} {name}")
                         else:
                             required_ingredient_names.append(name)
-            
+
             # Initialize AI analyzer with user's preferred model
             try:
                 user_settings = service.get_user_settings(current_user.id)
                 ai_config = None
-                
+
                 if user_settings.ai_provider or user_settings.ai_model:
-                    from src.ai_analyzer import AIConfig
                     import os
-                    
+
+                    from src.ai_analyzer import AIConfig
+
                     # Create custom config with user preferences
                     ai_config = AIConfig.from_env()
                     if user_settings.ai_provider:
                         ai_config.provider = user_settings.ai_provider
                     if user_settings.ai_model:
                         ai_config.model = user_settings.ai_model
-                    
+
                     from src.ai_analyzer import AIAnalyzer
+
                     ai_analyzer = AIAnalyzer(ai_config)
                 else:
                     # Use default system config
@@ -2391,15 +2432,17 @@ async def generate_recipes_stream(
             except Exception as e:
                 logger.error(f"Error getting user settings, using default: {e}")
                 ai_analyzer = create_ai_analyzer()
-            
+
             recipe_generator = RecipeGenerator(ai_analyzer)
-            
+
             # Send initial status
             yield f"data: {json.dumps({'status': 'started', 'total': recipe_request.max_recipes})}\n\n"
-            
+
             # Generate recipes with streaming
-            logger.info(f"Streaming {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients")
-            
+            logger.info(
+                f"Streaming {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients"
+            )
+
             recipe_count = 0
             for recipe in recipe_generator.generate_recipes(
                 pantry_items=pantry_items,
@@ -2410,62 +2453,62 @@ async def generate_recipes_stream(
                 required_ingredients=required_ingredient_names,
                 excluded_ingredients=recipe_request.excluded_ingredients,
                 allow_missing_ingredients=recipe_request.allow_missing_ingredients,
-                stream=True  # Enable streaming
+                stream=True,  # Enable streaming
             ):
                 if "error" in recipe:
                     yield f"data: {json.dumps({'error': recipe['error']})}\n\n"
                     continue
-                
+
                 # Extract available ingredients used
                 used_ingredients = []
-                for ing in recipe.get('ingredients', []):
+                for ing in recipe.get("ingredients", []):
                     if isinstance(ing, dict):
-                        used_ingredients.append(ing.get('item', ing.get('name', '')))
+                        used_ingredients.append(ing.get("item", ing.get("name", "")))
                     else:
                         used_ingredients.append(str(ing))
-                
+
                 # Convert to response format
                 recipe_response = {
-                    "name": recipe.get('name', 'Unnamed Recipe'),
-                    "description": recipe.get('description', ''),
-                    "difficulty": recipe.get('difficulty') or recipe_request.difficulty or 'medium',
-                    "prep_time": _parse_time(recipe.get('prep_time', '0 minutes')),
-                    "cook_time": _parse_time(recipe.get('cook_time', '0 minutes')),
-                    "servings": recipe.get('servings', 4),
-                    "cuisine": recipe.get('cuisine', ''),
-                    "ingredients": recipe.get('ingredients', []),
-                    "instructions": recipe.get('instructions', []),
+                    "name": recipe.get("name", "Unnamed Recipe"),
+                    "description": recipe.get("description", ""),
+                    "difficulty": recipe.get("difficulty") or recipe_request.difficulty or "medium",
+                    "prep_time": _parse_time(recipe.get("prep_time", "0 minutes")),
+                    "cook_time": _parse_time(recipe.get("cook_time", "0 minutes")),
+                    "servings": recipe.get("servings", 4),
+                    "cuisine": recipe.get("cuisine", ""),
+                    "ingredients": recipe.get("ingredients", []),
+                    "instructions": recipe.get("instructions", []),
                     "available_ingredients": used_ingredients,
-                    "missing_ingredients": recipe.get('missing_ingredients', []),
-                    "flavor_pairings": recipe.get('flavor_pairings', []),
-                    "ai_model": recipe.get('ai_model')
+                    "missing_ingredients": recipe.get("missing_ingredients", []),
+                    "flavor_pairings": recipe.get("flavor_pairings", []),
+                    "ai_model": recipe.get("ai_model"),
                 }
-                
+
                 recipe_count += 1
-                recipe_response['index'] = recipe_count
-                recipe_response['total'] = recipe_request.max_recipes
-                
+                recipe_response["index"] = recipe_count
+                recipe_response["total"] = recipe_request.max_recipes
+
                 # Send recipe as SSE
                 yield f"data: {json.dumps(recipe_response)}\n\n"
-                
+
                 # Small delay to prevent overwhelming the client
                 await asyncio.sleep(0.1)
-            
+
             # Send completion status
             yield f"data: {json.dumps({'status': 'completed', 'count': recipe_count})}\n\n"
-            
+
         except Exception as e:
             logger.error(f"Error in streaming recipe generation: {e}", exc_info=True)
             yield f"data: {json.dumps({'error': f'Failed to generate recipes: {str(e)}'})}\n\n"
-    
+
     return StreamingResponse(
         generate_and_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable nginx buffering
-        }
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
     )
 
 
@@ -2477,7 +2520,8 @@ def _parse_time(time_str: str) -> int:
         if isinstance(time_str, str):
             # Extract number from string
             import re
-            match = re.search(r'(\d+)', time_str)
+
+            match = re.search(r"(\d+)", time_str)
             if match:
                 return int(match.group(1))
         return 0
@@ -2489,15 +2533,21 @@ def _parse_time(time_str: str) -> int:
 # Saved Recipe Endpoints (Recipe Box)
 # ============================================================================
 
-@app.post("/api/recipes/save", response_model=SavedRecipeResponse, status_code=status.HTTP_201_CREATED, tags=["Recipes"])
+
+@app.post(
+    "/api/recipes/save",
+    response_model=SavedRecipeResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Recipes"],
+)
 def save_recipe(
     recipe_data: SavedRecipeCreate,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Save a recipe to the recipe box.
-    
+
     Saves a recipe for later viewing. Can be a generated recipe or custom recipe.
     """
     try:
@@ -2515,31 +2565,28 @@ def save_recipe(
             notes=recipe_data.notes,
             rating=recipe_data.rating,
             tags=recipe_data.tags,
-            ai_model=recipe_data.ai_model
+            ai_model=recipe_data.ai_model,
         )
-        
+
         logger.info(f"Saved recipe: {recipe.name} (ID: {recipe.id})")
         return recipe.to_dict()
-        
+
     except ValueError as e:
         # Duplicate recipe error
         logger.warning(f"Duplicate recipe attempt: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except Exception as e:
         logger.error(f"Error saving recipe: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save recipe: {str(e)}"
+            detail=f"Failed to save recipe: {str(e)}",
         )
 
 
 @app.get("/api/user/settings", response_model=UserSettingsResponse, tags=["User"])
 def get_user_settings(
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Get user settings and preferences.
@@ -2551,7 +2598,7 @@ def get_user_settings(
         logger.error(f"Error getting user settings: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get user settings: {str(e)}"
+            detail=f"Failed to get user settings: {str(e)}",
         )
 
 
@@ -2559,11 +2606,11 @@ def get_user_settings(
 def update_user_settings(
     settings_data: UserSettingsUpdate,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Update user settings and preferences.
-    
+
     - **ai_provider**: AI provider ("openai" or "anthropic")
     - **ai_model**: AI model name (e.g., "gpt-4o", "claude-sonnet-4-20250514")
     """
@@ -2572,13 +2619,13 @@ def update_user_settings(
         if settings_data.ai_provider and settings_data.ai_provider not in ["openai", "anthropic"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="ai_provider must be 'openai' or 'anthropic'"
+                detail="ai_provider must be 'openai' or 'anthropic'",
             )
-        
+
         settings = service.update_user_settings(
             user_id=current_user.id,
             ai_provider=settings_data.ai_provider,
-            ai_model=settings_data.ai_model
+            ai_model=settings_data.ai_model,
         )
         return settings.to_dict()
     except HTTPException:
@@ -2587,7 +2634,7 @@ def update_user_settings(
         logger.error(f"Error updating user settings: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update user settings: {str(e)}"
+            detail=f"Failed to update user settings: {str(e)}",
         )
 
 
@@ -2597,25 +2644,22 @@ def get_saved_recipes(
     difficulty: Optional[str] = Query(None, description="Filter by difficulty"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum recipes to return"),
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> List[Dict]:
     """
     Get all saved recipes from recipe box.
-    
+
     Returns only recipes for the current authenticated user.
-    
+
     - **cuisine**: Optional cuisine filter
     - **difficulty**: Optional difficulty filter
     - **limit**: Maximum number of recipes to return
     """
     try:
         recipes = service.get_saved_recipes(
-            user_id=current_user.id,
-            cuisine=cuisine,
-            difficulty=difficulty,
-            limit=limit
+            user_id=current_user.id, cuisine=cuisine, difficulty=difficulty, limit=limit
         )
-        
+
         # Convert recipes to dict, handling any serialization issues
         result = []
         for recipe in recipes:
@@ -2631,15 +2675,15 @@ def get_saved_recipes(
                     logger.error(f"Failed to serialize recipe {recipe.id}: {e2}")
                     # Skip this recipe
                     continue
-        
+
         logger.info(f"Retrieved {len(result)} saved recipes")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error retrieving saved recipes: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve saved recipes: {str(e)}"
+            detail=f"Failed to retrieve saved recipes: {str(e)}",
         )
 
 
@@ -2647,13 +2691,13 @@ def get_saved_recipes(
 def get_saved_recipe(
     recipe_id: int,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Get a specific saved recipe by ID.
-    
+
     Returns only if the recipe belongs to the current authenticated user.
-    
+
     - **recipe_id**: Recipe ID to retrieve
     """
     try:
@@ -2661,25 +2705,24 @@ def get_saved_recipe(
         if not recipe:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Recipe with ID {recipe_id} not found"
+                detail=f"Recipe with ID {recipe_id} not found",
             )
-        
+
         # Ensure recipe belongs to current user
         if recipe.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to access this recipe"
+                detail="You don't have permission to access this recipe",
             )
-        
+
         return recipe.to_dict()
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error retrieving recipe {recipe_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve recipe"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve recipe"
         )
 
 
@@ -2688,13 +2731,13 @@ def update_saved_recipe(
     recipe_id: int,
     recipe_data: SavedRecipeUpdate,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
     Update a saved recipe (notes, rating, tags).
-    
+
     Only allows updating recipes that belong to the current authenticated user.
-    
+
     - **recipe_id**: Recipe ID to update
     """
     try:
@@ -2702,33 +2745,32 @@ def update_saved_recipe(
         if not recipe:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Recipe with ID {recipe_id} not found"
+                detail=f"Recipe with ID {recipe_id} not found",
             )
-        
+
         # Ensure recipe belongs to current user
         if recipe.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to update this recipe"
+                detail="You don't have permission to update this recipe",
             )
-        
+
         updated_recipe = service.update_saved_recipe(
             recipe_id=recipe_id,
             notes=recipe_data.notes,
             rating=recipe_data.rating,
-            tags=recipe_data.tags
+            tags=recipe_data.tags,
         )
-        
+
         logger.info(f"Updated recipe ID {recipe_id}")
         return updated_recipe.to_dict()
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating recipe {recipe_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update recipe"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update recipe"
         )
 
 
@@ -2736,13 +2778,13 @@ def update_saved_recipe(
 def delete_saved_recipe(
     recipe_id: int,
     current_user: User = Depends(get_current_user),
-    service: PantryService = Depends(get_pantry_service)
+    service: PantryService = Depends(get_pantry_service),
 ) -> MessageResponse:
     """
     Delete a saved recipe.
-    
+
     Only allows deleting recipes that belong to the current authenticated user.
-    
+
     - **recipe_id**: Recipe ID to delete
     """
     try:
@@ -2750,42 +2792,184 @@ def delete_saved_recipe(
         if not recipe:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Recipe with ID {recipe_id} not found"
+                detail=f"Recipe with ID {recipe_id} not found",
             )
-        
+
         # Ensure recipe belongs to current user
         if recipe.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to delete this recipe"
+                detail="You don't have permission to delete this recipe",
             )
-        
+
         deleted = service.delete_saved_recipe(recipe_id)
-        
+
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Recipe with ID {recipe_id} not found"
+                detail=f"Recipe with ID {recipe_id} not found",
             )
-        
+
         logger.info(f"Deleted recipe ID {recipe_id}")
-        return MessageResponse(
-            message=f"Recipe {recipe_id} deleted successfully"
-        )
-        
+        return MessageResponse(message=f"Recipe {recipe_id} deleted successfully")
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting recipe {recipe_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete recipe"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete recipe"
         )
 
 
 # ============================================================================
 # Admin Endpoints - Security Audit Logging (Phase 2)
 # ============================================================================
+
+
+@app.post("/api/admin/fix-database", tags=["Admin"])
+def fix_database(
+    secret: str = Query(..., description="Secret token to access this endpoint"),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """
+    Fix database by dropping orphaned indexes.
+
+    This is a temporary endpoint to fix the orphaned index issue
+    that's preventing table creation. Uses a secret token for security.
+    """
+    # Verify secret token (matches SECRET_KEY from environment)
+    import os
+
+    expected_secret = os.getenv("SECRET_KEY", "")
+    if not expected_secret or secret != expected_secret:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid secret token")
+
+    try:
+        from sqlalchemy import text
+
+        logger.info("Admin database fix requested")
+
+        # Drop the orphaned index using the database session
+        try:
+            logger.info("Dropping orphaned index ix_users_email...")
+            db.execute(text("DROP INDEX IF EXISTS ix_users_email CASCADE"))
+            db.commit()
+            logger.info("✅ Successfully dropped orphaned index")
+
+            # Verify it's gone
+            result = db.execute(
+                text(
+                    """
+                SELECT indexname FROM pg_indexes 
+                WHERE indexname = 'ix_users_email' 
+                AND schemaname = 'public'
+            """
+                )
+            )
+            rows = result.fetchall()
+            if rows:
+                logger.warning("Index still exists after drop attempt")
+                return MessageResponse(
+                    message="⚠️ Index still exists after drop attempt. Manual intervention may be needed.",
+                    status="warning",
+                )
+            else:
+                logger.info("✅ Index confirmed dropped")
+
+                # Now try to create tables using a fresh engine
+                logger.info("Attempting to create all tables...")
+                from sqlalchemy import inspect as sqla_inspect
+
+                from src.database import Base, create_database_engine
+
+                # Create a fresh engine and connection for table creation
+                engine = create_database_engine()
+                try:
+                    # First, create users table directly with raw SQL (to avoid index issues)
+                    logger.info("Creating users table directly with raw SQL...")
+                    with engine.begin() as conn:
+                        # Create users table without indexes first
+                        conn.execute(
+                            text(
+                                """
+                            CREATE TABLE IF NOT EXISTS users (
+                                id SERIAL PRIMARY KEY,
+                                email VARCHAR(255) NOT NULL,
+                                password_hash VARCHAR(255) NOT NULL,
+                                full_name VARCHAR(255),
+                                role VARCHAR(50) NOT NULL DEFAULT 'user',
+                                email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                last_login TIMESTAMP
+                            )
+                        """
+                            )
+                        )
+
+                        # Create unique index on email if it doesn't exist
+                        try:
+                            conn.execute(
+                                text(
+                                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)"
+                                )
+                            )
+                            logger.info("✅ Created users table and email index")
+                        except Exception as idx_error:
+                            logger.debug(
+                                f"Index creation had issue (may already exist): {idx_error}"
+                            )
+
+                    # Now create all other tables using SQLAlchemy
+                    logger.info("Creating remaining tables...")
+                    try:
+                        Base.metadata.create_all(bind=engine, checkfirst=True)
+                        logger.info("✅ All tables created successfully")
+                    except Exception as create_error:
+                        error_str = str(create_error).lower()
+                        # If it's an index error, that's OK - tables might still be created
+                        if "index" in error_str or "duplicatetable" in error_str:
+                            logger.warning(
+                                f"Index error during create_all (non-critical): {create_error}"
+                            )
+                            # Continue - tables might still be created
+                        else:
+                            logger.warning(f"Error during create_all: {create_error}")
+
+                    # Verify users table exists
+                    inspector = sqla_inspect(engine)
+                    tables = inspector.get_table_names()
+                    logger.info(f"✅ Existing tables: {tables}")
+
+                    if "users" in tables:
+                        logger.info("✅ Users table confirmed to exist")
+                        return MessageResponse(
+                            message="✅ Database fix complete! Orphaned index dropped and tables created successfully.",
+                            status="success",
+                        )
+                    else:
+                        logger.warning("⚠️ Users table still doesn't exist after create_all")
+                        return MessageResponse(
+                            message=f"⚠️ Index dropped but table creation had issues. Existing tables: {tables}",
+                            status="warning",
+                        )
+                except Exception as create_error:
+                    logger.error(f"Error creating tables: {create_error}", exc_info=True)
+                    raise
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error during database fix: {e}", exc_info=True)
+            raise
+
+    except Exception as e:
+        logger.error(f"Error in fix_database endpoint: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fix database: {str(e)}",
+        )
+
 
 @app.get("/api/admin/audit-logs", tags=["Admin"])
 def get_audit_logs(
@@ -2795,20 +2979,20 @@ def get_audit_logs(
     severity: Optional[str] = Query(None, description="Filter by severity"),
     user_id: Optional[int] = Query(None, description="Filter by user ID"),
     current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> List[Dict]:
     """
     Get security audit logs (admin only).
-    
+
     Returns security events for monitoring and auditing purposes.
     Filterable by event type, severity, and user ID.
     """
     try:
         from src.database import SecurityEvent
-        
+
         # Build query
         query = db.query(SecurityEvent)
-        
+
         # Apply filters
         if event_type:
             query = query.filter(SecurityEvent.event_type == event_type)
@@ -2816,21 +3000,21 @@ def get_audit_logs(
             query = query.filter(SecurityEvent.severity == severity)
         if user_id:
             query = query.filter(SecurityEvent.user_id == user_id)
-        
+
         # Order by most recent first
         query = query.order_by(SecurityEvent.created_at.desc())
-        
+
         # Apply pagination
         events = query.offset(skip).limit(limit).all()
-        
+
         # Convert to dict
         return [event.to_dict() for event in events]
-        
+
     except Exception as e:
         logger.error(f"Error retrieving audit logs: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve audit logs: {str(e)}"
+            detail=f"Failed to retrieve audit logs: {str(e)}",
         )
 
 
@@ -2838,16 +3022,14 @@ def get_audit_logs(
 # Error Handlers
 # ============================================================================
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """Custom HTTP exception handler."""
     logger.warning(f"HTTP {exc.status_code}: {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "detail": exc.detail,
-            "error_code": str(exc.status_code)
-        }
+        content={"detail": exc.detail, "error_code": str(exc.status_code)},
     )
 
 
@@ -2857,24 +3039,22 @@ async def general_exception_handler(request, exc: Exception):
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     # Always include error message for API debugging (can be disabled via env var)
     import os
+
     hide_errors = os.getenv("HIDE_ERROR_DETAILS", "false").lower() == "true"
     error_detail = "An unexpected error occurred" if hide_errors else str(exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": error_detail,
-            "error_code": "500"
-        }
+        content={"detail": error_detail, "error_code": "500"},
     )
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "api.main:app",
         host=config.host,
         port=config.port,
         reload=config.reload,
-        log_level=config.log_level
+        log_level=config.log_level,
     )
-

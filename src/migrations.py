@@ -405,6 +405,63 @@ def add_ai_model_to_saved_recipes():
             raise
 
 
+def add_security_events_table():
+    """
+    Create security_events table if it doesn't exist.
+    
+    This migration ensures the security_events table exists for audit logging.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    
+    # Check if security_events table already exists
+    if 'security_events' in inspector.get_table_names():
+        logger.info("security_events table already exists")
+        return
+    
+    logger.info("Creating security_events table...")
+    
+    try:
+        from src.database import SecurityEvent
+        SecurityEvent.__table__.create(engine, checkfirst=True)
+        logger.info("✅ security_events table created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create security_events table: {e}", exc_info=True)
+        # Try SQL directly as fallback
+        try:
+            with engine.connect() as conn:
+                trans = conn.begin()
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS security_events (
+                            id SERIAL PRIMARY KEY,
+                            event_type VARCHAR(100) NOT NULL,
+                            user_id INTEGER,
+                            ip_address VARCHAR(45) NOT NULL,
+                            user_agent VARCHAR(500),
+                            details TEXT,
+                            severity VARCHAR(20) NOT NULL DEFAULT 'info',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT fk_security_events_user_id 
+                                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                        )
+                    """))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_security_events_event_type ON security_events(event_type)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_security_events_user_id ON security_events(user_id)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_security_events_created_at ON security_events(created_at)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_security_events_severity ON security_events(severity)"))
+                    trans.commit()
+                    logger.info("✅ security_events table created via SQL")
+                except Exception as sql_error:
+                    trans.rollback()
+                    if "already exists" not in str(sql_error).lower():
+                        raise
+                    logger.info("security_events table already exists (via SQL check)")
+        except Exception as fallback_error:
+            logger.error(f"Fallback SQL creation also failed: {fallback_error}", exc_info=True)
+            raise
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
@@ -413,6 +470,7 @@ def run_migrations():
     assign_null_items_to_default_pantry()
     add_user_settings_table()
     add_ai_model_to_saved_recipes()
+    add_security_events_table()  # Ensure security_events table exists
     logger.info("✅ All migrations completed")
 
 

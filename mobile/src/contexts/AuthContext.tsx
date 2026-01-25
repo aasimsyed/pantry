@@ -54,6 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.warn('Server error checking auth, clearing token:', error.response?.data);
             await apiClient.logout();
             setUser(null);
+          } else if (status === 429) {
+            // Rate limited - token is still valid, don't clear or logout
+            console.warn('Auth check rate limited, keeping token for retry');
+            setUser(null);
           } else {
             // Other errors - clear token to be safe
             console.warn('Auth check error, clearing token:', error);

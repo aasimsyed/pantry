@@ -45,6 +45,8 @@ venv.bak/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 
@@ -69,12 +71,9 @@ htmlcov/
 # API Keys and credentials
 credentials.json
 *_credentials.json
+pantry-manager-416004-1428ba71c020.json
 
 reports/
-# Database files
-*.db
-*.sqlite
-*.sqlite3
 
 # Docker
 docker-compose.override.yml
@@ -83,3 +82,6 @@ docker-compose.override.yml
 fly.toml
 !fly.toml.example
 
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.cursor/rules/snyk_rules.mdc

@@ -283,7 +283,11 @@ Output: {
 }
 """
         
-        prompt = f"""Extract product information from this OCR text. The text may contain OCR errors.
+        prompt = f"""Extract product information from this OCR text. The text is from product labels.
+
+OCR text may be fragmented (line breaks, scattered words), contain OCR errors, or odd spacing. Reconstruct the product name from fragments like "NO SUGAR ADDED", "ORGANIC", brand names, or product-type words.
+
+CRITICAL: Never return product_name "Unknown Product" if you see 3+ fragments that could be words (e.g. Organi, Natur, Pure, Garden, Better, Were, ma, GS, Hy, ha, wae, os). Infer a descriptive name like "Organic Nature Blend", "Pure Garden Product", or "Natural [Category] Product". Use "Unknown Product" ONLY when the text is genuinely empty or pure symbols/numbers.
 
 OCR Text:
 {ocr_text}
@@ -291,13 +295,13 @@ OCR Text:
 Extract these fields and return ONLY valid JSON (no markdown, no code blocks):
 
 {{
-  "product_name": "Full product name (correct OCR errors)",
+  "product_name": "Full product name—required. Correct OCR errors, join fragments. Never 'Unknown Product' if 3+ plausible word fragments exist.",
   "brand": "Brand name or null",
   "category": "One of: {categories_str}, Other",
   "subcategory": "More specific category or null",
   "expiration_date": "YYYY-MM-DD or null (look for EXP, BEST BY, USE BY, dates)",
   "manufactured_date": "YYYY-MM-DD or null",
-  "key_attributes": ["List features like '25% Less Sodium', 'Organic', 'Non-GMO'"],
+  "key_attributes": ["List features like '25% Less Sodium', 'Organic', 'Non-GMO', 'No Sugar Added'"],
   "dietary_tags": ["vegan", "organic", "gluten-free", "kosher", "non-gmo"],
   "allergens": ["milk", "nuts", "soy", "wheat", "eggs"] or [],
   "serving_size": "serving size text or null",
@@ -306,13 +310,12 @@ Extract these fields and return ONLY valid JSON (no markdown, no code blocks):
 }}
 {few_shot_examples}
 Guidelines:
-- Fix obvious OCR errors (e.g., "0RGANIC" → "ORGANIC")
-- Be conservative with confidence scores
-- Return null for unclear fields
-- Categories must match the list above
-- Dates can be partial (e.g., "2021-12-01" for December 2021)
-- Look for date keywords: EXP, BEST BY, USE BY, SELL BY, BBD
-- Extract brand even if not explicitly labeled
+- Always provide product_name. Infer from fragments (e.g. "Were"→"Where", "ma"→"Natural", "GS"→brand). Use "Unknown Product" only if text is empty or meaningless.
+- Fix OCR errors (e.g., "0RGANIC" → "ORGANIC", "SU GAR" → "SUGAR").
+- Be conservative with confidence; return null for unclear fields only when truly unknown.
+- Categories must match the list above.
+- Dates: look for EXP, BEST BY, USE BY, SELL BY, BBD.
+- Extract brand even if not explicitly labeled.
 
 Return ONLY the JSON, no other text, no markdown code blocks."""
         
@@ -364,15 +367,32 @@ class OpenAIBackend(AIBackend):
         try:
             self.logger.debug(f"Calling OpenAI API with model {self.config.model}")
             
-            response = self.client.chat.completions.create(
-                model=self.config.model,
-                messages=[
+            # Use max_completion_tokens for newer models, max_tokens for older ones
+            # Newer models (GPT-4o, GPT-5.2, etc.) require max_completion_tokens
+            api_params = {
+                "model": self.config.model,
+                "messages": [
                     {"role": "system", "content": "You are a product information extraction expert. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-            )
+                "temperature": self.config.temperature,
+            }
+            
+            # Try max_completion_tokens first (for newer models), fallback to max_tokens
+            try:
+                response = self.client.chat.completions.create(
+                    **api_params,
+                    max_completion_tokens=self.config.max_tokens,
+                )
+            except Exception as e:
+                # Fallback to max_tokens for older models
+                if "max_completion_tokens" in str(e) or "unsupported" in str(e).lower():
+                    response = self.client.chat.completions.create(
+                        **api_params,
+                        max_tokens=self.config.max_tokens,
+                    )
+                else:
+                    raise
             
             # Parse response
             content = response.choices[0].message.content.strip()
@@ -670,8 +690,11 @@ class AIAnalyzer:
         mfg_date = self._parse_date(extracted.get("manufactured_date"))
         best_before = self._parse_date(extracted.get("best_before_date"))
         
+        name = extracted.get("product_name")
+        if not name or not str(name).strip():
+            name = "Unknown Product"
         return ProductData(
-            product_name=extracted.get("product_name", "Unknown Product"),
+            product_name=name,
             brand=extracted.get("brand"),
             category=extracted.get("category", "Other"),
             subcategory=extracted.get("subcategory"),

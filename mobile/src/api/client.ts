@@ -25,7 +25,7 @@ const getApiBaseUrl = () => {
   if (!__DEV__) {
     // In production, use environment variable or your deployed backend URL
     // Set this via EAS Secrets or app.json extra config
-    return process.env.EXPO_PUBLIC_API_URL || 'https://pantry.up.railway.app';
+    return process.env.EXPO_PUBLIC_API_URL || 'https://pantry-api-apqja3ye2q-vp.a.run.app';
   }
   
   // Development: Use local IP for physical devices, localhost for simulators
@@ -38,8 +38,8 @@ const getApiBaseUrl = () => {
   // Default development URL (update with your local IP)
   // For iOS Simulator: localhost works
   // For physical devices: use your computer's local IP
-  // Default to Railway production backend (has API keys configured)
-  return 'https://pantry.up.railway.app';
+  // Default to Cloud Run production backend (has API keys configured)
+  return 'https://pantry-api-apqja3ye2q-vp.a.run.app';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -48,6 +48,7 @@ class APIClient {
   private client: AxiosInstance;
   private baseTimeout: number = 30; // Increased to 30 seconds
   private accessToken: string | null = null;
+  private isRefreshing: boolean = false; // Prevent concurrent refresh attempts
 
   constructor(baseURL: string = API_BASE_URL) {
     this.client = axios.create({
@@ -76,18 +77,32 @@ class APIClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401 && this.accessToken) {
-          // Token expired, try to refresh
-          try {
-            await this.refreshAccessToken();
-            // Retry original request
-            if (error.config) {
-              error.config.headers.Authorization = `Bearer ${this.accessToken}`;
-              return this.client.request(error.config);
-            }
-          } catch (refreshError) {
-            // Refresh failed, clear tokens
+        // Handle 401: token expired, try to refresh
+        if (error.response?.status === 401 && this.accessToken && !this.isRefreshing) {
+          // Skip refresh if this is already a refresh request (avoid infinite loop)
+          if (error.config?.url?.includes('/api/auth/refresh')) {
+            // Refresh token is invalid, clear tokens
             this.clearTokens();
+          } else {
+            // Token expired, try to refresh
+            try {
+              this.isRefreshing = true;
+              await this.refreshAccessToken();
+              // Retry original request
+              if (error.config) {
+                error.config.headers.Authorization = `Bearer ${this.accessToken}`;
+                return this.client.request(error.config);
+              }
+            } catch (refreshError: any) {
+              // Refresh failed (429 rate limit, 401 invalid token, etc.), clear tokens
+              this.clearTokens();
+              // Don't retry if it was a rate limit - user needs to wait
+              if (refreshError.response?.status === 429) {
+                console.warn('Token refresh rate limited, please log in again');
+              }
+            } finally {
+              this.isRefreshing = false;
+            }
           }
         }
         // Log error with more details for debugging

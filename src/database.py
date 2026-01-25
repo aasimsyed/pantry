@@ -34,7 +34,7 @@ Example:
 """
 
 import os
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from sqlalchemy import (
@@ -49,6 +49,8 @@ from sqlalchemy import (
     Text,
     create_engine,
     event,
+    inspect,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSON as PostgresJSON
 from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
@@ -188,30 +190,159 @@ def init_database():
         >>> init_database()
     """
     from sqlalchemy.exc import OperationalError
+    import logging
+    logger = logging.getLogger(__name__)
     
     engine = create_database_engine()
     
+    # Check what tables exist first
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    all_table_names = {t.name for t in Base.metadata.sorted_tables}
+    missing_tables = all_table_names - existing_tables
+    
+    if missing_tables:
+        logger.info(f"Missing tables detected: {missing_tables}")
+        # Drop any orphaned indexes that might block table creation
+        # These can exist if a previous table creation failed mid-way
+        try:
+            # Drop known problematic indexes with explicit commit
+            indexes_to_drop = [
+                'ix_users_email',  # Common orphaned index
+            ]
+            with engine.begin() as conn:  # begin() auto-commits
+                for index_name in indexes_to_drop:
+                    try:
+                        conn.execute(text(f"DROP INDEX IF EXISTS {index_name} CASCADE"))
+                        logger.info(f"Dropped orphaned index: {index_name}")
+                    except Exception as e:
+                        logger.debug(f"Could not drop {index_name}: {e}")
+                        pass  # Ignore if doesn't exist
+        except Exception as e:
+            logger.debug(f"Index cleanup failed: {e}")
+            pass  # Continue anyway
+    
     try:
+        # Create all tables (SQLAlchemy handles dependencies automatically)
         Base.metadata.create_all(bind=engine, checkfirst=True)
+        logger.info(f"✅ Database initialized: {get_database_url()}")
         print(f"✅ Database initialized: {get_database_url()}")
     except Exception as e:
-        # Handle case where indexes/tables already exist (common in PostgreSQL)
+        # If creation failed, try simpler approach: create tables without indexes first
         error_str = str(e).lower()
-        if "already exists" in error_str or "duplicate" in error_str:
-            # Try to create tables without indexes first
-            from sqlalchemy import event
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Some database objects already exist, attempting individual table creation: {e}")
-            
-            # Create tables one by one, skipping index creation errors
+        logger.warning(f"Initial create_all failed: {e}, trying simplified approach...")
+        
+        # Try creating tables individually, ignoring index errors
+        try:
             for table in Base.metadata.sorted_tables:
                 try:
+                    # Create table without indexes first
                     table.create(engine, checkfirst=True)
                 except Exception as table_error:
-                    if "already exists" not in str(table_error).lower() and "duplicate" not in str(table_error).lower():
-                        logger.warning(f"Error creating table {table.name}: {table_error}")
-            print(f"⚠️  Database initialization completed with warnings (some objects may already exist)")
+                    error_str = str(table_error).lower()
+                    if "already exists" in error_str or "duplicate" in error_str:
+                        # Table or index exists - that's fine
+                        pass
+                    elif "does not exist" in error_str:
+                        # Dependency issue - will be handled by dependency order
+                        logger.debug(f"Deferred {table.name} due to dependency")
+                    else:
+                        logger.warning(f"Error creating {table.name}: {table_error}")
+            
+            logger.info(f"✅ Database initialization completed")
+            print(f"✅ Database schema is up to date: {get_database_url()}")
+        except Exception as e2:
+            logger.error(f"❌ Database initialization failed: {e2}")
+            raise
+            
+            # If initial create_all failed, check what actually exists
+            inspector = inspect(engine)
+            existing_tables = set(inspector.get_table_names())
+            all_table_names = {t.name for t in Base.metadata.sorted_tables}
+            missing_tables = all_table_names - existing_tables
+            
+            if missing_tables:
+                logger.warning(f"Missing tables detected: {missing_tables}")
+                logger.info("Attempting to create missing tables...")
+                
+                # Create missing tables in dependency order
+                # SQLAlchemy's sorted_tables already handles dependency order
+                for table in Base.metadata.sorted_tables:
+                    if table.name in missing_tables:
+                        try:
+                            logger.info(f"Creating table: {table.name}")
+                            # First try with checkfirst=True (safe)
+                            table.create(engine, checkfirst=True)
+                            # Verify table was actually created
+                            inspector = inspect(engine)
+                            if table.name in inspector.get_table_names():
+                                existing_tables.add(table.name)
+                                missing_tables.discard(table.name)
+                                logger.info(f"✅ Successfully created/verified table: {table.name}")
+                            else:
+                                # Table doesn't exist, try force create
+                                logger.warning(f"Table {table.name} not found after create, trying force create...")
+                                try:
+                                    # Drop any conflicting indexes first
+                                    for index in table.indexes:
+                                        try:
+                                            index.drop(engine, checkfirst=True)
+                                        except:
+                                            pass  # Ignore index drop errors
+                                    # Now create table
+                                    table.create(engine, checkfirst=False)
+                                    inspector = inspect(engine)
+                                    if table.name in inspector.get_table_names():
+                                        existing_tables.add(table.name)
+                                        missing_tables.discard(table.name)
+                                        logger.info(f"✅ Successfully created table: {table.name} (after cleanup)")
+                                    else:
+                                        logger.error(f"❌ Table {table.name} still doesn't exist after force create!")
+                                except Exception as force_error:
+                                    logger.error(f"❌ Force create failed for {table.name}: {force_error}")
+                        except Exception as table_error:
+                            error_str = str(table_error).lower()
+                            # Check if table actually exists (might be index conflict)
+                            inspector = inspect(engine)
+                            if table.name in inspector.get_table_names():
+                                existing_tables.add(table.name)
+                                missing_tables.discard(table.name)
+                                logger.info(f"✅ Table {table.name} exists (error was likely index-related)")
+                            elif "does not exist" in error_str:
+                                # Dependency issue - will retry
+                                logger.warning(f"Table {table.name} creation deferred (dependency): {table_error}")
+                            else:
+                                logger.error(f"❌ Error creating table {table.name}: {table_error}")
+                                # Don't discard - we'll retry
+                
+                # Retry any remaining missing tables
+                if missing_tables:
+                    logger.info(f"Retrying {len(missing_tables)} tables...")
+                    for table_name in list(missing_tables):
+                        table = Base.metadata.tables.get(table_name)
+                        if table:
+                            try:
+                                table.create(engine, checkfirst=True)
+                                missing_tables.discard(table_name)
+                                logger.info(f"✅ Created table: {table_name}")
+                            except Exception as retry_error:
+                                error_str = str(retry_error).lower()
+                                if "already exists" in error_str:
+                                    missing_tables.discard(table_name)
+                                else:
+                                    logger.error(f"Failed to create {table_name}: {retry_error}")
+            
+            # Final check
+            inspector = inspect(engine)
+            final_tables = set(inspector.get_table_names())
+            still_missing = all_table_names - final_tables
+            
+            if still_missing:
+                logger.error(f"⚠️  Some tables still missing: {still_missing}")
+            else:
+                logger.info("✅ All tables exist")
+            
+            print(f"⚠️  Database initialization completed with warnings")
             print(f"✅ Database schema is up to date: {get_database_url()}")
         else:
             raise
@@ -223,13 +354,15 @@ def init_database():
             add_pantries_table_and_pantry_id,
             assign_null_items_to_default_pantry,
             add_user_settings_table,
-            add_ai_model_to_saved_recipes
+            add_ai_model_to_saved_recipes,
+            add_security_events_table
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
         assign_null_items_to_default_pantry()
         add_user_settings_table()
         add_ai_model_to_saved_recipes()
+        add_security_events_table()  # Critical: ensure security_events table exists
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
@@ -521,30 +654,39 @@ class InventoryItem(Base):
             "is_expired": self.is_expired,
         }
     
+    def _expiration_date_normalized(self) -> Optional[date]:
+        """Return expiration_date as date for comparison (handles both date and datetime)."""
+        exp = self.expiration_date
+        if exp is None:
+            return None
+        if isinstance(exp, datetime):
+            return date(exp.year, exp.month, exp.day)
+        return exp
+
     @property
     def days_until_expiration(self) -> Optional[int]:
         """Calculate days until expiration.
-        
+
         Returns:
             Days until expiration, None if no expiration date
         """
-        if not self.expiration_date:
+        exp = self._expiration_date_normalized()
+        if exp is None:
             return None
-        
-        delta = self.expiration_date - datetime.utcnow()
+        delta = exp - datetime.utcnow().date()
         return delta.days
-    
+
     @property
     def is_expired(self) -> bool:
         """Check if item is expired.
-        
+
         Returns:
             True if expired, False otherwise
         """
-        if not self.expiration_date:
+        exp = self._expiration_date_normalized()
+        if exp is None:
             return False
-        
-        return datetime.utcnow() > self.expiration_date
+        return datetime.utcnow().date() > exp
     
     @property
     def is_expiring_soon(self, days: int = 7) -> bool:

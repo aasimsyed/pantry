@@ -62,9 +62,21 @@ def log_security_event(
         created_at=datetime.utcnow()
     )
     
-    db.add(event)
-    db.commit()
-    db.refresh(event)
+    try:
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+    except Exception as e:
+        # If security_events table doesn't exist yet, log to application logger only
+        # Don't block the request if table creation is pending
+        error_str = str(e).lower()
+        if "security_events" in error_str and ("does not exist" in error_str or "undefinedtable" in error_str):
+            security_logger.warning(f"security_events table not yet created, logging to application logger only: {event_type}")
+            db.rollback()
+        else:
+            # Other errors should be raised
+            db.rollback()
+            raise
     
     # Also log to application logger
     log_level = getattr(logging, severity.upper(), logging.INFO)
