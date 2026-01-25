@@ -258,6 +258,26 @@ gcloud run services update pantry-api \
 
 Production logs (stdout/stderr) are sent to **Google Cloud Logging**. Use them to debug 500s and other errors.
 
+**Region:** Match your deploy (e.g. `us-south1` from `deploy-cloud-run.sh`). Set `GCP_REGION` if different.
+
+### View logs (quick)
+
+```bash
+# Stream logs in real time
+./scripts/view-prod-logs.sh tail
+
+# Last 100 lines
+./scripts/view-prod-logs.sh read
+
+# Open Cloud Run Logs tab in browser
+./scripts/view-prod-logs.sh open
+
+# Open Logs Explorer filtered to errors only
+./scripts/view-prod-logs.sh open-errors
+```
+
+Uses `GCP_PROJECT_ID`, `GCP_REGION`, `CLOUD_RUN_SERVICE` (defaults: pantry-manager-416004, us-south1, pantry-api).
+
 ### View logs in Cloud Console
 
 1. Open [Logging](https://console.cloud.google.com/logging) in Google Cloud Console.
@@ -269,14 +289,16 @@ Production logs (stdout/stderr) are sent to **Google Cloud Logging**. Use them t
    ```
 4. Optionally filter by severity: `severity>=ERROR`.
 
+Or go to **Cloud Run** → your service → **Logs** tab.
+
 ### View logs via CLI
 
 ```bash
-# Real-time logs
-gcloud run services logs tail pantry-api --region us-central1
+# Real-time logs (region must match deploy, e.g. us-south1)
+gcloud run services logs tail pantry-api --region us-south1 --project pantry-manager-416004
 
 # Recent logs
-gcloud run services logs read pantry-api --region us-central1 --limit 50
+gcloud run services logs read pantry-api --region us-south1 --project pantry-manager-416004 --limit 50
 ```
 
 ### Debugging 500 errors with request_id
@@ -298,6 +320,29 @@ When you see a generic **"Request failed with status code 500"** in the app:
 1. Enable Cloud Monitoring and Cloud Logging (enabled by default).
 2. View metrics: https://console.cloud.google.com/run → your service → **Metrics**.
 3. Set up alerts in Cloud Monitoring.
+
+### Send logs to an error-tracking service (optional)
+
+**Google Cloud Logging** holds all logs, but searching and alerting can be slower. For faster troubleshooting, you can send errors to a dedicated service:
+
+#### Sentry (recommended for errors)
+
+[Sentry](https://sentry.io) gives you a dashboard of exceptions, stack traces, and alerts. Free tier is usually enough for small apps.
+
+1. Create a project at [sentry.io](https://sentry.io) (Python/FastAPI).
+2. Copy the **DSN** (e.g. `https://xxx@xxx.ingest.sentry.io/xxx`).
+3. Add to Cloud Run:
+   - **Env:** `SENTRY_DSN=<your-dsn>`  
+   - Or use Secret Manager (e.g. `scripts/setup-secret-manager.sh`) and map it as `SENTRY_DSN` in Cloud Run.
+4. Redeploy the API. The app initializes Sentry on startup when `SENTRY_DSN` is set; unhandled exceptions and 500s are reported to Sentry.
+
+You can then browse errors in the Sentry UI, filter by environment, and set up Slack/email alerts.
+
+#### Other options
+
+- **Logtail / Better Stack:** Ingest logs via HTTP or a Cloud Logging sink; good for general log search.
+- **Datadog, New Relic:** Full APM + logs; heavier setup.
+- **Cloud Logging → BigQuery / Pub/Sub:** Export for analysis or forward to webhooks (e.g. Slack).
 
 ## Continuous Deployment (CI/CD)
 
@@ -374,7 +419,7 @@ Cloud Run also runs `init_database` on startup. If the DB was empty or out of da
 
 ### Service Won't Start
 
-1. Check logs: `gcloud run services logs read pantry-api --region us-central1`
+1. Check logs: `./scripts/view-prod-logs.sh read` or `gcloud run services logs read pantry-api --region us-south1`
 2. Verify environment variables are set correctly
 3. Check database connectivity if using Cloud SQL
 4. Verify the PORT environment variable is being read

@@ -82,7 +82,7 @@ if [ -z "$DATABASE_URL" ]; then
     echo "  # Then manually run SQL to create the admin account"
     echo ""
     echo "Option 3: Use Cloud Run exec (if enabled)"
-    echo "  gcloud run services exec pantry-api --region us-south1 --command python3 -- create_admin.py"
+    echo "  gcloud run services exec pantry-api --region us-south1 --command python3 -- scripts/create_admin.py"
     echo ""
     exit 1
 fi
@@ -94,7 +94,7 @@ echo ""
 if [[ "$DATABASE_URL" == sqlite* ]]; then
     echo -e "${RED}❌ DATABASE_URL points to SQLite, not PostgreSQL${NC}"
     echo "This script is for creating admin accounts in the production Cloud SQL database."
-    echo "For local development, use: python3 create_admin.py"
+    echo "For local development, use: python3 scripts/create_admin.py"
     exit 1
 fi
 
@@ -105,7 +105,7 @@ echo ""
 export DATABASE_URL
 
 # Run the create_admin.py script (--yes for non-interactive)
-python3 create_admin.py --email "$EMAIL" --password "$PASSWORD" --name "$NAME" --yes
+python3 scripts/create_admin.py --email "$EMAIL" --password "$PASSWORD" --name "$NAME" --yes
 
 if [ $? -eq 0 ]; then
     echo ""

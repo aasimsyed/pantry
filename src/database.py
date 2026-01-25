@@ -33,7 +33,6 @@ Example:
     >>> session.commit()
 """
 
-import os
 from datetime import date, datetime
 from typing import Optional
 
@@ -66,47 +65,10 @@ Base = declarative_base()
 # ============================================================================
 
 def get_database_url() -> str:
-    """Get database URL from environment or default to SQLite.
-    
-    Environment Variables:
-        DATABASE_URL: Full database URL (postgres://... or sqlite://...)
-        DB_TYPE: Database type ('sqlite' or 'postgresql')
-        DB_HOST: PostgreSQL host (default: localhost)
-        DB_PORT: PostgreSQL port (default: 5432)
-        DB_NAME: Database name
-        DB_USER: Database user
-        DB_PASSWORD: Database password
-    
-    Returns:
-        Database URL string
-        
-    Examples:
-        SQLite: sqlite:///./pantry.db
-        PostgreSQL: postgresql://user:pass@localhost:5432/pantry
-    """
-    # Check for full DATABASE_URL first
-    db_url = os.getenv("DATABASE_URL")
-    if db_url:
-        return db_url
-    
-    # Build URL from components
-    db_type = os.getenv("DB_TYPE", "sqlite").lower()
-    
-    if db_type == "sqlite":
-        db_path = os.getenv("DB_PATH", "./pantry.db")
-        return f"sqlite:///{db_path}"
-    
-    elif db_type == "postgresql":
-        host = os.getenv("DB_HOST", "localhost")
-        port = os.getenv("DB_PORT", "5432")
-        name = os.getenv("DB_NAME", "pantry")
-        user = os.getenv("DB_USER", "postgres")
-        password = os.getenv("DB_PASSWORD", "")
-        
-        return f"postgresql://{user}:{password}@{host}:{port}/{name}"
-    
-    else:
-        raise ValueError(f"Unsupported database type: {db_type}")
+    """Get database URL from centralized config (DATABASE_URL or DB_*)."""
+    from src.config import settings
+
+    return settings.get_database_url()
 
 
 def create_database_engine(echo: bool = False):

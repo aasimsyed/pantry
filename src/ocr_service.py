@@ -265,45 +265,10 @@ class OCRConfig:
     
     @classmethod
     def from_env(cls) -> "OCRConfig":
-        """
-        Create configuration from environment variables.
-        
-        Best Practice: 12-Factor App - Configuration via environment.
-        
-        Environment Variables:
-            GOOGLE_APPLICATION_CREDENTIALS: Path to Google Cloud credentials JSON
-            GOOGLE_VISION_API_KEY: Vision API key (alternative to service account)
-            TESSERACT_CMD: Path to Tesseract executable
-            OCR_CONFIDENCE_THRESHOLD: Minimum confidence threshold
-            OCR_CACHE_ENABLED: Enable/disable caching (true/false)
-            OCR_CACHE_DIR: Cache directory path
-            OCR_CACHE_TTL: Cache time-to-live (seconds)
-            OCR_MAX_RETRIES: Maximum retry attempts
-            OCR_RETRY_DELAY: Retry delay (seconds)
-            OCR_RATE_LIMIT_REQUESTS: Rate limit requests per period
-            OCR_RATE_LIMIT_PERIOD: Rate limit period (seconds)
-            OCR_PREFERRED_BACKEND: Preferred backend (google/tesseract)
-        
-        Returns:
-            OCRConfig instance with values from environment
-        """
-        return cls(
-            google_credentials_path=os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or None,
-            google_vision_api_key=os.getenv("GOOGLE_VISION_API_KEY") or None,
-            tesseract_cmd=os.getenv("TESSERACT_CMD", "tesseract"),
-            confidence_threshold=float(
-                os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.85")
-            ),
-            cache_enabled=os.getenv("OCR_CACHE_ENABLED", "true").lower() == "true",
-            cache_dir=os.getenv("OCR_CACHE_DIR", "./cache/ocr"),
-            cache_ttl=int(os.getenv("OCR_CACHE_TTL", "86400")),
-            max_retries=int(os.getenv("OCR_MAX_RETRIES", "3")),
-            retry_delay=float(os.getenv("OCR_RETRY_DELAY", "1.0")),
-            rate_limit_requests=int(os.getenv("OCR_RATE_LIMIT_REQUESTS", "60")),
-            rate_limit_period=int(os.getenv("OCR_RATE_LIMIT_PERIOD", "60")),
-            preferred_backend=os.getenv("OCR_PREFERRED_BACKEND", "google"),
-            tesseract_lang=os.getenv("OCR_TESSERACT_LANG") or None,
-        )
+        """Load configuration from centralized settings (src.config)."""
+        from src.config import get_ocr_config
+
+        return get_ocr_config()
 
 
 # ============================================================================

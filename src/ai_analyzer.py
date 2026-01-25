@@ -29,7 +29,6 @@ Example:
 import hashlib
 import json
 import logging
-import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -93,27 +92,10 @@ class AIConfig:
     
     @classmethod
     def from_env(cls) -> "AIConfig":
-        """Load configuration from environment variables.
-        
-        Best Practice: 12-factor app - configuration via environment.
-        """
-        return cls(
-            provider=os.getenv("AI_PROVIDER", "openai"),
-            model=os.getenv("AI_MODEL", "gpt-4-turbo-preview"),
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
-            anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-            temperature=float(os.getenv("AI_TEMPERATURE", "0.0")),
-            max_tokens=int(os.getenv("AI_MAX_TOKENS", "2000")),
-            timeout=int(os.getenv("AI_TIMEOUT", "30")),
-            min_confidence=float(os.getenv("AI_MIN_CONFIDENCE", "0.7")),
-            retry_on_low_confidence=os.getenv("AI_RETRY_ON_LOW_CONFIDENCE", "true").lower() == "true",
-            use_few_shot=os.getenv("AI_USE_FEW_SHOT", "true").lower() == "true",
-            cache_enabled=os.getenv("AI_CACHE_ENABLED", "true").lower() == "true",
-            cache_dir=os.getenv("AI_CACHE_DIR", "./cache/ai"),
-            cache_ttl=int(os.getenv("AI_CACHE_TTL", str(86400 * 7))),
-            max_cost_per_request=float(os.getenv("AI_MAX_COST_PER_REQUEST", "0.05")),
-            daily_cost_limit=float(os.getenv("AI_DAILY_COST_LIMIT", "1.00")),
-        )
+        """Load configuration from centralized settings (src.config)."""
+        from src.config import get_ai_config
+
+        return get_ai_config()
     
     def __post_init__(self):
         """Validate configuration after initialization."""

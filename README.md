@@ -82,7 +82,7 @@ streamlit run dashboard/app.py
 
 - **API:** See [CLOUD_RUN_DEPLOYMENT.md](CLOUD_RUN_DEPLOYMENT.md). Use `./deploy-cloud-run.sh` or GitHub Actions.
 - **Env vars:** `./sync-cloud-run-env.sh` syncs `.env.production` (or `.env`) → Cloud Run.
-- **Admin user (production):** Cloud SQL Proxy + `./scripts/create_admin_production.sh`, or `create_admin.py` / `reset_admin_password.py` with `DATABASE_URL` set.
+- **Admin user (production):** Cloud SQL Proxy + `./scripts/create_admin_production.sh`, or `python scripts/create_admin.py` / `python scripts/reset_admin_password.py` with `DATABASE_URL` set.
 
 ## Scripts
 
@@ -92,19 +92,20 @@ streamlit run dashboard/app.py
 | `start-backend-local.sh` | Local API with DB init, `.env` loaded. |
 | `deploy-cloud-run.sh` | Build and deploy API to Cloud Run. |
 | `sync-cloud-run-env.sh` | Sync env vars to Cloud Run (`.env.production` / `.env`). |
-| `create_admin.py` | Create admin user (local or prod DB). |
-| `reset_admin_password.py` | Reset user password. |
+| `scripts/create_admin.py` | Create admin user (local or prod DB). |
+| `scripts/reset_admin_password.py` | Reset user password. |
+| `scripts/init_database.py` | Init DB schema; optional `--import`, `--stats`. |
+| `scripts/query_pantry.py` | Interactive CLI to query DB (products, inventory, etc.). |
 | `scripts/kill-and-restart-backend.sh` | Kill port 8000, then start backend. |
 | `scripts/create_admin_production.sh` | Create admin in Cloud SQL (via proxy). |
 | `scripts/setup-secret-manager.sh` | Create/update Secret Manager secrets for Cloud Run. |
 | `scripts/smoke-test-prod.sh` | Smoke-test production API (health, auth, etc.). |
 | `scripts/run-migrations-cloudsql.sh` | Run migrations against Cloud SQL (via proxy). Fixes "column X does not exist" errors. |
 | `scripts/start-db-local.sh` | Start local Postgres via Docker (parity with production). |
+| `scripts/view-prod-logs.sh` | View production Cloud Run logs: `tail`, `read`, `open`, `open-errors`. |
 | `scripts/verify-ai-setup.py` | Verify AI setup (Anthropic, OpenAI). Run from project root. |
 | `scripts/verify-ocr-setup.py` | Verify OCR setup (Tesseract, Google Vision). |
 | `scripts/verify-preprocessor-setup.py` | Verify ImagePreprocessor (~/Pictures/Pantry → test_results). |
-| `init_database.py` | Init DB schema; optional `--import`, `--stats`. |
-| `query_pantry.py` | Interactive CLI to query DB (products, inventory, etc.). |
 
 ## Configuration
 

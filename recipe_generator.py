@@ -357,7 +357,7 @@ class RecipeGenerator:
             api_params = {
                 "model": backend.config.model,
                 "messages": [
-                    {"role": "system", "content": "You are a creative chef. Return only valid JSON."},
+                    {"role": "system", "content": "You are a creative chef and flavor scientist. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
             }
@@ -374,7 +374,19 @@ class RecipeGenerator:
                 api_params["max_tokens"] = recipe_max_tokens
             
             response = backend.client.chat.completions.create(**api_params)
-            content = response.choices[0].message.content.strip()
+            raw = response.choices[0].message.content
+            content = (raw or "").strip()
+            finish_reason = getattr(response.choices[0], "finish_reason", None)
+            if not content:
+                reason = finish_reason or "unknown"
+                self.analyzer.logger.warning(
+                    f"OpenAI returned empty content. finish_reason={reason!r}. "
+                    "Often due to content filter or refusal."
+                )
+                raise ValueError(
+                    f"Recipe generation returned no content (finish_reason={reason}). "
+                    "Try different ingredients or a different cuisine."
+                )
         else:  # Claude
             # Optimize for speed: try user's model first, then only one fast fallback
             # Claude models are slower than GPT-4, so we minimize fallback attempts
