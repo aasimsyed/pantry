@@ -29,6 +29,7 @@ export default function InventoryScreen() {
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
   const [dialogVisible, setDialogVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [photoStorageLocation, setPhotoStorageLocation] = useState<'pantry' | 'fridge' | 'freezer'>('pantry');
   const [editDialogVisible, setEditDialogVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -130,7 +131,7 @@ export default function InventoryScreen() {
     try {
       setProcessing(true);
       setDialogVisible(false);
-      const result = await apiClient.processImage(uri, 'pantry', selectedPantryId);
+      const result = await apiClient.processImage(uri, photoStorageLocation, selectedPantryId);
       if (result.success) {
         Alert.alert('Success', `Processed: ${result.item.product_name || 'Unknown'}`);
         await loadInventory();
@@ -422,6 +423,36 @@ export default function InventoryScreen() {
         <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)}>
           <Dialog.Title>Add Item</Dialog.Title>
           <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.locationLabel}>
+              Storage Location:
+            </Text>
+            <View style={styles.locationSelector}>
+              <Button
+                mode={photoStorageLocation === 'pantry' ? 'contained' : 'outlined'}
+                onPress={() => setPhotoStorageLocation('pantry')}
+                style={styles.locationButton}
+                compact
+              >
+                🥫 Pantry
+              </Button>
+              <Button
+                mode={photoStorageLocation === 'fridge' ? 'contained' : 'outlined'}
+                onPress={() => setPhotoStorageLocation('fridge')}
+                style={styles.locationButton}
+                compact
+              >
+                🧊 Fridge
+              </Button>
+              <Button
+                mode={photoStorageLocation === 'freezer' ? 'contained' : 'outlined'}
+                onPress={() => setPhotoStorageLocation('freezer')}
+                style={styles.locationButton}
+                compact
+              >
+                ❄️ Freezer
+              </Button>
+            </View>
+            <View style={styles.separator} />
             <Button
               mode="contained"
               icon="camera"
@@ -774,6 +805,24 @@ const styles = StyleSheet.create({
   },
   dialogButton: {
     marginVertical: 8,
+  },
+  locationLabel: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  locationSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 8,
+  },
+  locationButton: {
+    flex: 1,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 16,
   },
   processingText: {
     marginTop: 16,
