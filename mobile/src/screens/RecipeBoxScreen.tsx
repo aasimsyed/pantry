@@ -96,7 +96,7 @@ export default function RecipeBoxScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-      <Text variant="titleLarge" style={styles.title}>
+      <Text testID="recipe-box-title" variant="titleLarge" style={styles.title}>
         Recipe Box
       </Text>
 
@@ -111,6 +111,7 @@ export default function RecipeBoxScreen() {
               Your saved recipes will appear here. Generate and save recipes from the Recipes tab!
             </Text>
             <Button
+              testID="empty-recipe-box-button"
               mode="contained"
               onPress={() => navigation.navigate('Recipes' as never)}
               style={styles.emptyButton}
@@ -127,6 +128,7 @@ export default function RecipeBoxScreen() {
           return (
             <Card
               key={recipe.id}
+              testID={`recipe-box-card-${recipe.id}`}
               style={styles.card}
             >
               <Card.Content>
@@ -166,6 +168,7 @@ export default function RecipeBoxScreen() {
                 )}
                 <View style={styles.buttonRow}>
                   <Button
+                    testID={`recipe-box-view-${recipe.id}`}
                     mode="contained"
                     onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
                     style={[styles.viewButton, { marginRight: 8 }]}
@@ -173,6 +176,7 @@ export default function RecipeBoxScreen() {
                     View
                   </Button>
                   <Button
+                    testID={`recipe-box-delete-${recipe.id}`}
                     mode="outlined"
                     onPress={() => handleDelete(recipe.id)}
                     style={styles.deleteButton}

@@ -1,0 +1,36 @@
+# Inventory Screen Basic Test
+# Tests basic inventory screen functionality
+
+appId: com.aasimsyed.smartpantry
+---
+- launchApp
+# Navigate to inventory (assumes already logged in)
+# If on login screen, wait for home screen (user should already be logged in)
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 5000
+# Verify we're on home screen before navigating
+- assertVisible:
+    id: "home-title"
+- tapOn:
+    id: "quick-action-inventory"
+- assertVisible: "Inventory"
+# Verify inventory screen elements
+- assertVisible: "Inventory"
+# Check for pantry selector or empty state
+- runFlow:
+    when:
+      visible: "No items"
+    commands:
+      - assertVisible: "No items"
+# If items exist, pantry selector should be visible
+- runFlow:
+    when:
+      visible: "Select Pantry"
+    commands:
+      - assertVisible:
+          id: "pantry-selector-button"

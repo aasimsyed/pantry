@@ -1,0 +1,259 @@
+name: Maestro E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/maestro-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/maestro-tests.yml'
+  workflow_dispatch:
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  test-ios:
+    name: Maestro Tests (iOS)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./mobile
+        run: npm ci
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          export PATH="$PATH:$HOME/.maestro/bin"
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          maestro --version
+
+      - name: List available simulators
+        run: xcrun simctl list devices available
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Boot iOS Simulator
+        run: |
+          # List available simulators
+          echo "Available simulators:"
+          xcrun simctl list devices available | grep "iPhone"
+          
+          # Try to find and boot iPhone 15 Pro, fallback to any iPhone
+          DEVICE_NAME="iPhone 15 Pro"
+          if ! xcrun simctl list devices available | grep -q "$DEVICE_NAME"; then
+            # Get first available iPhone device name
+            DEVICE_NAME=$(xcrun simctl list devices available | grep -i "iPhone" | head -1 | sed -E 's/.*iPhone ([^\(]+).*/\1/' | xargs)
+            if [ -z "$DEVICE_NAME" ]; then
+              DEVICE_NAME="iPhone 15 Pro"  # Fallback, will try to boot anyway
+            else
+              DEVICE_NAME="iPhone $DEVICE_NAME"
+            fi
+          fi
+          
+          echo "DEVICE_ID=$DEVICE_NAME" >> $GITHUB_ENV
+          echo "Booting simulator: $DEVICE_NAME"
+          xcrun simctl boot "$DEVICE_NAME" || true
+          sleep 5  # Give simulator time to boot
+          xcrun simctl bootstatus "$DEVICE_NAME" || echo "Simulator may already be booted"
+          echo "Simulator ready: $DEVICE_NAME"
+
+      - name: Build development build
+        working-directory: ./mobile
+        run: |
+          echo "Building development build for simulator..."
+          echo "This may take 10-20 minutes. The --wait flag will wait for completion."
+          eas build --profile development --platform ios --non-interactive --wait
+        continue-on-error: false
+        # Note: You could optimize this by checking for existing builds first
+        # or using build caching, but for simplicity we build fresh each time
+
+      - name: Get build download URL
+        working-directory: ./mobile
+        id: get-build-url
+        run: |
+          # Get the latest build URL using Node.js
+          BUILD_URL=$(node -e "
+            const { execSync } = require('child_process');
+            const output = execSync('eas build:list --platform ios --limit 1 --json --non-interactive', { encoding: 'utf-8' });
+            const builds = JSON.parse(output);
+            if (builds && builds.length > 0) {
+              const build = builds[0];
+              const url = build.artifacts?.buildUrl || build.artifacts?.url || build.url;
+              if (url) {
+                console.log(url);
+              } else {
+                console.error('No build URL found');
+                process.exit(1);
+              }
+            } else {
+              console.error('No builds found');
+              process.exit(1);
+            }
+          ")
+          if [ -z "$BUILD_URL" ]; then
+            echo "Error: Could not get build URL"
+            exit 1
+          fi
+          echo "BUILD_URL=$BUILD_URL" >> $GITHUB_OUTPUT
+          echo "Build URL: $BUILD_URL"
+
+      - name: Download and extract build
+        working-directory: ./mobile
+        run: |
+          # Download the build
+          BUILD_URL="${{ steps.get-build-url.outputs.BUILD_URL }}"
+          echo "Downloading from: $BUILD_URL"
+          
+          # Download to a temp file
+          curl -L -o build_artifact "$BUILD_URL"
+          
+          # Check if it's a tar.gz or zip file
+          if file build_artifact | grep -q "gzip\|tar\|zip"; then
+            echo "Extracting archive..."
+            # Try tar.gz first
+            tar -xzf build_artifact 2>/dev/null || unzip -q build_artifact 2>/dev/null || true
+          fi
+          
+          # Find the .app file (could be in current dir or extracted)
+          APP_PATH=$(find . -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            # If no .app found, maybe it's already a .app directory?
+            if [ -d "build_artifact" ]; then
+              APP_PATH="build_artifact"
+            else
+              echo "Error: Could not find .app file"
+              echo "Contents:"
+              ls -la
+              exit 1
+            fi
+          fi
+          
+          # Make path absolute
+          APP_PATH=$(cd "$(dirname "$APP_PATH")" && pwd)/$(basename "$APP_PATH")
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          echo "Found app at: $APP_PATH"
+
+      - name: Install app on simulator
+        run: |
+          # Get the booted simulator UDID by device name
+          DEVICE_NAME="${{ env.DEVICE_ID }}"
+          SIM_UDID=$(xcrun simctl list devices | grep -A 1 "$DEVICE_NAME" | grep -E "\([A-F0-9-]+\)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          
+          if [ -z "$SIM_UDID" ]; then
+            # Fallback: get any booted iPhone simulator
+            SIM_UDID=$(xcrun simctl list devices | grep -i "Booted" | grep -i "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          
+          if [ -z "$SIM_UDID" ]; then
+            echo "Error: No booted simulator found"
+            echo "Available devices:"
+            xcrun simctl list devices
+            exit 1
+          fi
+          
+          echo "Installing app on simulator: $SIM_UDID ($DEVICE_NAME)"
+          xcrun simctl install "$SIM_UDID" "${{ env.APP_PATH }}"
+          echo "App installed successfully"
+          
+          # Verify installation
+          xcrun simctl listapps "$SIM_UDID" | grep -i "smartpantry" || echo "App may be installed with different bundle ID"
+      
+      - name: Run Maestro Tests
+        working-directory: ./mobile
+        run: |
+          maestro test .maestro/ --device "${{ env.DEVICE_ID }}"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-results-ios
+          path: mobile/.maestro/tests/
+          retention-days: 7
+
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-screenshots-ios
+          path: mobile/.maestro/tests/**/*.png
+          retention-days: 7
+
+  # Uncomment for Android testing
+  # test-android:
+  #   name: Maestro Tests (Android)
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #         cache-dependency-path: mobile/package-lock.json
+  #
+  #     - name: Setup Java
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         distribution: 'temurin'
+  #         java-version: '17'
+  #
+  #     - name: Setup Android SDK
+  #       uses: android-actions/setup-android@v3
+  #
+  #     - name: Create Android Emulator
+  #       run: |
+  #         echo "y" | sdkmanager "system-images;android-33;google_apis;x86_64"
+  #         echo "no" | avdmanager create avd -n test_emulator -k "system-images;android-33;google_apis;x86_64"
+  #
+  #     - name: Start Android Emulator
+  #       run: |
+  #         emulator -avd test_emulator -no-window -no-audio -no-boot-anim &
+  #         adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed | tr -d '\r') ]]; do sleep 1; done'
+  #         adb shell input keyevent 82
+  #
+  #     - name: Install Maestro
+  #       run: |
+  #         curl -Ls "https://get.maestro.mobile.dev" | bash
+  #         export PATH="$PATH:$HOME/.maestro/bin"
+  #         echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+  #
+  #     - name: Build and Install App
+  #       working-directory: ./mobile
+  #       run: |
+  #         eas build --profile development --platform android --non-interactive
+  #         # Download and install app here
+  #
+  #     - name: Run Maestro Tests
+  #       working-directory: ./mobile
+  #       run: |
+  #         maestro test .maestro/ --device "test_emulator"
+  #
+  #     - name: Upload test results
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: maestro-results-android
+  #         path: mobile/.maestro/tests/
+  #         retention-days: 7

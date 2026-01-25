@@ -71,14 +71,15 @@ export default function RegisterScreen() {
         >
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="headlineMedium" style={styles.title}>
+            <Text testID="register-title" variant="headlineMedium" style={styles.title}>
               Create Account
             </Text>
-            <Text variant="bodyMedium" style={styles.subtitle}>
+            <Text testID="register-subtitle" variant="bodyMedium" style={styles.subtitle}>
               Sign up for Smart Pantry
             </Text>
 
             <TextInput
+              testID="full-name-input"
               label="Full Name (Optional)"
               value={fullName}
               onChangeText={setFullName}
@@ -88,6 +89,7 @@ export default function RegisterScreen() {
             />
 
             <TextInput
+              testID="email-input"
               label="Email"
               value={email}
               onChangeText={setEmail}
@@ -99,6 +101,7 @@ export default function RegisterScreen() {
             />
 
             <TextInput
+              testID="password-input"
               label="Password"
               value={password}
               onChangeText={setPassword}
@@ -111,6 +114,7 @@ export default function RegisterScreen() {
             />
 
             <Button
+              testID="register-button"
               mode="contained"
               onPress={handleRegister}
               loading={loading}
@@ -121,6 +125,7 @@ export default function RegisterScreen() {
             </Button>
 
             <Button
+              testID="login-link"
               mode="text"
               onPress={() => navigation.navigate('Login')}
               style={styles.linkButton}

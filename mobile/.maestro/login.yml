@@ -1,0 +1,48 @@
+# Login Flow Test
+# Tests the user login functionality
+# Uses setClipboard + pasteText to avoid input flakiness (per Maestro docs)
+
+appId: com.aasimsyed.smartpantry
+---
+- launchApp
+- assertVisible:
+    id: "login-title"
+- assertVisible: "Email"
+- assertVisible: "Password"
+# Email: tap by id (testID), set clipboard, paste
+- tapOn:
+    id: "email-input"
+- waitForAnimationToEnd:
+    timeout: 2000
+- setClipboard: "admin@pantry.com"
+- pasteText
+# Password: tap by id (testID), set clipboard, paste
+- tapOn:
+    id: "password-input"
+- waitForAnimationToEnd:
+    timeout: 2000
+- setClipboard: "Admin12345"
+- pasteText
+# Dismiss keyboard so Sign In is tappable
+- waitForAnimationToEnd:
+    timeout: 1000
+- hideKeyboard
+- tapOn:
+    id: "login-button"
+# Wait for login to complete (API + navigation) before asserting
+- extendedWaitUntil:
+    visible: "Smart Pantry"
+    timeout: 15000
+# Dismiss iCloud "Save Password?" dialog if it appears (tap "Not Now")
+# This will automatically skip if the dialog is not visible
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+- assertVisible:
+    id: "home-title"
+- assertVisible:
+    id: "quick-action-inventory"
+- assertVisible:
+    id: "quick-action-recipes"

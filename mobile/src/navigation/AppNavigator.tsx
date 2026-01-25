@@ -3,7 +3,7 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { DesignSystem, getDesignSystem } from '../utils/designSystem';
@@ -65,6 +65,9 @@ function MainTabs() {
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <MaterialCommunityIcons name="home" size={size} color={color} />
           ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} testID="tab-home" accessibilityLabel="Home" />
+          ),
         }}
       />
       <Tab.Screen
@@ -73,6 +76,9 @@ function MainTabs() {
         options={{
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <MaterialCommunityIcons name="package-variant" size={size} color={color} />
+          ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} testID="tab-inventory" accessibilityLabel="Inventory" />
           ),
         }}
       />
@@ -83,6 +89,9 @@ function MainTabs() {
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <MaterialCommunityIcons name="chef-hat" size={size} color={color} />
           ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} testID="tab-recipes" accessibilityLabel="Recipes" />
+          ),
         }}
       />
       <Tab.Screen
@@ -92,6 +101,9 @@ function MainTabs() {
           tabBarLabel: 'Recipe Box',
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <MaterialCommunityIcons name="book-open-variant" size={size} color={color} />
+          ),
+          tabBarButton: (props) => (
+            <TouchableOpacity {...props} testID="tab-recipe-box" accessibilityLabel="Recipe Box" />
           ),
         }}
       />

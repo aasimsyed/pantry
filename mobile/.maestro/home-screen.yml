@@ -1,0 +1,43 @@
+# Home Screen Test
+# Tests the home screen quick actions and navigation
+# Note: Assumes user is already logged in, or will be on login screen
+
+appId: com.aasimsyed.smartpantry
+---
+- launchApp
+# Wait for app to load - if on login screen, skip to home
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - back
+# Verify home screen elements (will fail if not logged in)
+- assertVisible:
+    id: "home-title"
+- assertVisible:
+    id: "home-subtitle"
+- assertVisible:
+    id: "quick-action-inventory"
+- assertVisible:
+    id: "quick-action-recipes"
+- assertVisible:
+    id: "quick-action-statistics"
+- assertVisible:
+    id: "quick-action-recipebox"
+- assertVisible:
+    id: "quick-action-settings"
+# Test quick action navigation
+- tapOn:
+    id: "quick-action-inventory"
+- assertVisible: "Inventory"
+# Navigate back to Home using tab navigation
+- tapOn:
+    id: "tab-home"
+- assertVisible:
+    id: "home-title"
+- tapOn:
+    id: "quick-action-settings"
+- assertVisible:
+    id: "settings-title"
+# Navigate back to Home using the "Main" back button (Settings is a Stack screen, not Tab)
+- tapOn: "Main"

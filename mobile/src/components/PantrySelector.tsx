@@ -120,6 +120,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
   return (
     <View style={styles.container}>
       <Button
+        testID="pantry-selector-button"
         mode="outlined"
         onPress={() => setSelectorDialogVisible(true)}
         style={styles.button}
@@ -218,6 +219,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
           </Dialog.Content>
           <Dialog.Actions style={styles.modernDialogActions}>
             <Button 
+              testID="pantry-selector-new"
               onPress={() => {
                 setSelectorDialogVisible(false);
                 setCreateDialogVisible(true);
@@ -230,6 +232,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               New Pantry
             </Button>
             <Button 
+              testID="pantry-selector-close"
               onPress={() => setSelectorDialogVisible(false)}
               textColor={ds.colors.textSecondary}
               labelStyle={[styles.closeButtonLabel, getTextStyle('label', ds.colors.textSecondary, isDark)]}
@@ -243,6 +246,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
           <Dialog.Title>Create New Pantry</Dialog.Title>
           <Dialog.Content>
             <TextInput
+              testID="pantry-create-name"
               label="Name *"
               value={newPantryName}
               onChangeText={setNewPantryName}
@@ -251,6 +255,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="outlined"
             />
             <TextInput
+              testID="pantry-create-description"
               label="Description"
               value={newPantryDescription}
               onChangeText={setNewPantryDescription}
@@ -259,6 +264,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="outlined"
             />
             <TextInput
+              testID="pantry-create-location"
               label="Location"
               value={newPantryLocation}
               onChangeText={setNewPantryLocation}
@@ -268,8 +274,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
             />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setCreateDialogVisible(false)}>Cancel</Button>
-            <Button onPress={handleCreatePantry} disabled={!newPantryName.trim()}>
+            <Button testID="pantry-create-cancel" onPress={() => setCreateDialogVisible(false)}>Cancel</Button>
+            <Button testID="pantry-create-submit" onPress={handleCreatePantry} disabled={!newPantryName.trim()}>
               Create
             </Button>
           </Dialog.Actions>

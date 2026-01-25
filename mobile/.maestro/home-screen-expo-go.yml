@@ -1,0 +1,79 @@
+# Home Screen Test - For Expo Go
+# Use this when testing with Expo Go app
+# App ID for Expo Go is host.exp.Exponent
+# Expo Go shows a project selector first - we tap the app to open it.
+
+appId: host.exp.Exponent
+---
+- launchApp
+# Expo Go opens to project selector - tap our app to open it
+# (App name from app.json is "Smart Pantry AI")
+- runFlow:
+    when:
+      visible: "Smart Pantry AI"
+    commands:
+      - tapOn: "Smart Pantry AI"
+      - waitForAnimationToEnd:
+          timeout: 5000
+# When on login screen, log in first (admin test user)
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn:
+          id: "email-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "admin@pantry.com"
+      - pasteText
+      - tapOn:
+          id: "password-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "Admin12345"
+      - pasteText
+      - waitForAnimationToEnd:
+          timeout: 1000
+      - hideKeyboard
+      - tapOn:
+          id: "login-button"
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 15000
+# Dismiss iCloud "Save Password?" dialog if it appears (tap "Not Now")
+# This will automatically skip if the dialog is not visible
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+# Verify home screen elements
+- assertVisible:
+    id: "home-title"
+- assertVisible:
+    id: "home-subtitle"
+- assertVisible:
+    id: "quick-action-inventory"
+- assertVisible:
+    id: "quick-action-recipes"
+- assertVisible:
+    id: "quick-action-statistics"
+- assertVisible:
+    id: "quick-action-recipebox"
+- assertVisible:
+    id: "quick-action-settings"
+# Test quick action navigation
+- tapOn:
+    id: "quick-action-inventory"
+# - assertVisible: "Inventory"
+# Navigate back to Home using tab navigation
+- tapOn:
+    id: "tab-home"
+- assertVisible:
+    id: "home-title"
+- tapOn:
+    id: "quick-action-settings"
+- assertVisible:
+    id: "settings-title"
+# Navigate back to Home using the "Main" back button (Settings is a Stack screen, not Tab)
+- tapOn: "Main"

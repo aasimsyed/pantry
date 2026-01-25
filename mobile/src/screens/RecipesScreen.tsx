@@ -302,7 +302,7 @@ export default function RecipesScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-      <Text variant="titleLarge" style={styles.title}>
+      <Text testID="recipes-title" variant="titleLarge" style={styles.title}>
         Recipe Suggestions
       </Text>
 
@@ -318,6 +318,7 @@ export default function RecipesScreen() {
           </Text>
 
           <TextInput
+            testID="num-recipes-input"
             label="Number of Recipes"
             value={numRecipesText}
             onChangeText={(text) => {
@@ -345,10 +346,12 @@ export default function RecipesScreen() {
 
           <View style={styles.checkboxContainer}>
             <Checkbox
+              testID="allow-missing-checkbox"
               status={allowMissing ? 'checked' : 'unchecked'}
               onPress={() => setAllowMissing(!allowMissing)}
             />
             <Text 
+              testID="allow-missing-label"
               variant="bodyMedium" 
               onPress={() => setAllowMissing(!allowMissing)}
               style={styles.checkboxLabel}
@@ -360,19 +363,20 @@ export default function RecipesScreen() {
           <Text variant="titleSmall" style={styles.sectionTitle}>
             Cuisine Type (Optional)
           </Text>
-          <Menu
-            visible={cuisineMenuVisible}
-            onDismiss={() => setCuisineMenuVisible(false)}
-            anchor={
-              <Button
-                mode="outlined"
-                onPress={() => setCuisineMenuVisible(true)}
-                style={styles.selectButton}
-              >
-                {cuisine || 'Any Cuisine'}
-              </Button>
-            }
-          >
+            <Menu
+              visible={cuisineMenuVisible}
+              onDismiss={() => setCuisineMenuVisible(false)}
+              anchor={
+                <Button
+                  testID="cuisine-selector"
+                  mode="outlined"
+                  onPress={() => setCuisineMenuVisible(true)}
+                  style={styles.selectButton}
+                >
+                  {cuisine || 'Any Cuisine'}
+                </Button>
+              }
+            >
             <Menu.Item onPress={() => { setCuisine(''); setCuisineMenuVisible(false); }} title="Any" />
             <Menu.Item onPress={() => { setCuisine('Italian'); setCuisineMenuVisible(false); }} title="Italian" />
             <Menu.Item onPress={() => { setCuisine('Mexican'); setCuisineMenuVisible(false); }} title="Mexican" />
@@ -389,19 +393,20 @@ export default function RecipesScreen() {
           <Text variant="titleSmall" style={styles.sectionTitle}>
             Difficulty (Optional)
           </Text>
-          <Menu
-            visible={difficultyMenuVisible}
-            onDismiss={() => setDifficultyMenuVisible(false)}
-            anchor={
-              <Button
-                mode="outlined"
-                onPress={() => setDifficultyMenuVisible(true)}
-                style={styles.selectButton}
-              >
-                {difficulty || 'Any Difficulty'}
-              </Button>
-            }
-          >
+            <Menu
+              visible={difficultyMenuVisible}
+              onDismiss={() => setDifficultyMenuVisible(false)}
+              anchor={
+                <Button
+                  testID="difficulty-selector"
+                  mode="outlined"
+                  onPress={() => setDifficultyMenuVisible(true)}
+                  style={styles.selectButton}
+                >
+                  {difficulty || 'Any Difficulty'}
+                </Button>
+              }
+            >
             <Menu.Item onPress={() => { setDifficulty(''); setDifficultyMenuVisible(false); }} title="Any" />
             <Menu.Item onPress={() => { setDifficulty('Easy'); setDifficultyMenuVisible(false); }} title="Easy" />
             <Menu.Item onPress={() => { setDifficulty('Medium'); setDifficultyMenuVisible(false); }} title="Medium" />
@@ -415,6 +420,7 @@ export default function RecipesScreen() {
             {['Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Nut-Free', 'Keto', 'Paleo'].map((diet) => (
               <Chip
                 key={diet}
+                testID={`dietary-restriction-${diet.toLowerCase().replace('-', '')}`}
                 selected={dietaryRestrictions.includes(diet)}
                 onPress={() => {
                   if (dietaryRestrictions.includes(diet)) {
@@ -436,6 +442,7 @@ export default function RecipesScreen() {
             Required Ingredients
           </Text>
           <Button
+            testID="required-ingredients-button"
             mode="outlined"
             onPress={async () => {
               setRequiredSearchQuery('');
@@ -468,6 +475,7 @@ export default function RecipesScreen() {
             Excluded Ingredients
           </Text>
           <Button
+            testID="excluded-ingredients-button"
             mode="outlined"
             onPress={async () => {
               setExcludedSearchQuery('');
@@ -497,6 +505,7 @@ export default function RecipesScreen() {
           )}
 
           <Button
+            testID="generate-recipes-button"
             mode="contained"
             onPress={handleGenerateRecipes}
             disabled={generating}
@@ -552,6 +561,7 @@ export default function RecipesScreen() {
                   )}
                   <View style={styles.buttonRow}>
                     <Button
+                      testID={`recent-recipe-view-${recentRecipe.id}`}
                       mode="contained"
                       onPress={() => navigation.navigate('RecipeDetail', { recipe: recentRecipe } as never)}
                       style={[styles.viewButton, { marginRight: 8 }]}
@@ -559,6 +569,7 @@ export default function RecipesScreen() {
                       View
                     </Button>
                     <Button
+                      testID={`recent-recipe-save-${recentRecipe.id}`}
                       mode="outlined"
                       onPress={() => handleSaveRecentRecipe(recentRecipe)}
                       style={[styles.saveButton, { marginRight: 8 }]}
@@ -566,6 +577,7 @@ export default function RecipesScreen() {
                       Save
                     </Button>
                     <Button
+                      testID={`recent-recipe-delete-${recentRecipe.id}`}
                       mode="text"
                       onPress={() => handleDeleteRecentRecipe(recentRecipe.id)}
                       textColor="#dc2626"
@@ -633,6 +645,7 @@ export default function RecipesScreen() {
             )}
             <View style={styles.buttonRow}>
               <Button
+                testID={`recipe-view-${idx}`}
                 mode="contained"
                 onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
                 style={[styles.viewButton, { marginRight: 8 }]}
@@ -640,6 +653,7 @@ export default function RecipesScreen() {
                 View Details
               </Button>
               <Button
+                testID={`recipe-save-${idx}`}
                 mode="outlined"
                 onPress={() => handleSaveRecipe(recipe)}
                 style={styles.saveButton}

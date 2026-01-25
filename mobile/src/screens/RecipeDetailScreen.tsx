@@ -257,9 +257,9 @@ export default function RecipeDetailScreen() {
       >
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <Text style={styles.heroTitle}>{recipe.name}</Text>
+          <Text testID="recipe-detail-title" style={styles.heroTitle}>{recipe.name}</Text>
           {recipe.description && (
-            <Text style={styles.heroDescription}>{recipe.description}</Text>
+            <Text testID="recipe-detail-description" style={styles.heroDescription}>{recipe.description}</Text>
           )}
         </View>
 
@@ -303,6 +303,7 @@ export default function RecipeDetailScreen() {
             <View style={styles.sliderContainer}>
               <Text style={[styles.sliderLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>1</Text>
               <Slider
+                testID="recipe-servings-slider"
                 value={scaledServings}
                 onValueChange={(value) => setScaledServings(Math.round(value))}
                 minimumValue={1}
@@ -317,6 +318,7 @@ export default function RecipeDetailScreen() {
             </View>
             <View style={styles.scaleButtons}>
               <Button
+                testID="servings-decrease"
                 mode="outlined"
                 compact
                 onPress={() => setScaledServings(Math.max(1, scaledServings - 1))}
@@ -326,6 +328,7 @@ export default function RecipeDetailScreen() {
                 -1
               </Button>
               <Button
+                testID="servings-reset"
                 mode="outlined"
                 compact
                 onPress={() => setScaledServings(originalServings)}
@@ -335,6 +338,7 @@ export default function RecipeDetailScreen() {
                 Reset
               </Button>
               <Button
+                testID="servings-increase"
                 mode="outlined"
                 compact
                 onPress={() => setScaledServings(Math.min(20, scaledServings + 1))}
@@ -377,6 +381,7 @@ export default function RecipeDetailScreen() {
             </Card>
           )}
           <Button
+            testID="edit-notes-rating-button"
             mode="outlined"
             icon="pencil"
             onPress={() => {
@@ -542,6 +547,7 @@ export default function RecipeDetailScreen() {
               </Dialog.Content>
               <Dialog.Actions style={styles.dialogActions}>
                 <Button 
+                  testID="edit-notes-cancel"
                   onPress={() => {
                     Keyboard.dismiss();
                     setEditDialogVisible(false);
@@ -551,6 +557,7 @@ export default function RecipeDetailScreen() {
                   Cancel
                 </Button>
                 <Button
+                  testID="edit-notes-save"
                   onPress={() => {
                     Keyboard.dismiss();
                     handleSaveNotesRating();

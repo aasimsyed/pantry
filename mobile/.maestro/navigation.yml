@@ -1,0 +1,41 @@
+# Navigation Test
+# Tests navigation between main tabs
+# Note: This test assumes you're already logged in
+
+appId: com.aasimsyed.smartpantry
+---
+- launchApp
+# Wait for app to load (either login screen or home if already logged in)
+# If on login screen, we need to log in first (can't use back)
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      # If on login screen, we need to log in - but for this test, assume already logged in
+      # So we'll just wait for home screen to appear
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 5000
+# Verify we're on home screen
+- assertVisible:
+    id: "home-title"
+# Navigate to Inventory tab using bottom navigation
+- tapOn:
+    id: "tab-inventory"
+- assertVisible: "Inventory"
+# Navigate to Recipes tab using bottom navigation
+- tapOn:
+    id: "tab-recipes"
+- assertVisible:
+    id: "recipes-title"
+# Navigate to Recipe Box tab using bottom navigation
+- tapOn:
+    id: "tab-recipe-box"
+- assertVisible:
+    id: "recipe-box-title"
+# Navigate back to Home tab using bottom navigation
+- tapOn:
+    id: "tab-home"
+# Verify we're back on home screen
+- assertVisible:
+    id: "home-title"

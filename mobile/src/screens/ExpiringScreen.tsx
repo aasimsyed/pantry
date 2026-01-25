@@ -49,13 +49,14 @@ export default function ExpiringScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-      <Text variant="titleLarge" style={styles.title}>
+      <Text testID="expiring-title" variant="titleLarge" style={styles.title}>
         Expiring Items
       </Text>
 
       <View style={styles.sliderContainer}>
-        <Text variant="bodyMedium">Days ahead: {days}</Text>
+        <Text testID="expiring-days-label" variant="bodyMedium">Days ahead: {days}</Text>
         <Slider
+          testID="expiring-days-slider"
           value={days}
           onValueChange={setDays}
           minimumValue={1}

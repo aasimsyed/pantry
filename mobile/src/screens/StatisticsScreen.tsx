@@ -48,7 +48,7 @@ export default function StatisticsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-      <Text variant="titleLarge" style={styles.title}>
+      <Text testID="statistics-title" variant="titleLarge" style={styles.title}>
         Pantry Statistics
       </Text>
 

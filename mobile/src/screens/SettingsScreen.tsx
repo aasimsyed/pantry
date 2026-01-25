@@ -123,7 +123,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-        <Text style={[styles.title, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>
+        <Text testID="settings-title" style={[styles.title, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>
           Settings
         </Text>
 
@@ -159,6 +159,7 @@ export default function SettingsScreen() {
               right={() => (
                 <View style={styles.themeSelector}>
                   <Button
+                    testID="theme-light"
                     mode={themeMode === 'light' ? 'contained' : 'outlined'}
                     onPress={() => setThemeMode('light')}
                     compact
@@ -168,6 +169,7 @@ export default function SettingsScreen() {
                     Light
                   </Button>
                   <Button
+                    testID="theme-system"
                     mode={themeMode === 'system' ? 'contained' : 'outlined'}
                     onPress={() => setThemeMode('system')}
                     compact
@@ -177,6 +179,7 @@ export default function SettingsScreen() {
                     System
                   </Button>
                   <Button
+                    testID="theme-dark"
                     mode={themeMode === 'dark' ? 'contained' : 'outlined'}
                     onPress={() => setThemeMode('dark')}
                     compact
@@ -210,9 +213,9 @@ export default function SettingsScreen() {
               onValueChange={handleProviderChange}
               value={settings.ai_provider || ''}
             >
-              <RadioButton.Item label="Use System Default" value="" />
-              <RadioButton.Item label="OpenAI" value="openai" />
-              <RadioButton.Item label="Anthropic (Claude)" value="anthropic" />
+              <RadioButton.Item testID="ai-provider-default" label="Use System Default" value="" />
+              <RadioButton.Item testID="ai-provider-openai" label="OpenAI" value="openai" />
+              <RadioButton.Item testID="ai-provider-anthropic" label="Anthropic (Claude)" value="anthropic" />
             </RadioButton.Group>
 
             {settings.ai_provider && (
@@ -225,10 +228,11 @@ export default function SettingsScreen() {
                   onValueChange={handleModelChange}
                   value={settings.ai_model || ''}
                 >
-                  <RadioButton.Item label="Use Provider Default" value="" />
+                  <RadioButton.Item testID="ai-model-default" label="Use Provider Default" value="" />
                   {availableModels.map((model) => (
                     <RadioButton.Item
                       key={model.value}
+                      testID={`ai-model-${model.value}`}
                       label={model.label}
                       value={model.value}
                     />
@@ -238,6 +242,7 @@ export default function SettingsScreen() {
             )}
 
             <Button
+              testID="save-settings-button"
               mode="contained"
               onPress={handleSave}
               disabled={saving}

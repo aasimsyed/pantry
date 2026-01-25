@@ -73,8 +73,8 @@ export default function HomeScreen() {
         >
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <Text style={[styles.heroTitle, getTextStyle('display', ds.colors.primary, isDark)]}>Smart Pantry</Text>
-          <Text style={[styles.heroSubtitle, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
+          <Text testID="home-title" style={[styles.heroTitle, getTextStyle('display', ds.colors.primary, isDark)]}>Smart Pantry</Text>
+          <Text testID="home-subtitle" style={[styles.heroSubtitle, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
             Manage your pantry with AI-powered intelligence
           </Text>
         </View>
@@ -84,6 +84,7 @@ export default function HomeScreen() {
           {quickActions.map((action, index) => (
             <TouchableOpacity
               key={index}
+              testID={`quick-action-${action.screen.toLowerCase()}`}
               style={[styles.actionCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}
               onPress={() => navigation.navigate(action.screen as never)}
               activeOpacity={0.8}
@@ -137,6 +138,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <Button
+                testID="logout-button"
                 mode="outlined"
                 onPress={handleLogout}
                 textColor={ds.colors.error}

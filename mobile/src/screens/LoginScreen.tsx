@@ -61,14 +61,15 @@ export default function LoginScreen() {
         >
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="headlineMedium" style={styles.title}>
+            <Text testID="login-title" variant="headlineMedium" style={styles.title}>
               Sign In
             </Text>
-            <Text variant="bodyMedium" style={styles.subtitle}>
+            <Text testID="login-subtitle" variant="bodyMedium" style={styles.subtitle}>
               Sign in to Smart Pantry
             </Text>
 
             <TextInput
+              testID="email-input"
               label="Email"
               value={email}
               onChangeText={setEmail}
@@ -80,6 +81,7 @@ export default function LoginScreen() {
             />
 
             <TextInput
+              testID="password-input"
               label="Password"
               value={password}
               onChangeText={setPassword}
@@ -91,6 +93,7 @@ export default function LoginScreen() {
             />
 
             <Button
+              testID="login-button"
               mode="contained"
               onPress={handleLogin}
               loading={loading}
@@ -101,6 +104,7 @@ export default function LoginScreen() {
             </Button>
 
             <Button
+              testID="register-link"
               mode="text"
               onPress={() => navigation.navigate('Register')}
               style={styles.linkButton}

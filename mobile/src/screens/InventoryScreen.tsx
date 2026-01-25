@@ -303,6 +303,7 @@ export default function InventoryScreen() {
         )}
         
         <Searchbar
+          testID="inventory-search"
           placeholder="Search inventory..."
           onChangeText={setSearchQuery}
           value={searchQuery}
@@ -313,6 +314,7 @@ export default function InventoryScreen() {
           {['All', 'pantry', 'fridge', 'freezer'].map((loc) => (
             <Chip
               key={loc}
+              testID={`location-filter-${loc.toLowerCase()}`}
               selected={locationFilter === loc}
               onPress={() => setLocationFilter(loc)}
               style={styles.chip}
@@ -370,6 +372,7 @@ export default function InventoryScreen() {
           return (
             <TouchableOpacity
               key={item.id}
+              testID={`inventory-item-${item.id}`}
               activeOpacity={0.9}
               onPress={() => handleEditItem(item)}
             >
@@ -441,6 +444,7 @@ export default function InventoryScreen() {
       </ScrollView>
 
       <FAB
+        testID="add-item-fab"
         icon="camera"
         style={[styles.fab, { backgroundColor: ds.colors.accent }]}
         color={ds.colors.surface}
@@ -482,6 +486,7 @@ export default function InventoryScreen() {
             </View>
             <View style={[styles.separator, { backgroundColor: ds.colors.surfaceHover }]} />
             <Button
+              testID="add-item-take-photo"
               mode="contained"
               icon="camera"
               onPress={handleTakePhoto}
@@ -490,6 +495,7 @@ export default function InventoryScreen() {
               Take Photo
             </Button>
             <Button
+              testID="add-item-choose-photo"
               mode="outlined"
               icon="image"
               onPress={handlePickImage}
@@ -498,6 +504,7 @@ export default function InventoryScreen() {
               Choose from Library
             </Button>
             <Button
+              testID="add-item-manual-entry"
               mode="outlined"
               icon="pencil"
               onPress={() => {
@@ -540,6 +547,7 @@ export default function InventoryScreen() {
               showsVerticalScrollIndicator={true}
             >
               <TextInput
+                testID="manual-entry-product-name"
                 label="Product Name *"
                 value={manualEntryFormData.product_name}
                 onChangeText={(text) =>
@@ -550,6 +558,7 @@ export default function InventoryScreen() {
                 placeholder="e.g., Dried Chickpeas"
               />
               <TextInput
+                testID="manual-entry-brand"
                 label="Brand (optional)"
                 value={manualEntryFormData.brand}
                 onChangeText={(text) =>
@@ -651,8 +660,9 @@ export default function InventoryScreen() {
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button onPress={() => setManualEntryDialogVisible(false)}>Cancel</Button>
+            <Button testID="manual-entry-cancel" onPress={() => setManualEntryDialogVisible(false)}>Cancel</Button>
             <Button
+              testID="manual-entry-submit"
               mode="contained"
               onPress={handleManualEntry}
               disabled={processing || !manualEntryFormData.product_name.trim()}
@@ -765,8 +775,8 @@ export default function InventoryScreen() {
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button onPress={() => setEditDialogVisible(false)}>Cancel</Button>
-            <Button mode="contained" onPress={handleUpdateItem}>
+            <Button testID="edit-item-cancel" onPress={() => setEditDialogVisible(false)}>Cancel</Button>
+            <Button testID="edit-item-save" mode="contained" onPress={handleUpdateItem}>
               Save
             </Button>
           </Dialog.Actions>
