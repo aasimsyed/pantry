@@ -1,38 +1,32 @@
+#!/usr/bin/env python3
 """
-Test script to verify AI Analyzer setup.
+Verify AI Analyzer setup (env, Anthropic, OpenAI, extraction).
 
-Checks:
-- Environment variables
-- Anthropic Claude API connection
-- OpenAI API connection (optional)
-- API response quality
-
-Run:
-    python test_ai_setup.py
+Run from project root: python scripts/verify-ai-setup.py
 """
 
 import os
 import sys
 from pathlib import Path
 
-# Load environment variables from .env file
+# Load .env from project root (parent of scripts/)
+_root = Path(__file__).resolve().parent.parent
+_env = _root / ".env"
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent / ".env"
-    load_dotenv(dotenv_path=env_path)
+    load_dotenv(dotenv_path=_env)
 except ImportError:
-    print("⚠️  python-dotenv not installed. Install with: pip install python-dotenv")
-    print("    Trying to use existing environment variables...\n")
+    pass
 
 
 def test_environment():
     """Check environment variables."""
     print("\n1️⃣  Checking Environment Variables...")
     print("-" * 70)
-    
+
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
-    
+
     if anthropic_key:
         masked = anthropic_key[:20] + "..." if len(anthropic_key) > 20 else anthropic_key
         print(f"   ✅ ANTHROPIC_API_KEY: {masked}")
@@ -40,13 +34,13 @@ def test_environment():
         print("   ❌ ANTHROPIC_API_KEY not set")
         print("      Set it: export ANTHROPIC_API_KEY='sk-ant-...'")
         return False
-    
+
     if openai_key:
         masked = openai_key[:15] + "..." if len(openai_key) > 15 else openai_key
         print(f"   ✅ OPENAI_API_KEY: {masked}")
     else:
         print("   ⚠️  OPENAI_API_KEY not set (optional)")
-    
+
     return True
 
 
@@ -54,12 +48,12 @@ def test_anthropic():
     """Test Anthropic Claude API."""
     print("\n2️⃣  Testing Anthropic Claude API...")
     print("-" * 70)
-    
+
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         print("   ⚠️  Skipping (no API key)")
         return False
-    
+
     try:
         from anthropic import Anthropic
         print("   ✅ anthropic package installed")
@@ -67,35 +61,26 @@ def test_anthropic():
         print("   ❌ anthropic package not installed")
         print("      Install it: pip install anthropic")
         return False
-    
+
     try:
         client = Anthropic(api_key=api_key)
-        
         print("   🔄 Sending test request to Claude...")
-        
         message = client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=100,
-            messages=[{
-                "role": "user",
-                "content": "Say 'Hello from Claude!' and nothing else."
-            }]
+            messages=[{"role": "user", "content": "Say 'Hello from Claude!' and nothing else."}],
         )
-        
         response = message.content[0].text
         print(f"   ✅ Claude API working!")
         print(f"   📝 Response: \"{response}\"")
         print(f"   📊 Model: {message.model}")
         print(f"   🎫 Tokens used: {message.usage.input_tokens} in, {message.usage.output_tokens} out")
-        
         return True
-        
     except Exception as e:
         print(f"   ❌ Claude API error: {e}")
         print("\n   Troubleshooting:")
         print("   - Check API key is correct")
-        print("   - Verify billing is enabled: https://console.anthropic.com/settings/billing")
-        print("   - Try creating a new API key")
+        print("   - Verify billing: https://console.anthropic.com/settings/billing")
         return False
 
 
@@ -103,13 +88,12 @@ def test_openai():
     """Test OpenAI API (optional)."""
     print("\n3️⃣  Testing OpenAI API (Optional)...")
     print("-" * 70)
-    
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         print("   ⚠️  Skipping (no API key)")
-        print("      This is optional - Claude is sufficient")
         return None
-    
+
     try:
         from openai import OpenAI
         print("   ✅ openai package installed")
@@ -117,34 +101,20 @@ def test_openai():
         print("   ❌ openai package not installed")
         print("      Install it: pip install openai")
         return False
-    
+
     try:
         client = OpenAI(api_key=api_key)
-        
         print("   🔄 Sending test request to GPT...")
-        
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             max_tokens=100,
-            messages=[{
-                "role": "user",
-                "content": "Say 'Hello from GPT!' and nothing else."
-            }]
+            messages=[{"role": "user", "content": "Say 'Hello from GPT!' and nothing else."}],
         )
-        
         print(f"   ✅ OpenAI API working!")
         print(f"   📝 Response: \"{response.choices[0].message.content}\"")
-        print(f"   📊 Model: {response.model}")
-        print(f"   🎫 Tokens used: {response.usage.total_tokens}")
-        
         return True
-        
     except Exception as e:
         print(f"   ❌ OpenAI API error: {e}")
-        print("\n   Troubleshooting:")
-        print("   - Check API key is correct")
-        print("   - Verify billing is enabled: https://platform.openai.com/account/billing")
-        print("   - Try creating a new API key")
         return False
 
 
@@ -152,129 +122,79 @@ def test_structured_extraction():
     """Test structured data extraction with Claude."""
     print("\n4️⃣  Testing Structured Data Extraction...")
     print("-" * 70)
-    
+
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         print("   ⚠️  Skipping (no Anthropic API key)")
         return False
-    
+
     try:
-        from anthropic import Anthropic
         import json
-        
-        client = Anthropic(api_key=api_key)
-        
-        # Sample OCR text
+        from anthropic import Anthropic
+
         sample_ocr = """
-        REDUCED SODIUM
-        KOYO
-        TOFU MISO
-        REDUCED RAMEN 2021/12
-        SODIUM 25% LESS SODIUM THAN REGULAR
-        MADE WITH ORGANIC NOODLES
-        HEIRLOOM GRAINS
+        REDUCED SODIUM KOYO TOFU MISO REDUCED RAMEN 2021/12
+        SODIUM 25% LESS SODIUM THAN REGULAR MADE WITH ORGANIC NOODLES
         VEGAN
         """
-        
+        client = Anthropic(api_key=api_key)
         print("   🔄 Extracting structured data from sample OCR text...")
-        print(f"   📄 Sample: {sample_ocr[:50].strip()}...")
-        
         prompt = f"""Extract product information from this OCR text and return ONLY valid JSON:
 
 OCR Text:
 {sample_ocr}
 
-Return JSON with these fields:
-{{
-  "product_name": "full product name",
-  "brand": "brand name",
-  "category": "food category",
-  "expiration_date": "YYYY-MM or null",
-  "key_attributes": ["list", "of", "features"],
-  "dietary_tags": ["vegan", "organic", etc],
-  "confidence": 0.0-1.0
-}}
-
+Return JSON with: product_name, brand, category, expiration_date, key_attributes, dietary_tags, confidence.
 Return ONLY the JSON, no other text."""
-        
+
         message = client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=500,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
         )
-        
         response_text = message.content[0].text.strip()
-        
-        # Try to parse JSON
-        try:
-            # Remove markdown code blocks if present
-            if response_text.startswith("```"):
-                response_text = response_text.split("```")[1]
-                if response_text.startswith("json"):
-                    response_text = response_text[4:]
-                response_text = response_text.strip()
-            
-            data = json.loads(response_text)
-            
-            print("   ✅ Structured extraction working!")
-            print("   📦 Extracted data:")
-            print(f"      Product: {data.get('product_name', 'N/A')}")
-            print(f"      Brand: {data.get('brand', 'N/A')}")
-            print(f"      Category: {data.get('category', 'N/A')}")
-            print(f"      Expiration: {data.get('expiration_date', 'N/A')}")
-            print(f"      Attributes: {', '.join(data.get('key_attributes', [])[:3])}...")
-            print(f"      Confidence: {data.get('confidence', 0):.0%}")
-            
-            return True
-            
-        except json.JSONDecodeError as e:
-            print(f"   ⚠️  JSON parsing issue: {e}")
-            print(f"   Response: {response_text[:200]}...")
-            print("   This might work better with prompt tuning")
-            return False
-            
+        if response_text.startswith("```"):
+            parts = response_text.split("```")
+            response_text = parts[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        data = json.loads(response_text)
+        print("   ✅ Structured extraction working!")
+        print(f"      Product: {data.get('product_name', 'N/A')}")
+        print(f"      Confidence: {data.get('confidence', 0):.0%}")
+        return True
     except Exception as e:
         print(f"   ❌ Error: {e}")
         return False
 
 
 def main():
-    """Run all tests."""
     print("=" * 70)
     print("🔬 AI ANALYZER SETUP VERIFICATION")
     print("=" * 70)
-    
+
     results = {
         "environment": test_environment(),
         "anthropic": test_anthropic(),
         "openai": test_openai(),
-        "extraction": test_structured_extraction()
+        "extraction": test_structured_extraction(),
     }
-    
-    # Summary
+
     print("\n" + "=" * 70)
     print("📊 SUMMARY")
     print("=" * 70)
-    
+
     if results["environment"] and results["anthropic"]:
         print("\n✅ SUCCESS! Your AI Analyzer setup is ready!")
-        print("\n   You can now:")
-        print("   1. Process OCR text into structured data")
-        print("   2. Extract product names, brands, attributes")
-        print("   3. Categorize and tag pantry items")
-        print("\n   Next step: Build the AI Analyzer module! 🚀")
         return 0
-    else:
-        print("\n❌ SETUP INCOMPLETE")
-        print("\n   Required:")
-        if not results["environment"]:
-            print("   - Set ANTHROPIC_API_KEY environment variable")
-        if not results["anthropic"]:
-            print("   - Fix Anthropic API connection (see errors above)")
-        print("\n   See: .scratch/ai_analyzer_setup_guide.md")
-        return 1
+    print("\n❌ SETUP INCOMPLETE")
+    if not results["environment"]:
+        print("   - Set ANTHROPIC_API_KEY (see .env.example)")
+    if not results["anthropic"]:
+        print("   - Fix Anthropic API connection (see above)")
+    return 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

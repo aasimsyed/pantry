@@ -19,6 +19,7 @@ import json
 import os
 import shutil
 import tempfile
+import uuid
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
@@ -88,6 +89,19 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+_SCHEMA_ERROR_MSG = (
+    "Database schema not initialized or out of date. "
+    "Run ./scripts/run-migrations-cloudsql.sh (see CLOUD_RUN_DEPLOYMENT.md)."
+)
+
+
+def _detail_for_db_error(e: Exception, fallback: str) -> str:
+    s = (str(e) or "").lower()
+    if "does not exist" in s or "inventory_items" in s or "undefinedcolumn" in s or "relation" in s:
+        return _SCHEMA_ERROR_MSG
+    return fallback
+
 
 # Create FastAPI application
 app = FastAPI(
@@ -220,6 +234,18 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+
+# Request ID middleware: assign UUID per request for log correlation (e.g. Cloud Logging)
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """Assign request_id to each request; log and add X-Request-ID header."""
+    request_id = uuid.uuid4().hex
+    request.state.request_id = request_id
+    logger.info("request_id=%s method=%s path=%s", request_id, request.method, request.url.path)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 # Add security headers and rate limit headers middleware
@@ -815,7 +841,10 @@ def get_inventory(
 
     except Exception as e:
         logger.error(f"Error retrieving inventory: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve inventory")
+        raise HTTPException(
+            status_code=500,
+            detail=_detail_for_db_error(e, "Failed to retrieve inventory"),
+        )
 
 
 @app.get("/api/inventory/{item_id}", response_model=InventoryItemResponse, tags=["Inventory"])
@@ -841,7 +870,7 @@ def get_inventory_item(item_id: int, service: PantryService = Depends(get_pantry
         logger.error(f"Error retrieving inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve inventory item",
+            detail=_detail_for_db_error(e, "Failed to retrieve inventory item"),
         )
 
 
@@ -906,7 +935,7 @@ def create_inventory_item(
         logger.error(f"Error creating inventory item: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create inventory item",
+            detail=_detail_for_db_error(e, "Failed to create inventory item"),
         )
 
 
@@ -978,7 +1007,7 @@ def update_inventory_item(
         logger.error(f"Error updating inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update inventory item",
+            detail=_detail_for_db_error(e, "Failed to update inventory item"),
         )
 
 
@@ -1012,7 +1041,7 @@ def delete_inventory_item(
         logger.error(f"Error deleting inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete inventory item",
+            detail=_detail_for_db_error(e, "Failed to delete inventory item"),
         )
 
 
@@ -1054,7 +1083,7 @@ def consume_inventory_item(
         logger.error(f"Error consuming inventory item {item_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to consume inventory item",
+            detail=_detail_for_db_error(e, "Failed to consume inventory item"),
         )
 
 
@@ -1082,7 +1111,7 @@ def get_expiring_items(
         logger.error(f"Error retrieving expiring items: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve expiring items",
+            detail=_detail_for_db_error(e, "Failed to retrieve expiring items"),
         )
 
 
@@ -1102,7 +1131,7 @@ def get_expired_items(service: PantryService = Depends(get_pantry_service)) -> L
         logger.error(f"Error retrieving expired items: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve expired items",
+            detail=_detail_for_db_error(e, "Failed to retrieve expired items"),
         )
 
 
@@ -1732,10 +1761,10 @@ def process_single_image(
             severity="error",
             user_agent=user_agent if "user_agent" in locals() else get_user_agent(request),
         )
-        if "does not exist" in err_msg or "undefinedcolumn" in err_msg or "storage_location" in err_msg:
+        if "does not exist" in err_msg or "undefinedcolumn" in err_msg or "storage_location" in err_msg or "inventory_items" in err_msg:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database schema is out of date. Run migrations against Cloud SQL: see CLOUD_RUN_DEPLOYMENT.md or ./scripts/run-migrations-cloudsql.sh",
+                detail=_SCHEMA_ERROR_MSG,
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1754,7 +1783,7 @@ def process_single_image(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process image. Please try again.",
+            detail=_detail_for_db_error(e, "Failed to process image. Please try again."),
         )
 
 
@@ -2695,10 +2724,10 @@ def get_saved_recipes(
         return result
 
     except Exception as e:
-        logger.error(f"Error retrieving saved recipes: {e}", exc_info=True)
+        logger.error("Error retrieving saved recipes: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve saved recipes: {str(e)}",
+            detail=_detail_for_db_error(e, f"Failed to retrieve saved recipes: {e!s}"),
         )
 
 
@@ -2894,28 +2923,44 @@ def get_audit_logs(
 # ============================================================================
 
 
+def _get_request_id(request: Request) -> str | None:
+    """Get request_id from request state (set by middleware)."""
+    return getattr(request.state, "request_id", None)
+
+
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: HTTPException):
     """Custom HTTP exception handler."""
-    logger.warning(f"HTTP {exc.status_code}: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail, "error_code": str(exc.status_code)},
-    )
+    request_id = _get_request_id(request)
+    extra = f" request_id={request_id}" if request_id else ""
+    logger.warning("HTTP %s: %s%s", exc.status_code, exc.detail, extra)
+    content: dict = {"detail": exc.detail, "error_code": str(exc.status_code)}
+    if request_id and exc.status_code == 500:
+        content["request_id"] = request_id
+    return JSONResponse(status_code=exc.status_code, content=content)
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request, exc: Exception):
-    """Catch-all exception handler."""
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    # Always include error message for API debugging (can be disabled via env var)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Catch-all exception handler. Logs full traceback; returns 500 with request_id for log lookup."""
+    request_id = _get_request_id(request)
+    extra = f" request_id={request_id}" if request_id else ""
+    logger.error("Unhandled exception%s: %s", extra, exc, exc_info=True)
+
     import os
 
     hide_errors = os.getenv("HIDE_ERROR_DETAILS", "false").lower() == "true"
-    error_detail = "An unexpected error occurred" if hide_errors else str(exc)
+    raw = "" if hide_errors else (str(exc) or "").strip()
+    error_detail = raw if raw else "An unexpected error occurred"
+    if request_id and not raw:
+        error_detail = f"{error_detail} (request_id={request_id}, check logs)"
+
+    content: dict = {"detail": error_detail, "error_code": "500"}
+    if request_id:
+        content["request_id"] = request_id
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": error_detail, "error_code": "500"},
+        content=content,
     )
 
 

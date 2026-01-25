@@ -70,4 +70,4 @@ jobs:
         working-directory: ./mobile
         run: |
           echo "Build completed! Check status at:"
-          eas build:list --platform ios --limit 1
+          eas build:list --platform ios --limit 1 --non-interactive

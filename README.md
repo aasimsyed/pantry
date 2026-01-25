@@ -100,6 +100,11 @@ streamlit run dashboard/app.py
 | `scripts/smoke-test-prod.sh` | Smoke-test production API (health, auth, etc.). |
 | `scripts/run-migrations-cloudsql.sh` | Run migrations against Cloud SQL (via proxy). Fixes "column X does not exist" errors. |
 | `scripts/start-db-local.sh` | Start local Postgres via Docker (parity with production). |
+| `scripts/verify-ai-setup.py` | Verify AI setup (Anthropic, OpenAI). Run from project root. |
+| `scripts/verify-ocr-setup.py` | Verify OCR setup (Tesseract, Google Vision). |
+| `scripts/verify-preprocessor-setup.py` | Verify ImagePreprocessor (~/Pictures/Pantry → test_results). |
+| `init_database.py` | Init DB schema; optional `--import`, `--stats`. |
+| `query_pantry.py` | Interactive CLI to query DB (products, inventory, etc.). |
 
 ## Configuration
 

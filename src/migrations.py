@@ -405,46 +405,175 @@ def add_ai_model_to_saved_recipes():
             raise
 
 
-def add_storage_location_to_inventory_items():
+# Canonical list of inventory_items columns (model) that may be missing in older DBs.
+# (id, product_id) are assumed present from initial CREATE TABLE.
+_INVENTORY_ITEMS_COLUMNS = [
+    ("user_id", "INTEGER", "INTEGER"),
+    ("pantry_id", "INTEGER", "INTEGER"),
+    ("quantity", "FLOAT NOT NULL DEFAULT 1.0", "FLOAT NOT NULL DEFAULT 1.0"),
+    ("unit", "VARCHAR(20) NOT NULL DEFAULT 'count'", "VARCHAR(20) NOT NULL DEFAULT 'count'"),
+    ("purchase_date", "DATETIME", "TIMESTAMP"),
+    ("expiration_date", "DATETIME", "TIMESTAMP"),
+    ("storage_location", "VARCHAR(50) NOT NULL DEFAULT 'pantry'", "VARCHAR(50) NOT NULL DEFAULT 'pantry'"),
+    ("image_path", "VARCHAR(500)", "VARCHAR(500)"),
+    ("notes", "TEXT", "TEXT"),
+    ("status", "VARCHAR(20) NOT NULL DEFAULT 'in_stock'", "VARCHAR(20) NOT NULL DEFAULT 'in_stock'"),
+    ("created_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+    ("updated_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+]
+
+
+def ensure_inventory_items_columns():
     """
-    Add storage_location column to inventory_items if it doesn't exist.
+    Add any missing columns to inventory_items so it matches the model.
     
-    The app uses storage_location (pantry/fridge/freezer) for inventory items.
-    Production DBs created before this column was added will lack it.
+    Covers all columns the InventoryItem model expects. Run once; idempotent.
+    Use when you get UndefinedColumn for inventory_items (e.g. image_path, status).
     """
     engine = create_database_engine()
     inspector = inspect(engine)
     db_url = get_database_url()
+    is_sqlite = db_url.startswith("sqlite")
 
-    if 'inventory_items' not in inspector.get_table_names():
-        logger.info("inventory_items table doesn't exist yet, skipping storage_location migration")
+    if "inventory_items" not in inspector.get_table_names():
+        logger.info("inventory_items table doesn't exist yet, skipping ensure_inventory_items_columns")
         return
 
-    columns = [col['name'] for col in inspector.get_columns('inventory_items')]
-    if 'storage_location' in columns:
-        logger.info("storage_location column already exists in inventory_items")
+    existing = [c["name"] for c in inspector.get_columns("inventory_items")]
+    missing = [t for t in _INVENTORY_ITEMS_COLUMNS if t[0] not in existing]
+    if not missing:
+        logger.info("inventory_items already has all expected columns")
         return
 
-    logger.info("Adding storage_location column to inventory_items...")
+    logger.info("Adding %d missing column(s) to inventory_items: %s", len(missing), [m[0] for m in missing])
 
     with engine.connect() as conn:
         trans = conn.begin()
         try:
-            if db_url.startswith('sqlite'):
-                conn.execute(text("""
-                    ALTER TABLE inventory_items
-                    ADD COLUMN storage_location VARCHAR(50) NOT NULL DEFAULT 'pantry'
-                """))
-            else:
-                conn.execute(text("""
-                    ALTER TABLE inventory_items
-                    ADD COLUMN storage_location VARCHAR(50) NOT NULL DEFAULT 'pantry'
-                """))
+            for name, sqlite_def, pg_def in missing:
+                ddl = f"ALTER TABLE inventory_items ADD COLUMN {name} {pg_def if not is_sqlite else sqlite_def}"
+                conn.execute(text(ddl))
+                logger.info("  + %s", name)
             trans.commit()
-            logger.info("✅ Migration completed: storage_location added to inventory_items")
+            logger.info("✅ ensure_inventory_items_columns: added %s", [m[0] for m in missing])
         except Exception as e:
             trans.rollback()
-            logger.error(f"Migration failed: {e}", exc_info=True)
+            logger.error("Migration failed: %s", e, exc_info=True)
+            raise
+
+
+# Canonical list of processing_log columns (model) that may be missing in older DBs.
+# id is assumed present from initial CREATE TABLE.
+_PROCESSING_LOG_COLUMNS = [
+    ("inventory_item_id", "INTEGER", "INTEGER"),
+    ("image_path", "VARCHAR(500) NOT NULL DEFAULT ''", "VARCHAR(500) NOT NULL DEFAULT ''"),
+    ("processing_date", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+    ("ocr_confidence", "FLOAT", "FLOAT"),
+    ("ai_confidence", "FLOAT", "FLOAT"),
+    ("status", "VARCHAR(20) NOT NULL DEFAULT 'success'", "VARCHAR(20) NOT NULL DEFAULT 'success'"),
+    ("error_message", "TEXT", "TEXT"),
+    ("raw_ocr_data", "TEXT", "TEXT"),
+    ("raw_ai_data", "TEXT", "TEXT"),
+]
+
+
+def ensure_processing_log_columns():
+    """
+    Add any missing columns to processing_log so it matches the model.
+    
+    Covers image_path, status, and all other ProcessingLog columns.
+    Run once; idempotent. Fixes "column image_path of relation processing_log does not exist".
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+    is_sqlite = db_url.startswith("sqlite")
+
+    if "processing_log" not in inspector.get_table_names():
+        logger.info("processing_log table doesn't exist yet, skipping ensure_processing_log_columns")
+        return
+
+    existing = [c["name"] for c in inspector.get_columns("processing_log")]
+    missing = [t for t in _PROCESSING_LOG_COLUMNS if t[0] not in existing]
+    if not missing:
+        logger.info("processing_log already has all expected columns")
+        return
+
+    logger.info("Adding %d missing column(s) to processing_log: %s", len(missing), [m[0] for m in missing])
+
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            for name, sqlite_def, pg_def in missing:
+                ddl = f"ALTER TABLE processing_log ADD COLUMN {name} {pg_def if not is_sqlite else sqlite_def}"
+                conn.execute(text(ddl))
+                logger.info("  + %s", name)
+            trans.commit()
+            logger.info("✅ ensure_processing_log_columns: added %s", [m[0] for m in missing])
+        except Exception as e:
+            trans.rollback()
+            logger.error("Migration failed: %s", e, exc_info=True)
+            raise
+
+
+# Canonical list of saved_recipes columns (model) that may be missing in older DBs.
+# id is assumed present from initial CREATE TABLE.
+_SAVED_RECIPES_COLUMNS = [
+    ("user_id", "INTEGER NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"),
+    ("name", "VARCHAR(255) NOT NULL DEFAULT ''", "VARCHAR(255) NOT NULL DEFAULT ''"),
+    ("description", "TEXT", "TEXT"),
+    ("cuisine", "VARCHAR(100)", "VARCHAR(100)"),
+    ("difficulty", "VARCHAR(50)", "VARCHAR(50)"),
+    ("prep_time", "INTEGER", "INTEGER"),
+    ("cook_time", "INTEGER", "INTEGER"),
+    ("servings", "INTEGER", "INTEGER"),
+    ("ingredients", "TEXT NOT NULL DEFAULT '[]'", "TEXT NOT NULL DEFAULT '[]'"),
+    ("instructions", "TEXT NOT NULL DEFAULT '[]'", "TEXT NOT NULL DEFAULT '[]'"),
+    ("notes", "TEXT", "TEXT"),
+    ("rating", "INTEGER", "INTEGER"),
+    ("tags", "TEXT", "TEXT"),
+    ("ai_model", "VARCHAR(100)", "VARCHAR(100)"),
+    ("created_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+    ("updated_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+]
+
+
+def ensure_saved_recipes_columns():
+    """
+    Add any missing columns to saved_recipes so it matches the model.
+
+    Covers name, user_id, ai_model, and all other SavedRecipe columns.
+    Run once; idempotent. Fixes "column saved_recipes.name does not exist".
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+    is_sqlite = db_url.startswith("sqlite")
+
+    if "saved_recipes" not in inspector.get_table_names():
+        logger.info("saved_recipes table doesn't exist yet, skipping ensure_saved_recipes_columns")
+        return
+
+    existing = [c["name"] for c in inspector.get_columns("saved_recipes")]
+    missing = [t for t in _SAVED_RECIPES_COLUMNS if t[0] not in existing]
+    if not missing:
+        logger.info("saved_recipes already has all expected columns")
+        return
+
+    logger.info("Adding %d missing column(s) to saved_recipes: %s", len(missing), [m[0] for m in missing])
+
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            for name, sqlite_def, pg_def in missing:
+                ddl = f"ALTER TABLE saved_recipes ADD COLUMN {name} {pg_def if not is_sqlite else sqlite_def}"
+                conn.execute(text(ddl))
+                logger.info("  + %s", name)
+            trans.commit()
+            logger.info("✅ ensure_saved_recipes_columns: added %s", [m[0] for m in missing])
+        except Exception as e:
+            trans.rollback()
+            logger.error("Migration failed: %s", e, exc_info=True)
             raise
 
 
@@ -510,7 +639,9 @@ def run_migrations():
     logger.info("Running database migrations...")
     add_user_id_to_saved_recipes()
     add_pantries_table_and_pantry_id()
-    add_storage_location_to_inventory_items()
+    ensure_inventory_items_columns()
+    ensure_processing_log_columns()
+    ensure_saved_recipes_columns()
     assign_null_items_to_default_pantry()
     add_user_settings_table()
     add_ai_model_to_saved_recipes()

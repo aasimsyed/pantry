@@ -117,11 +117,11 @@ def main():
     print("\n" + "=" * 70)
     print("✅ Database initialized successfully!")
     print("=" * 70)
-    print("\nDatabase file: pantry.db (SQLite)")
+    print("\nDatabase: see DATABASE_URL in .env (Postgres or SQLite)")
     print("\nNext steps:")
     print("  - Query database: python query_pantry.py")
-    print("  - View expiring items: python check_expiration.py")
-    print("  - Update inventory: Use PantryService in your code")
+    print("  - Start API: ./start-backend-local.sh")
+    print("  - Update inventory: Use PantryService or the API")
     print("=" * 70)
     
     return 0

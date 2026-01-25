@@ -484,3 +484,21 @@ class APIClient {
 export const apiClient = new APIClient();
 export default apiClient;
 
+/**
+ * Extract user-friendly error message from API errors.
+ * Prefers API `detail` over axios "Request failed with status code 500".
+ * Appends request_id for 500s when present so you can look up logs.
+ */
+export function getApiErrorMessage(error: unknown): string {
+  if (!error || typeof error !== 'object') return String(error);
+  const err = error as { response?: { data?: { detail?: string; request_id?: string }; status?: number }; message?: string };
+  const detail = err.response?.data?.detail;
+  const requestId = err.response?.data?.request_id;
+  const status = err.response?.status;
+  let msg = typeof detail === 'string' && detail ? detail : err.message ?? 'Request failed';
+  if (status === 500 && requestId) {
+    msg += ` (request_id: ${requestId})`;
+  }
+  return msg;
+}
+

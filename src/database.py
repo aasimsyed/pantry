@@ -227,7 +227,9 @@ def init_database():
         from src.migrations import (
             add_user_id_to_saved_recipes,
             add_pantries_table_and_pantry_id,
-            add_storage_location_to_inventory_items,
+            ensure_inventory_items_columns,
+            ensure_processing_log_columns,
+            ensure_saved_recipes_columns,
             assign_null_items_to_default_pantry,
             add_user_settings_table,
             add_ai_model_to_saved_recipes,
@@ -235,7 +237,9 @@ def init_database():
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
-        add_storage_location_to_inventory_items()
+        ensure_inventory_items_columns()
+        ensure_processing_log_columns()
+        ensure_saved_recipes_columns()
         assign_null_items_to_default_pantry()
         add_user_settings_table()
         add_ai_model_to_saved_recipes()

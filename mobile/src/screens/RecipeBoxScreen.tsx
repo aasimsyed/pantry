@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View, Alert, RefreshControl } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import apiClient from '../api/client';
+import apiClient, { getApiErrorMessage } from '../api/client';
 import type { SavedRecipe } from '../types';
 
 export default function RecipeBoxScreen() {
@@ -19,8 +19,8 @@ export default function RecipeBoxScreen() {
       }
       const data = await apiClient.getSavedRecipes();
       setRecipes(data);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load recipes');
+    } catch (err: unknown) {
+      Alert.alert('Error', getApiErrorMessage(err));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -53,8 +53,8 @@ export default function RecipeBoxScreen() {
             try {
               await apiClient.deleteSavedRecipe(recipeId);
               await loadRecipes();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete recipe');
+            } catch (err: unknown) {
+              Alert.alert('Error', getApiErrorMessage(err));
             }
           },
         },

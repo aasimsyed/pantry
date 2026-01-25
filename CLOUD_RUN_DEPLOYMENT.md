@@ -86,6 +86,8 @@ gcloud run deploy pantry-api \
     --timeout 300
 ```
 
+**Optional – config-based deploy:** `cloud-run-service.yaml` is an example Knative/Cloud Run spec (resources, env, image). Use it with `gcloud run services replace` or your preferred workflow; see the file header for details.
+
 ## Configuration
 
 ### Environment Variables
@@ -254,7 +256,20 @@ gcloud run services update pantry-api \
 
 ## Monitoring and Logs
 
-### View Logs
+Production logs (stdout/stderr) are sent to **Google Cloud Logging**. Use them to debug 500s and other errors.
+
+### View logs in Cloud Console
+
+1. Open [Logging](https://console.cloud.google.com/logging) in Google Cloud Console.
+2. Use **Logs Explorer**.
+3. Filter by your Cloud Run service, e.g.:
+   ```
+   resource.type="cloud_run_revision"
+   resource.labels.service_name="pantry-api"
+   ```
+4. Optionally filter by severity: `severity>=ERROR`.
+
+### View logs via CLI
 
 ```bash
 # Real-time logs
@@ -264,11 +279,25 @@ gcloud run services logs tail pantry-api --region us-central1
 gcloud run services logs read pantry-api --region us-central1 --limit 50
 ```
 
-### Set Up Monitoring
+### Debugging 500 errors with request_id
 
-1. Enable Cloud Monitoring and Cloud Logging (enabled by default)
-2. View metrics in Cloud Console: https://console.cloud.google.com/run
-3. Set up alerts in Cloud Monitoring
+Each API request gets a **request_id** (UUID). It is:
+
+- Logged at request start: `request_id=abc123 method=GET path=/api/recipes/saved`
+- Included in **500** responses: `{"detail": "...", "error_code": "500", "request_id": "abc123"}`
+- Sent as **X-Request-ID** response header on successful responses.
+
+When you see a generic **"Request failed with status code 500"** in the app:
+
+1. Check whether the API returns `detail` and `request_id` in the response body (e.g. via network inspector or a small test script).
+2. In [Logging](https://console.cloud.google.com/logging), search for that `request_id` in the logs (e.g. `request_id=abc123` or `"abc123"`). That shows the corresponding log line and any traceback.
+3. Ensure `HIDE_ERROR_DETAILS` is **not** set to `true` in production if you want real error messages in responses; the full error is always logged.
+
+### Set up monitoring
+
+1. Enable Cloud Monitoring and Cloud Logging (enabled by default).
+2. View metrics: https://console.cloud.google.com/run → your service → **Metrics**.
+3. Set up alerts in Cloud Monitoring.
 
 ## Continuous Deployment (CI/CD)
 
@@ -320,24 +349,26 @@ gcloud builds triggers create github \
     --build-config=cloudbuild.yaml
 ```
 
-## Run Migrations Against Cloud SQL
+## Initialize Production DB (Cloud SQL)
 
-If you get **`column "storage_location" of relation "inventory_items" does not exist`** (or other schema errors) when using the API:
+If you get **`relation "inventory_items" does not exist`**, **`column "storage_location" ... does not exist`**, or other schema/500 errors when using the API (e.g. from the TestFlight app):
 
-1. Start Cloud SQL Proxy (from project root):
+The production DB may be missing tables or columns. Run **full init** (create all tables + migrations) against Cloud SQL:
+
+1. Start Cloud SQL Proxy (terminal 1, from project root):
    ```bash
    export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/pantry-manager-416004-1428ba71c020.json"
    cloud-sql-proxy --port 5434 pantry-manager-416004:us-south1:pantry-db
    ```
-2. In another terminal, run migrations (from project root):
+2. In another terminal (from project root):
    ```bash
    export DATABASE_URL='postgresql://pantry-user:YOUR_PASSWORD@localhost:5434/pantry'
    ./scripts/run-migrations-cloudsql.sh
    ```
-   Or: `python -m src.migrations`
-3. Restart the app or redeploy. Image upload and inventory INSERTs should work.
+   This runs `init_database` (creates all tables + migrations). Use the same `pantry-user` / password as in your Cloud Run `DATABASE_URL`.
+3. Retry the app. Image upload, inventory, and other endpoints should work.
 
-Cloud Run also runs migrations on startup (`init_database`). Deploying the latest code applies them when a new revision starts.
+Cloud Run also runs `init_database` on startup. If the DB was empty or out of date, deploy a new revision after running the script above to ensure the service uses the updated schema.
 
 ## Troubleshooting
 
