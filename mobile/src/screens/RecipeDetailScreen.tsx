@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
@@ -22,6 +22,22 @@ export default function RecipeDetailScreen() {
   const [notes, setNotes] = useState('notes' in recipe ? (recipe.notes || '') : '');
   const [rating, setRating] = useState('rating' in recipe ? (recipe.rating || 0) : 0);
   const [saving, setSaving] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Track keyboard visibility
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   // Check if this is a SavedRecipe
   // SavedRecipe: has id, has created_at/updated_at (from to_dict()), NO generated_at
@@ -41,17 +57,22 @@ export default function RecipeDetailScreen() {
     
     setSaving(true);
     try {
+      // Always send notes (even if empty string) to allow clearing notes
+      // Send rating only if > 0 (0 means no rating)
+      // notes is always a string (initialized from recipe.notes || ''), so we always send it
       const updated = await apiClient.updateSavedRecipe(
         recipe.id,
-        notes || undefined,
-        rating > 0 ? rating : undefined,
+        notes.trim(), // Send trimmed notes (empty string to clear)
+        rating > 0 ? rating : undefined, // Only send rating if > 0
         undefined // tags not editable here
       );
       setRecipe(updated);
       setEditDialogVisible(false);
       Alert.alert('Success', 'Recipe updated successfully');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update recipe');
+      console.error('Error updating recipe:', err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to update recipe';
+      Alert.alert('Error', errorMessage);
     } finally {
       setSaving(false);
     }
@@ -184,42 +205,98 @@ export default function RecipeDetailScreen() {
       {/* Edit Notes & Rating Dialog */}
       {isSavedRecipe && (
         <Portal>
-          <Dialog visible={editDialogVisible} onDismiss={() => setEditDialogVisible(false)}>
-            <Dialog.Title>Edit Notes & Rating</Dialog.Title>
-            <Dialog.Content>
-              <Text variant="bodyMedium" style={{ marginBottom: 8 }}>Rating: {Math.round(rating)}/5</Text>
-              <Slider
-                value={rating}
-                onValueChange={(value) => setRating(Math.round(value))}
-                minimumValue={0}
-                maximumValue={5}
-                step={1}
-                minimumTrackTintColor="#0284c7"
-                maximumTrackTintColor="#d1d5db"
-                thumbTintColor="#0284c7"
-                style={{ marginBottom: 24, width: '100%', height: 40 }}
-              />
-              <TextInput
-                label="Notes"
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-                numberOfLines={4}
-                mode="outlined"
-                placeholder="Add your personal notes about this recipe..."
-              />
-            </Dialog.Content>
-            <Dialog.Actions>
-              <Button onPress={() => setEditDialogVisible(false)}>Cancel</Button>
-              <Button
-                onPress={handleSaveNotesRating}
-                mode="contained"
-                loading={saving}
-                disabled={saving}
-              >
-                Save
-              </Button>
-            </Dialog.Actions>
+          <Dialog 
+            visible={editDialogVisible} 
+            onDismiss={() => {
+              Keyboard.dismiss();
+              setEditDialogVisible(false);
+            }}
+            style={styles.dialog}
+            dismissable={true}
+          >
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.keyboardAvoidingView}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+              <Dialog.Title style={styles.dialogTitle}>Edit Notes & Rating</Dialog.Title>
+              <Dialog.Content style={styles.dialogContent}>
+                <ScrollView 
+                  contentContainerStyle={styles.dialogScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                >
+                  <Text variant="bodyMedium" style={{ marginBottom: 8, fontWeight: '600' }}>
+                    Rating: {Math.round(rating)}/5
+                  </Text>
+                  <Slider
+                    value={rating}
+                    onValueChange={(value) => setRating(Math.round(value))}
+                    minimumValue={0}
+                    maximumValue={5}
+                    step={1}
+                    minimumTrackTintColor="#0284c7"
+                    maximumTrackTintColor="#d1d5db"
+                    thumbTintColor="#0284c7"
+                    style={{ marginBottom: 32, width: '100%', height: 40 }}
+                  />
+                  <View style={styles.notesSection}>
+                    <View style={styles.notesHeader}>
+                      <Text variant="bodyMedium" style={{ fontWeight: '600', flex: 1 }}>
+                        Notes
+                      </Text>
+                      {keyboardVisible && (
+                        <Button
+                          mode="text"
+                          onPress={Keyboard.dismiss}
+                          compact
+                          style={styles.doneButton}
+                        >
+                          Done
+                        </Button>
+                      )}
+                    </View>
+                    <TextInput
+                      value={notes}
+                      onChangeText={setNotes}
+                      multiline
+                      numberOfLines={12}
+                      mode="outlined"
+                      placeholder="Add your personal notes about this recipe..."
+                      blurOnSubmit={false}
+                      style={styles.notesInput}
+                      contentStyle={styles.notesInputContent}
+                    />
+                  </View>
+                  {/* Spacer to ensure buttons are accessible when keyboard is visible */}
+                  {keyboardVisible && <View style={{ height: 150 }} />}
+                </ScrollView>
+              </Dialog.Content>
+              <Dialog.Actions style={styles.dialogActions}>
+                <Button 
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setEditDialogVisible(false);
+                  }}
+                  style={styles.actionButton}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    handleSaveNotesRating();
+                  }}
+                  mode="contained"
+                  loading={saving}
+                  disabled={saving}
+                  style={styles.actionButton}
+                >
+                  Save
+                </Button>
+              </Dialog.Actions>
+            </KeyboardAvoidingView>
           </Dialog>
         </Portal>
       )}
@@ -311,6 +388,65 @@ const styles = StyleSheet.create({
   },
   editButton: {
     marginTop: 8,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  dialog: {
+    maxHeight: '90%',
+    height: '90%',
+    marginHorizontal: 10,
+    marginVertical: 20,
+  },
+  dialogTitle: {
+    paddingBottom: 8,
+  },
+  dialogContent: {
+    flex: 1,
+    paddingHorizontal: 0,
+    maxHeight: '100%',
+  },
+  dialogScrollContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    flexGrow: 1,
+  },
+  notesSection: {
+    marginTop: 8,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  doneButton: {
+    marginLeft: 8,
+  },
+  notesInput: {
+    minHeight: 250,
+    maxHeight: 450,
+  },
+  notesInputContent: {
+    minHeight: 250,
+    textAlignVertical: 'top',
+    paddingTop: 12,
+  },
+  dialogActions: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    minHeight: 56,
+    maxHeight: 56,
+  },
+  actionButton: {
+    minWidth: 80,
   },
 });
 

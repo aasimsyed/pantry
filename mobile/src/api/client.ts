@@ -452,6 +452,7 @@ class APIClient {
     tags?: string[]
   ): Promise<SavedRecipe> {
     const data: any = {};
+    // Always include notes if provided (even if empty string, to allow clearing)
     if (notes !== undefined) data.notes = notes;
     if (rating !== undefined) data.rating = rating;
     if (tags !== undefined) data.tags = tags;

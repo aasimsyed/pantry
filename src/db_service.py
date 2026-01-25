@@ -828,8 +828,9 @@ class PantryService:
         if not recipe:
             return None
         
+        # Allow empty string to clear notes (notes is not None means we're updating it)
         if notes is not None:
-            recipe.notes = notes
+            recipe.notes = notes if notes else None  # Empty string becomes None
         if rating is not None:
             recipe.rating = rating
         if tags is not None:
