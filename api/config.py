@@ -35,6 +35,8 @@ class APIConfig(BaseSettings):
         "http://localhost:5173",  # Vite dev server default
         # Production frontend URLs - Vercel deployments
         "https://smartpantryai.vercel.app",  # Vercel production URL
+        # Cloud Run backend URL (for potential direct access)
+        "https://pantry-api-apqja3ye2q-vp.a.run.app",  # Cloud Run production URL
         # Add your custom domain here when configured
         # "https://pantry.yourdomain.com",
     ]

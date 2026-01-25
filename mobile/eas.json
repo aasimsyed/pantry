@@ -24,7 +24,11 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://pantry.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://pantry-api-apqja3ye2q-vp.a.run.app"
+      },
+      "autoIncrement": "buildNumber",
+      "ios": {
+        "autoIncrement": true
       }
     }
   },

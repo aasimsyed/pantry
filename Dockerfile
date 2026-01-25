@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose port (platforms will set PORT env var)
+# Cloud Run uses 8080 by default, but PORT env var is used dynamically
 EXPOSE 8000
 
 # Health check (uses PORT env var, defaults to 8000)
@@ -31,6 +32,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Run the application
 # Use start_server.py which handles database initialization and then starts uvicorn
-# Platforms like Railway and Fly.io will override PORT via environment variable
+# Platforms like Cloud Run, Railway, and Fly.io will override PORT via environment variable
 CMD ["python", "start_server.py"]
 

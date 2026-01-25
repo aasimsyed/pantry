@@ -1,0 +1,45 @@
+# Cloud Run Service Configuration
+# This is an example configuration for deploying to Cloud Run
+# Use this file with: gcloud run services update SERVICE_NAME --config cloud-run-service.yaml
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: pantry-api
+  annotations:
+    # Allow unauthenticated requests (remove if you want authentication)
+    run.googleapis.com/ingress: all
+    # Cloud Run will automatically scale to zero when not in use
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        # Autoscaling configuration
+        autoscaling.knative.dev/minScale: "0"  # Scale to zero
+        autoscaling.knative.dev/maxScale: "10"  # Max instances
+        # CPU and memory allocation
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 80  # Max concurrent requests per instance
+      timeoutSeconds: 300  # Request timeout (5 minutes)
+      containers:
+      - image: gcr.io/PROJECT_ID/pantry-api:latest  # Update PROJECT_ID
+        ports:
+        - name: http1
+          containerPort: 8080  # Cloud Run expects 8080 or uses PORT env var
+        env:
+        # Set your environment variables here or use Secret Manager
+        # - name: DATABASE_URL
+        #   value: "postgresql://user:pass@host:5432/dbname"
+        # - name: OPENAI_API_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       key: openai-api-key
+        #       name: pantry-secrets
+        resources:
+          limits:
+            cpu: "1"  # CPU units (1 = 1 vCPU)
+            memory: "512Mi"  # Memory limit
+      serviceAccountName: pantry-api@PROJECT_ID.iam.gserviceaccount.com  # Update PROJECT_ID

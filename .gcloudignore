@@ -1,0 +1,109 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment files (sensitive)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Frontend build artifacts (if not using container)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# Mobile app (not needed for backend)
+mobile/
+
+# Dashboard (not needed for backend)
+dashboard/
+
+# Documentation
+*.md
+!README.md
+
+# Scripts (not needed in container)
+*.sh
+!deploy-cloud-run.sh
+
+# Railway specific files
+railway.json
+RAILWAY_ENV_VARIABLES_GUIDE.md
+check_and_set_railway_vars.sh
+set_railway*.sh
+sync_railway_env.sh
+test_railway_auth.sh
+
+# Fly.io specific files
+fly.toml.example
+
+# Docker compose (not needed for Cloud Run)
+docker-compose.yml
+
+# Cache
+cache/
+*.db-shm
+*.db-wal
+
+# Example files
+example_*.py
+
+# Test files
+tests/
+test_*.py
+pytest.ini
+
+# Local database
+*.db
+pantry.db
