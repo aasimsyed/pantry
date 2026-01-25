@@ -49,30 +49,26 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Boot iOS Simulator
+      - name: Find available simulator
         run: |
           # List available simulators
           echo "Available simulators:"
           xcrun simctl list devices available | grep "iPhone"
           
-          # Try to find and boot iPhone 15 Pro, fallback to any iPhone
+          # Try to find iPhone 15 Pro, fallback to any iPhone
           DEVICE_NAME="iPhone 15 Pro"
           if ! xcrun simctl list devices available | grep -q "$DEVICE_NAME"; then
             # Get first available iPhone device name
             DEVICE_NAME=$(xcrun simctl list devices available | grep -i "iPhone" | head -1 | sed -E 's/.*iPhone ([^\(]+).*/\1/' | xargs)
             if [ -z "$DEVICE_NAME" ]; then
-              DEVICE_NAME="iPhone 15 Pro"  # Fallback, will try to boot anyway
+              DEVICE_NAME="iPhone 15 Pro"  # Fallback
             else
               DEVICE_NAME="iPhone $DEVICE_NAME"
             fi
           fi
           
           echo "DEVICE_ID=$DEVICE_NAME" >> $GITHUB_ENV
-          echo "Booting simulator: $DEVICE_NAME"
-          xcrun simctl boot "$DEVICE_NAME" || true
-          sleep 5  # Give simulator time to boot
-          xcrun simctl bootstatus "$DEVICE_NAME" || echo "Simulator may already be booted"
-          echo "Simulator ready: $DEVICE_NAME"
+          echo "Will use simulator: $DEVICE_NAME"
 
       - name: Build development build
         working-directory: ./mobile
@@ -150,30 +146,75 @@ jobs:
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
           echo "Found app at: $APP_PATH"
 
-      - name: Install app on simulator
+      - name: Boot iOS Simulator
         run: |
-          # Get the booted simulator UDID by device name
           DEVICE_NAME="${{ env.DEVICE_ID }}"
-          SIM_UDID=$(xcrun simctl list devices | grep -A 1 "$DEVICE_NAME" | grep -E "\([A-F0-9-]+\)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          echo "Booting simulator: $DEVICE_NAME"
+          
+          # Get simulator UDID by device name
+          SIM_UDID=$(xcrun simctl list devices | grep "$DEVICE_NAME" | grep -E "\([A-F0-9-]+\)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
           
           if [ -z "$SIM_UDID" ]; then
-            # Fallback: get any booted iPhone simulator
-            SIM_UDID=$(xcrun simctl list devices | grep -i "Booted" | grep -i "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
-          fi
-          
-          if [ -z "$SIM_UDID" ]; then
-            echo "Error: No booted simulator found"
+            echo "Error: Could not find simulator: $DEVICE_NAME"
             echo "Available devices:"
             xcrun simctl list devices
             exit 1
           fi
           
+          echo "SIM_UDID=$SIM_UDID" >> $GITHUB_ENV
+          echo "Found simulator UDID: $SIM_UDID"
+          
+          # Boot the simulator
+          echo "Booting simulator..."
+          xcrun simctl boot "$SIM_UDID" || echo "Simulator may already be booted"
+          
+          # Wait for simulator to be fully ready (with retries)
+          echo "Waiting for simulator to be ready..."
+          for i in {1..30}; do
+            BOOT_STATUS=$(xcrun simctl list devices | grep "$SIM_UDID" | grep -o "Booted" || echo "")
+            if [ -n "$BOOT_STATUS" ]; then
+              echo "Simulator is booted and ready"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Error: Simulator failed to boot after 60 seconds"
+              xcrun simctl list devices | grep "$SIM_UDID"
+              exit 1
+            fi
+            echo "Waiting for boot... ($i/30)"
+            sleep 2
+          done
+          
+          # Final verification
+          if ! xcrun simctl list devices | grep "$SIM_UDID" | grep -q "Booted"; then
+            echo "Error: Simulator is not in Booted state"
+            xcrun simctl list devices | grep "$SIM_UDID"
+            exit 1
+          fi
+          
+          echo "Simulator confirmed ready: $DEVICE_NAME ($SIM_UDID)"
+
+      - name: Install app on simulator
+        run: |
+          SIM_UDID="${{ env.SIM_UDID }}"
+          DEVICE_NAME="${{ env.DEVICE_ID }}"
+          
           echo "Installing app on simulator: $SIM_UDID ($DEVICE_NAME)"
+          echo "App path: ${{ env.APP_PATH }}"
+          
+          # Verify app path exists
+          if [ ! -d "${{ env.APP_PATH }}" ]; then
+            echo "Error: App path does not exist: ${{ env.APP_PATH }}"
+            ls -la "$(dirname "${{ env.APP_PATH }}")" || true
+            exit 1
+          fi
+          
+          # Install the app
           xcrun simctl install "$SIM_UDID" "${{ env.APP_PATH }}"
           echo "App installed successfully"
           
           # Verify installation
-          xcrun simctl listapps "$SIM_UDID" | grep -i "smartpantry" || echo "App may be installed with different bundle ID"
+          xcrun simctl listapps "$SIM_UDID" | grep -i "smartpantry" || echo "App installed (bundle ID may differ)"
       
       - name: Run Maestro Tests
         working-directory: ./mobile
