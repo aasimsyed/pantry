@@ -4,5 +4,5 @@ Streamlit Dashboard for Smart Pantry Management.
 Multi-page web application for managing pantry inventory.
 """
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 

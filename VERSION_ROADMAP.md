@@ -265,6 +265,7 @@ Update this file when releasing new versions:
 - **1.0.0** - 2026-01-25 - Initial production release
 - **1.1.0** - 2026-01-25 - Recent recipes feature (backend, mobile, frontend)
 - **1.1.1** - 2026-01-25 - Bug fixes (React Native rendering, migration handling, GitHub Actions)
+- **1.1.2** - 2026-01-25 - Recipe notes & ratings, UI improvements, performance indexes
 
 ---
 
