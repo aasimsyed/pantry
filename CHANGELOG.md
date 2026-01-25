@@ -5,6 +5,24 @@ All notable changes to Smart Pantry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-01-25
+
+### Added
+- **Recipe Scaling**: Users can now scale saved recipes up/down by adjusting servings
+  - Mobile: Slider to adjust servings (1-20) with quick +/- buttons
+  - Frontend: Slider to adjust servings per recipe with quick controls
+  - Ingredient amounts automatically scale proportionally
+  - Improved fraction conversion (handles 3/8, 5/8, etc.)
+- **Ingredient Table Layout**: Ingredients now displayed in table format with separate columns for names and amounts
+  - Mobile: Two-column layout with ingredient name and amount
+  - Frontend: HTML table with headers for better readability
+
+### Fixed
+- Fixed duplicate brand names in product displays (inventory and recipe ingredients)
+- Fixed recipe ingredient scaling math - now correctly converts to fractions (e.g., 1/2 cup scaled by 0.75 = 3/8 cup)
+- Fixed ingredient amount parsing when scaling from fractions (e.g., 1/2 cup no longer becomes "1/2 /2 cup")
+- Improved brand name removal logic to handle edge cases (hyphens, spaces, multiple occurrences)
+
 ## [1.1.3] - 2026-01-24
 
 ### Fixed
@@ -71,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.1.4]: https://github.com/aasimsyed/pantry/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/aasimsyed/pantry/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/aasimsyed/pantry/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/aasimsyed/pantry/compare/v1.1.0...v1.1.1
