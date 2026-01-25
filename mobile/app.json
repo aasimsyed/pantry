@@ -43,7 +43,8 @@
     },
     "owner": "aasimsyed",
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-dev-client"
     ]
   }
 }
