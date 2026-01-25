@@ -16,14 +16,21 @@ PROJECT_ID="${GCP_PROJECT_ID:-pantry-manager-416004}"
 REGION="${GCP_REGION:-us-south1}"
 SERVICE_NAME="${CLOUD_RUN_SERVICE:-pantry-api}"
 
-echo -e "${BLUE}🔄 Syncing environment variables from .env to Cloud Run...${NC}"
+echo -e "${BLUE}🔄 Syncing environment variables to Cloud Run...${NC}"
 echo ""
 
-# Check if .env file exists
-if [ ! -f .env ]; then
-    echo -e "${RED}❌ .env file not found!${NC}"
+# Prefer .env.production for Cloud Run; fall back to .env
+if [ -f .env.production ]; then
+    ENV_FILE=".env.production"
+    echo -e "${BLUE}📄 Using .env.production${NC}"
+elif [ -f .env ]; then
+    ENV_FILE=".env"
+    echo -e "${BLUE}📄 Using .env${NC}"
+else
+    echo -e "${RED}❌ No .env or .env.production found!${NC}"
     exit 1
 fi
+echo ""
 
 # Check if gcloud is installed and configured
 if ! command -v gcloud &> /dev/null; then
@@ -40,34 +47,26 @@ gcloud config set project "${PROJECT_ID}" > /dev/null 2>&1 || {
 echo -e "${BLUE}📋 Variables to sync:${NC}"
 echo ""
 
+# Vars already in Secret Manager: skip env sync (otherwise "different type" error)
+SKIP_IF_SECRET=("SECRET_KEY" "OPENAI_API_KEY" "ANTHROPIC_API_KEY")
+
 # Required variables for the application
 REQUIRED_VARS=(
-    # Security & Auth
     "SECRET_KEY"
     "JWT_ALGORITHM"
     "JWT_ACCESS_TOKEN_EXPIRE_MINUTES"
     "JWT_REFRESH_TOKEN_EXPIRE_DAYS"
-    
-    # AI Configuration
     "OPENAI_API_KEY"
     "AI_PROVIDER"
     "AI_MODEL"
     "ANTHROPIC_API_KEY"
-    
-    # Database (optional - defaults to SQLite)
     "DATABASE_URL"
-    
-    # Optional AI settings
     "AI_TEMPERATURE"
     "AI_MAX_TOKENS"
     "AI_TIMEOUT"
     "AI_MIN_CONFIDENCE"
-    
-    # Optional OCR settings
     "OCR_PREFERRED_BACKEND"
     "OCR_CONFIDENCE_THRESHOLD"
-    
-    # Google Cloud Vision: API key or service account
     "GOOGLE_VISION_API_KEY"
     "GOOGLE_APPLICATION_CREDENTIALS"
 )
@@ -78,13 +77,35 @@ SKIP_COUNT=0
 MISSING_COUNT=0
 ENV_VARS_ARGS=""
 
+# Safety: Cloud Run must use PostgreSQL, not SQLite
+DB_URL=$(grep "^DATABASE_URL=" "${ENV_FILE}" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+if [ -z "$DB_URL" ]; then
+    echo -e "${RED}❌ DATABASE_URL not set in ${ENV_FILE}${NC}"
+    exit 1
+fi
+if [[ "$DB_URL" == sqlite* ]]; then
+    echo -e "${RED}❌ DATABASE_URL points to SQLite. Use .env.production with Cloud SQL Postgres for Cloud Run.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ DATABASE_URL is Cloud SQL / Postgres${NC}"
+echo ""
+
 # Process each variable
 for VAR in "${REQUIRED_VARS[@]}"; do
-    # Extract value from .env
-    VALUE=$(grep "^${VAR}=" .env 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    # Skip vars that are provided via Secret Manager (cannot override with env)
+    for skip in "${SKIP_IF_SECRET[@]}"; do
+        if [ "$VAR" = "$skip" ]; then
+            echo -e "${YELLOW}⏭️  $VAR - Using Secret Manager (skipping env sync)${NC}"
+            SKIP_COUNT=$((SKIP_COUNT + 1))
+            continue 2
+        fi
+    done
+
+    # Extract value from chosen env file
+    VALUE=$(grep "^${VAR}=" "${ENV_FILE}" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     
     if [ -z "$VALUE" ]; then
-        echo -e "${YELLOW}⚠️  $VAR - Not found in .env (skipping)${NC}"
+        echo -e "${YELLOW}⚠️  $VAR - Not found in ${ENV_FILE} (skipping)${NC}"
         MISSING_COUNT=$((MISSING_COUNT + 1))
         continue
     fi
@@ -115,18 +136,17 @@ if [ -n "$ENV_VARS_ARGS" ]; then
     
     if gcloud run services update "${SERVICE_NAME}" \
         --region "${REGION}" \
-        --update-env-vars "${ENV_VARS_ARGS}" > /dev/null 2>&1; then
+        --update-env-vars "${ENV_VARS_ARGS}"; then
         echo -e "${GREEN}✅ Successfully set environment variables${NC}"
     else
         echo -e "${RED}❌ Failed to set environment variables${NC}"
-        echo -e "${YELLOW}💡 You may need to set them individually:${NC}"
-        echo "   gcloud run services update ${SERVICE_NAME} --region ${REGION} --set-env-vars VAR=value"
+        echo -e "${YELLOW}💡 You may need to set them individually or use Secret Manager.${NC}"
         SKIP_COUNT=$((SKIP_COUNT + SET_COUNT))
         SET_COUNT=0
     fi
 else
     echo ""
-    echo -e "${YELLOW}⚠️  No environment variables found in .env file${NC}"
+    echo -e "${YELLOW}⚠️  No environment variables to sync from ${ENV_FILE}${NC}"
 fi
 
 echo ""

@@ -131,6 +131,21 @@ gcloud run services update pantry-api \
     --update-secrets DATABASE_URL=database-url:latest,OPENAI_API_KEY=openai-api-key:latest
 ```
 
+### Google Vision on Cloud Run (no key required)
+
+When the API runs on Cloud Run, **you do not need** `GOOGLE_APPLICATION_CREDENTIALS` or `GOOGLE_VISION_API_KEY`. The app uses **Application Default Credentials (ADC)** from the Cloud Run service account.
+
+1. **Enable the Vision API** (if not already):
+   ```bash
+   gcloud services enable vision.googleapis.com
+   ```
+
+2. **Ensure the Cloud Run service account can call Vision.** The default Compute Engine service account often works once the API is enabled. If Vision calls fail with permission errors, grant a suitable role (e.g. **Cloud ML Developer** or project **Editor**) to the service account used by the Cloud Run service. See [Vision API authentication](https://cloud.google.com/vision/docs/authentication).
+
+3. **Do not set** `GOOGLE_APPLICATION_CREDENTIALS` or `GOOGLE_VISION_API_KEY` for the Cloud Run service. Vision will use ADC automatically.
+
+4. **Local dev** still needs a key file (`GOOGLE_APPLICATION_CREDENTIALS`) or API key, since there is no Cloud Run identity.
+
 ### Database Configuration
 
 For production, use Cloud SQL (PostgreSQL) instead of SQLite:

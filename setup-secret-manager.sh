@@ -32,18 +32,25 @@ CURRENT_ENV=$(gcloud run services describe "${SERVICE_NAME}" \
     --format="yaml(spec.template.spec.containers[0].env)" \
     --project "${PROJECT_ID}" 2>/dev/null || echo "")
 
-# Extract SECRET_KEY
+# Extract from current env (plain vars; secrets show as valueFrom)
 SECRET_KEY=$(echo "$CURRENT_ENV" | grep -A 1 "name: SECRET_KEY" | grep "value:" | awk '{print $2}' || echo "")
 OPENAI_KEY=$(echo "$CURRENT_ENV" | grep -A 1 "name: OPENAI_API_KEY" | grep "value:" | awk '{print $2}' || echo "")
+# Also check .env.production for anthropic (often only in secrets)
+ANTHROPIC_KEY=$(grep "^ANTHROPIC_API_KEY=" .env.production 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || echo "")
 
 if [ -z "$SECRET_KEY" ]; then
-    echo -e "${YELLOW}⚠️  SECRET_KEY not found in current environment variables${NC}"
+    echo -e "${YELLOW}⚠️  SECRET_KEY not found${NC}"
     read -p "Enter SECRET_KEY (or press Enter to skip): " SECRET_KEY
 fi
 
 if [ -z "$OPENAI_KEY" ]; then
-    echo -e "${YELLOW}⚠️  OPENAI_API_KEY not found in current environment variables${NC}"
+    echo -e "${YELLOW}⚠️  OPENAI_API_KEY not found${NC}"
     read -p "Enter OPENAI_API_KEY (or press Enter to skip): " OPENAI_KEY
+fi
+
+if [ -z "$ANTHROPIC_KEY" ]; then
+    echo -e "${YELLOW}⚠️  ANTHROPIC_API_KEY not found in .env.production${NC}"
+    read -p "Enter ANTHROPIC_API_KEY (or press Enter to skip): " ANTHROPIC_KEY
 fi
 
 # Create secrets
@@ -75,14 +82,29 @@ if [ -n "$OPENAI_KEY" ]; then
         echo -n "$OPENAI_KEY" | gcloud secrets create openai-api-key --data-file=- --project "${PROJECT_ID}"
     fi
     
-    # Grant Cloud Run access
-    echo -e "${BLUE}🔑 Granting Cloud Run access to openai-api-key...${NC}"
     gcloud secrets add-iam-policy-binding openai-api-key \
         --member="serviceAccount:${SERVICE_ACCOUNT}" \
         --role="roles/secretmanager.secretAccessor" \
         --project "${PROJECT_ID}" > /dev/null 2>&1 || true
     
     echo -e "${GREEN}✅ openai-api-key secret created${NC}"
+fi
+
+if [ -n "$ANTHROPIC_KEY" ]; then
+    echo -e "${BLUE}🔐 Creating anthropic-api-key secret...${NC}"
+    if gcloud secrets describe anthropic-api-key --project "${PROJECT_ID}" &>/dev/null; then
+        echo -e "${YELLOW}⚠️  Secret 'anthropic-api-key' already exists. Updating version...${NC}"
+        echo -n "$ANTHROPIC_KEY" | gcloud secrets versions add anthropic-api-key --data-file=- --project "${PROJECT_ID}"
+    else
+        echo -n "$ANTHROPIC_KEY" | gcloud secrets create anthropic-api-key --data-file=- --project "${PROJECT_ID}"
+    fi
+    
+    gcloud secrets add-iam-policy-binding anthropic-api-key \
+        --member="serviceAccount:${SERVICE_ACCOUNT}" \
+        --role="roles/secretmanager.secretAccessor" \
+        --project "${PROJECT_ID}" > /dev/null 2>&1 || true
+    
+    echo -e "${GREEN}✅ anthropic-api-key secret created${NC}"
 fi
 
 # Update Cloud Run service to use secrets
@@ -93,13 +115,13 @@ SECRETS_ARGS=""
 if [ -n "$SECRET_KEY" ]; then
     SECRETS_ARGS="SECRET_KEY=secret-key:latest"
 fi
-
 if [ -n "$OPENAI_KEY" ]; then
-    if [ -n "$SECRETS_ARGS" ]; then
-        SECRETS_ARGS="${SECRETS_ARGS},OPENAI_API_KEY=openai-api-key:latest"
-    else
-        SECRETS_ARGS="OPENAI_API_KEY=openai-api-key:latest"
-    fi
+    [ -n "$SECRETS_ARGS" ] && SECRETS_ARGS="${SECRETS_ARGS},"
+    SECRETS_ARGS="${SECRETS_ARGS}OPENAI_API_KEY=openai-api-key:latest"
+fi
+if [ -n "$ANTHROPIC_KEY" ]; then
+    [ -n "$SECRETS_ARGS" ] && SECRETS_ARGS="${SECRETS_ARGS},"
+    SECRETS_ARGS="${SECRETS_ARGS}ANTHROPIC_API_KEY=anthropic-api-key:latest"
 fi
 
 if [ -n "$SECRETS_ARGS" ]; then
@@ -125,3 +147,4 @@ echo ""
 echo -e "${BLUE}📋 To view secret versions:${NC}"
 echo "   gcloud secrets versions list secret-key --project ${PROJECT_ID}"
 echo "   gcloud secrets versions list openai-api-key --project ${PROJECT_ID}"
+echo "   gcloud secrets versions list anthropic-api-key --project ${PROJECT_ID}"

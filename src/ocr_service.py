@@ -591,34 +591,44 @@ class GoogleVisionOCR(OCRBackend):
         self._api_key: Optional[str] = (
             (config.google_vision_api_key or "").strip() or None
         )
-        
+        self._using_adc = False
+
         if self._api_key:
             logger.info("Google Vision OCR backend initialized (API key)")
             return
-        
-        if not self._creds_available():
-            return
-        try:
-            # Handle credentials: file path (local) or JSON content (e.g. Cloud Run secrets)
-            creds_value = self.config.google_credentials_path
-            if creds_value and creds_value.strip().startswith('{'):
-                import json
-                import tempfile
-                creds_dict = json.loads(creds_value)
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                    json.dump(creds_dict, f)
-                    temp_creds_path = f.name
-                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_creds_path
-                logger.info("Using Google credentials from environment variable (JSON content)")
-            elif creds_value and os.path.exists(creds_value):
-                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_value
-                logger.info(f"Using Google credentials from file: {creds_value}")
-            else:
+
+        if self._creds_available():
+            try:
+                creds_value = self.config.google_credentials_path
+                if creds_value and creds_value.strip().startswith('{'):
+                    import json
+                    import tempfile
+                    creds_dict = json.loads(creds_value)
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                        json.dump(creds_dict, f)
+                        temp_creds_path = f.name
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_creds_path
+                    logger.info("Using Google credentials from environment variable (JSON content)")
+                elif creds_value and os.path.exists(creds_value):
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_value
+                    logger.info(f"Using Google credentials from file: {creds_value}")
+                else:
+                    raise ValueError("Credentials path invalid")
+                self.client = vision.ImageAnnotatorClient()
+                logger.info("Google Vision OCR backend initialized (service account)")
                 return
+            except Exception as e:
+                logger.warning(f"Vision service-account init failed: {e}")
+                self.client = None
+
+        # No API key or explicit creds: try ADC (Cloud Run workload identity).
+        # On Cloud Run, the service account provides credentials via the metadata server.
+        try:
             self.client = vision.ImageAnnotatorClient()
-            logger.info("Google Vision OCR backend initialized (service account)")
+            self._using_adc = True
+            logger.info("Google Vision OCR backend initialized (Application Default Credentials)")
         except Exception as e:
-            logger.error(f"Failed to initialize Google Vision client: {e}")
+            logger.info("Google Vision ADC not available: %s", e)
             self.client = None
     
     def _creds_available(self) -> bool:
@@ -641,10 +651,13 @@ class GoogleVisionOCR(OCRBackend):
         Supports:
         - GOOGLE_VISION_API_KEY: API key (REST)
         - GOOGLE_APPLICATION_CREDENTIALS: file path or JSON (service account)
+        - ADC: Cloud Run workload identity (no key needed)
         """
         if self._api_key:
             return True
-        return self._creds_available()
+        if self._creds_available():
+            return self.client is not None
+        return self.client is not None
     
     def get_name(self) -> str:
         """Get backend name."""

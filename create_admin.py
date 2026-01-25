@@ -21,13 +21,14 @@ from src.auth_service import get_password_hash, get_user_by_email
 import argparse
 
 
-def create_admin_account(email: str, password: str, full_name: str = None):
+def create_admin_account(email: str, password: str, full_name: str = None, yes: bool = False):
     """Create an admin account.
     
     Args:
         email: Admin email address
         password: Admin password
         full_name: Optional full name
+        yes: If True, non-interactive; auto-confirm when user exists
     """
     # Get database session
     Session = get_session_factory()
@@ -37,10 +38,14 @@ def create_admin_account(email: str, password: str, full_name: str = None):
         # Check if user already exists
         existing_user = get_user_by_email(session, email)
         if existing_user:
+            if existing_user.role == "admin":
+                print(f"✅ User '{email}' already exists as admin (ID: {existing_user.id}). Nothing to do.")
+                return existing_user
             print(f"⚠️  User with email '{email}' already exists (ID: {existing_user.id}, Role: {existing_user.role})")
-            
-            # Ask if we should update to admin
-            response = input(f"Update user to admin role? (y/n): ").strip().lower()
+            if not yes:
+                response = input(f"Update user to admin role? (y/n): ").strip().lower()
+            else:
+                response = "y"
             if response == 'y':
                 existing_user.role = "admin"
                 if full_name:
@@ -99,6 +104,7 @@ def main():
     parser.add_argument("--email", type=str, help="Admin email address")
     parser.add_argument("--password", type=str, help="Admin password")
     parser.add_argument("--name", type=str, help="Full name (optional)")
+    parser.add_argument("--yes", "-y", action="store_true", help="Non-interactive; auto-confirm when user exists")
     
     args = parser.parse_args()
     
@@ -131,7 +137,7 @@ def main():
             full_name = None
     
     # Create admin account
-    user = create_admin_account(email, password, full_name)
+    user = create_admin_account(email, password, full_name, yes=args.yes)
     
     if user:
         sys.exit(0)

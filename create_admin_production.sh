@@ -104,8 +104,8 @@ echo ""
 # Set DATABASE_URL for the Python script
 export DATABASE_URL
 
-# Run the create_admin.py script
-python3 create_admin.py --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
+# Run the create_admin.py script (--yes for non-interactive)
+python3 create_admin.py --email "$EMAIL" --password "$PASSWORD" --name "$NAME" --yes
 
 if [ $? -eq 0 ]; then
     echo ""
