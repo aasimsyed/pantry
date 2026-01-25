@@ -2236,7 +2236,7 @@ def generate_recipes(
         recipe_generator = RecipeGenerator(ai_analyzer)
 
         # Generate recipes with timeout protection
-        # Railway has a 60s HTTP gateway timeout, so we limit generation to ~50s
+        # Limit generation to ~50s to avoid HTTP gateway timeouts
         logger.info(
             f"Generating {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients"
         )
@@ -2328,7 +2328,7 @@ async def generate_recipes_stream(
     Generate AI-powered recipes using streaming (Server-Sent Events).
 
     This endpoint streams recipes as they're generated, allowing for large
-    numbers of recipes (10-20+) without hitting Railway's 60s HTTP gateway timeout.
+    numbers of recipes (10-20+) without hitting HTTP gateway timeouts.
 
     Recipes are sent as Server-Sent Events (SSE) in JSON format.
     Each recipe is sent as soon as it's generated.
@@ -2825,150 +2825,6 @@ def delete_saved_recipe(
 # ============================================================================
 # Admin Endpoints - Security Audit Logging (Phase 2)
 # ============================================================================
-
-
-@app.post("/api/admin/fix-database", tags=["Admin"])
-def fix_database(
-    secret: str = Query(..., description="Secret token to access this endpoint"),
-    db: Session = Depends(get_db),
-) -> MessageResponse:
-    """
-    Fix database by dropping orphaned indexes.
-
-    This is a temporary endpoint to fix the orphaned index issue
-    that's preventing table creation. Uses a secret token for security.
-    """
-    # Verify secret token (matches SECRET_KEY from environment)
-    import os
-
-    expected_secret = os.getenv("SECRET_KEY", "")
-    if not expected_secret or secret != expected_secret:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid secret token")
-
-    try:
-        from sqlalchemy import text
-
-        logger.info("Admin database fix requested")
-
-        # Drop the orphaned index using the database session
-        try:
-            logger.info("Dropping orphaned index ix_users_email...")
-            db.execute(text("DROP INDEX IF EXISTS ix_users_email CASCADE"))
-            db.commit()
-            logger.info("✅ Successfully dropped orphaned index")
-
-            # Verify it's gone
-            result = db.execute(
-                text(
-                    """
-                SELECT indexname FROM pg_indexes 
-                WHERE indexname = 'ix_users_email' 
-                AND schemaname = 'public'
-            """
-                )
-            )
-            rows = result.fetchall()
-            if rows:
-                logger.warning("Index still exists after drop attempt")
-                return MessageResponse(
-                    message="⚠️ Index still exists after drop attempt. Manual intervention may be needed.",
-                    status="warning",
-                )
-            else:
-                logger.info("✅ Index confirmed dropped")
-
-                # Now try to create tables using a fresh engine
-                logger.info("Attempting to create all tables...")
-                from sqlalchemy import inspect as sqla_inspect
-
-                from src.database import Base, create_database_engine
-
-                # Create a fresh engine and connection for table creation
-                engine = create_database_engine()
-                try:
-                    # First, create users table directly with raw SQL (to avoid index issues)
-                    logger.info("Creating users table directly with raw SQL...")
-                    with engine.begin() as conn:
-                        # Create users table without indexes first
-                        conn.execute(
-                            text(
-                                """
-                            CREATE TABLE IF NOT EXISTS users (
-                                id SERIAL PRIMARY KEY,
-                                email VARCHAR(255) NOT NULL,
-                                password_hash VARCHAR(255) NOT NULL,
-                                full_name VARCHAR(255),
-                                role VARCHAR(50) NOT NULL DEFAULT 'user',
-                                email_verified BOOLEAN NOT NULL DEFAULT FALSE,
-                                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                last_login TIMESTAMP
-                            )
-                        """
-                            )
-                        )
-
-                        # Create unique index on email if it doesn't exist
-                        try:
-                            conn.execute(
-                                text(
-                                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)"
-                                )
-                            )
-                            logger.info("✅ Created users table and email index")
-                        except Exception as idx_error:
-                            logger.debug(
-                                f"Index creation had issue (may already exist): {idx_error}"
-                            )
-
-                    # Now create all other tables using SQLAlchemy
-                    logger.info("Creating remaining tables...")
-                    try:
-                        Base.metadata.create_all(bind=engine, checkfirst=True)
-                        logger.info("✅ All tables created successfully")
-                    except Exception as create_error:
-                        error_str = str(create_error).lower()
-                        # If it's an index error, that's OK - tables might still be created
-                        if "index" in error_str or "duplicatetable" in error_str:
-                            logger.warning(
-                                f"Index error during create_all (non-critical): {create_error}"
-                            )
-                            # Continue - tables might still be created
-                        else:
-                            logger.warning(f"Error during create_all: {create_error}")
-
-                    # Verify users table exists
-                    inspector = sqla_inspect(engine)
-                    tables = inspector.get_table_names()
-                    logger.info(f"✅ Existing tables: {tables}")
-
-                    if "users" in tables:
-                        logger.info("✅ Users table confirmed to exist")
-                        return MessageResponse(
-                            message="✅ Database fix complete! Orphaned index dropped and tables created successfully.",
-                            status="success",
-                        )
-                    else:
-                        logger.warning("⚠️ Users table still doesn't exist after create_all")
-                        return MessageResponse(
-                            message=f"⚠️ Index dropped but table creation had issues. Existing tables: {tables}",
-                            status="warning",
-                        )
-                except Exception as create_error:
-                    logger.error(f"Error creating tables: {create_error}", exc_info=True)
-                    raise
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error during database fix: {e}", exc_info=True)
-            raise
-
-    except Exception as e:
-        logger.error(f"Error in fix_database endpoint: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fix database: {str(e)}",
-        )
 
 
 @app.get("/api/admin/audit-logs", tags=["Admin"])

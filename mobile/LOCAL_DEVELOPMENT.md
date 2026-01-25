@@ -231,13 +231,13 @@ console.error('Full error:', JSON.stringify(error, null, 2));
    ```bash
    # In another terminal
    cd /path/to/pantry
-   python3 start.py
+   ./start-backend-local.sh
    ```
 
 2. **Start mobile app**:
    ```bash
    cd mobile
-   EXPO_PUBLIC_API_URL="http://localhost:8000" npm start
+   EXPO_PUBLIC_API_URL="http://localhost:8000" ./run-local.sh
    ```
 
 3. **Open iOS Simulator**:

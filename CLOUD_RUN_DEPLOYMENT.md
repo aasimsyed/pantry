@@ -333,44 +333,6 @@ gcloud builds triggers create github \
 - Optimize resource allocation (memory/CPU)
 - Use Cloud Run's free tier (2 million requests/month)
 
-## Migration from Railway
-
-### Key Differences
-
-| Aspect | Railway | Cloud Run |
-|--------|---------|-----------|
-| Port | Uses PORT env var | Uses PORT env var (typically 8080) |
-| Build | Nixpacks or Dockerfile | Dockerfile |
-| Scaling | Manual | Automatic (0 to N instances) |
-| Pricing | Usage-based | Pay per request + compute time |
-| Database | Managed PostgreSQL | Cloud SQL or external |
-
-### Migration Steps
-
-1. **Export environment variables from Railway:**
-   - Note all environment variables from Railway dashboard
-
-2. **Deploy to Cloud Run:**
-   - Use the deployment script or manual steps above
-
-3. **Migrate Database (if needed):**
-   - Export data from Railway PostgreSQL
-   - Import to Cloud SQL or new PostgreSQL instance
-   - Update DATABASE_URL in Cloud Run
-
-4. **Update Frontend:**
-   - Update API endpoint in frontend configuration
-   - Update CORS settings
-
-5. **Test:**
-   - Verify all endpoints work correctly
-   - Test authentication flows
-   - Monitor logs for errors
-
-6. **Switch DNS/Update Frontend:**
-   - Update frontend to point to Cloud Run URL
-   - Or set up custom domain for Cloud Run
-
 ## Cost Estimation
 
 Cloud Run pricing is based on:
@@ -383,8 +345,6 @@ Example monthly cost for moderate usage:
 - 360 GiB-hours memory (0.5GB, 720 hours): ~$0.32
 - 180 vCPU-hours: ~$1.55
 - **Total: ~$2.27/month**
-
-Compare with Railway pricing to estimate savings.
 
 ## Next Steps
 

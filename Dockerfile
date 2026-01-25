@@ -1,5 +1,5 @@
 # Dockerfile for FastAPI backend
-# Use this for Docker-based deployments (Railway, Fly.io, Cloud Run, self-hosting)
+# Production: Cloud Run. Also usable for self-hosted Docker.
 
 FROM python:3.11-slim
 
@@ -32,6 +32,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Run the application
 # Use start_server.py which handles database initialization and then starts uvicorn
-# Platforms like Cloud Run, Railway, and Fly.io will override PORT via environment variable
+# Cloud Run sets PORT; override via env for local Docker.
 CMD ["python", "start_server.py"]
 

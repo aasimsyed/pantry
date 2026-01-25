@@ -77,27 +77,13 @@ dashboard/
 *.sh
 !deploy-cloud-run.sh
 
-# Railway specific files
-railway.json
-RAILWAY_ENV_VARIABLES_GUIDE.md
-check_and_set_railway_vars.sh
-set_railway*.sh
-sync_railway_env.sh
-test_railway_auth.sh
-
-# Fly.io specific files
-fly.toml.example
-
-# Docker compose (not needed for Cloud Run)
+# Docker compose (local dev only, not used by Cloud Run)
 docker-compose.yml
 
 # Cache
 cache/
 *.db-shm
 *.db-wal
-
-# Example files
-example_*.py
 
 # Test files
 tests/

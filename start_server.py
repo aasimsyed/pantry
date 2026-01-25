@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-Start script for containerized deployments (Railway, Cloud Run, Fly.io, etc.).
-Reads PORT from environment and starts uvicorn server.
-Automatically initializes database schema on startup.
+Start script for production (Cloud Run) and containerized deployments.
+Reads PORT from environment; initializes DB schema on startup.
 """
 import os
 import sys
 
 if __name__ == "__main__":
     # Initialize database schema (creates tables if they don't exist)
-    import sys
     print("🔧 Initializing database schema...", file=sys.stderr, flush=True)
     try:
         from src.database import init_database, get_database_url
@@ -24,7 +22,7 @@ if __name__ == "__main__":
         # Continue anyway - tables might already exist
         print("⚠️  Continuing startup despite database warning...", file=sys.stderr, flush=True)
     
-    # Get PORT from environment (Cloud Run, Railway, etc. set this automatically)
+    # PORT set by Cloud Run or Docker
     port = int(os.environ.get("PORT", 8000))
     host = os.environ.get("HOST", "0.0.0.0")
     

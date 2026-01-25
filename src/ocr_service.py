@@ -599,7 +599,7 @@ class GoogleVisionOCR(OCRBackend):
         if not self._creds_available():
             return
         try:
-            # Handle credentials: file path (local) or JSON content (Railway)
+            # Handle credentials: file path (local) or JSON content (e.g. Cloud Run secrets)
             creds_value = self.config.google_credentials_path
             if creds_value and creds_value.strip().startswith('{'):
                 import json

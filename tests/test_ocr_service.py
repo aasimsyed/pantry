@@ -469,8 +469,9 @@ class TestOCRService:
         not TesseractOCR(OCRConfig()).is_available(),
         reason="Tesseract not installed"
     )
-    def test_caching(self, config: OCRConfig, test_image: str) -> None:
+    def test_caching(self, config: OCRConfig, test_image: str, monkeypatch) -> None:
         """Test that caching works correctly."""
+        monkeypatch.setenv("OCR_CACHE_MIN_CONFIDENCE", "0")  # cache even low-confidence results
         service = OCRService(config)
         
         # First call should not be cached
@@ -689,12 +690,13 @@ class TestPerformance:
     def test_cache_improves_performance(
         self,
         config: OCRConfig,
-        test_image: str
+        test_image: str,
+        monkeypatch,
     ) -> None:
         """Test that caching improves performance."""
         if not TesseractOCR(OCRConfig()).is_available():
             pytest.skip("Tesseract not installed")
-        
+        monkeypatch.setenv("OCR_CACHE_MIN_CONFIDENCE", "0")
         service = OCRService(config)
         
         # First call (no cache)

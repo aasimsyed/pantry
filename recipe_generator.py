@@ -243,7 +243,7 @@ class RecipeGenerator:
             # GPT-4 is faster and can handle more recipes
             # Allow up to 55s (leaving 5s buffer) to maximize recipe generation
             # GPT-4 can generate 10 recipes in ~60-90s, so we're more lenient
-            max_time_seconds = 55  # Leave 5 seconds buffer before Railway's 60s timeout
+            max_time_seconds = 55  # Buffer before typical HTTP gateway timeout (~60s)
         
         for i in range(num_recipes):
             # Check if we're running out of time (skip if streaming)
@@ -256,7 +256,7 @@ class RecipeGenerator:
                 
                 # For GPT-4, be more lenient - only stop if we're very close to 60s
                 if not is_claude and elapsed > 58:
-                    print(f"    ⚠️  Very close to Railway timeout ({elapsed:.1f}s), stopping generation")
+                    print(f"    ⚠️  Near timeout ({elapsed:.1f}s), stopping generation")
                     print(f"    ✅ Generated {len(recipes)}/{num_recipes} recipes")
                     break
             
@@ -340,7 +340,7 @@ class RecipeGenerator:
         backend = self.analyzer._get_backend()
         
         # Call AI model directly based on backend type
-        # Use lower max_tokens for faster response to avoid Railway's 60s HTTP timeout
+        # Use lower max_tokens for faster response to avoid HTTP gateway timeout
         # Recipes don't need 2000 tokens - 1500 is sufficient for quality recipes
         recipe_max_tokens = min(1500, backend.config.max_tokens)  # Cap at 1500 for speed
         
