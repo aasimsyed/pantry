@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import { OfflineBanner } from './src/components/OfflineBanner';
 import { getTheme } from './src/utils/theme';
 import { getDesignSystem } from './src/utils/designSystem';
 
@@ -23,6 +24,7 @@ function AppContent() {
       <PaperProvider theme={theme}>
         <AuthProvider>
           <AppNavigator />
+          <OfflineBanner />
         </AuthProvider>
       </PaperProvider>
     </>

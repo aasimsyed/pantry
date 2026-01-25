@@ -43,11 +43,44 @@ if (__DEV__) {
   console.log('[API] Base URL:', API_BASE_URL);
 }
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const RETRY_DELAY_BASE = 1000; // 1 second base delay
+const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
+const RETRYABLE_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ERR_NETWORK'];
+
+// Helper to check if error is retryable
+function isRetryableError(error: any): boolean {
+  // Network errors (no response)
+  if (!error.response) {
+    const code = error.code || error.message;
+    return RETRYABLE_ERROR_CODES.some(retryableCode => 
+      code?.includes(retryableCode) || 
+      error.message?.includes('Network Error') ||
+      error.message?.includes('timeout')
+    );
+  }
+  // HTTP status codes that are retryable
+  return RETRYABLE_STATUS_CODES.includes(error.response.status);
+}
+
+// Helper to calculate exponential backoff delay
+function getRetryDelay(attempt: number): number {
+  return RETRY_DELAY_BASE * Math.pow(2, attempt);
+}
+
+// Helper to sleep/delay
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 class APIClient {
   private client: AxiosInstance;
   private baseTimeout: number = 30; // Increased to 30 seconds
   private accessToken: string | null = null;
   private isRefreshing: boolean = false; // Prevent concurrent refresh attempts
+  private pendingRequests: Array<() => Promise<any>> = []; // Queue for offline requests
+  private isOnline: boolean = true; // Track online status
 
   constructor(baseURL: string = API_BASE_URL) {
     this.client = axios.create({
@@ -72,14 +105,37 @@ class APIClient {
       (error) => Promise.reject(error)
     );
 
-    // Add response interceptor for error handling and token refresh
+    // Add response interceptor for error handling, token refresh, and retry logic
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Mark as online when we get a successful response
+        if (!this.isOnline) {
+          this.isOnline = true;
+          this.processPendingRequests();
+        }
+        return response;
+      },
       async (error) => {
+        const originalRequest = error.config;
+        const retryCount = originalRequest?._retryCount || 0;
+
+        // Detect offline status
+        const isNetworkError = !error.response && (
+          error.code === 'ERR_NETWORK' ||
+          error.code === 'ECONNABORTED' ||
+          error.code === 'ETIMEDOUT' ||
+          error.message?.includes('Network Error') ||
+          error.message?.includes('timeout')
+        );
+
+        if (isNetworkError) {
+          this.isOnline = false;
+        }
+
         // Handle 401: token expired, try to refresh
         if (error.response?.status === 401 && this.accessToken && !this.isRefreshing) {
           // Skip refresh if this is already a refresh request (avoid infinite loop)
-          if (error.config?.url?.includes('/api/auth/refresh')) {
+          if (originalRequest?.url?.includes('/api/auth/refresh')) {
             // Refresh token is invalid, clear tokens
             this.clearTokens();
           } else {
@@ -88,9 +144,9 @@ class APIClient {
               this.isRefreshing = true;
               await this.refreshAccessToken();
               // Retry original request
-              if (error.config) {
-                error.config.headers.Authorization = `Bearer ${this.accessToken}`;
-                return this.client.request(error.config);
+              if (originalRequest) {
+                originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
+                return this.client.request(originalRequest);
               }
             } catch (refreshError: any) {
               // Refresh failed (429 rate limit, 401 invalid token, etc.), clear tokens
@@ -104,15 +160,31 @@ class APIClient {
             }
           }
         }
+
+        // Retry logic for retryable errors
+        if (isRetryableError(error) && retryCount < MAX_RETRIES && originalRequest) {
+          originalRequest._retryCount = retryCount + 1;
+          const delay = getRetryDelay(retryCount);
+          
+          console.log(`Retrying request (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
+          
+          await sleep(delay);
+          return this.client.request(originalRequest);
+        }
+
         // Log error with more details for debugging
         if (error.response) {
           console.error(`API request failed: ${error.response.status} ${error.response.statusText}`, {
-            url: error.config?.url,
-            method: error.config?.method,
+            url: originalRequest?.url,
+            method: originalRequest?.method,
             data: error.response.data,
+            retryCount,
           });
         } else {
-          console.error('API request failed:', error.message || error);
+          console.error('API request failed:', error.message || error, {
+            code: error.code,
+            retryCount,
+          });
         }
         throw error;
       }
@@ -521,6 +593,28 @@ class APIClient {
   async updateUserSettings(data: { ai_provider?: string; ai_model?: string }): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
     return this.request('PUT', '/api/user/settings', { data });
   }
+
+  // Offline request queue management
+  private async processPendingRequests(): Promise<void> {
+    if (this.pendingRequests.length === 0) return;
+    
+    console.log(`Processing ${this.pendingRequests.length} pending requests...`);
+    const requests = [...this.pendingRequests];
+    this.pendingRequests = [];
+    
+    for (const requestFn of requests) {
+      try {
+        await requestFn();
+      } catch (error) {
+        console.error('Failed to process pending request:', error);
+      }
+    }
+  }
+
+  // Check if currently online
+  isCurrentlyOnline(): boolean {
+    return this.isOnline;
+  }
 }
 
 // Export singleton instance
@@ -529,19 +623,109 @@ export default apiClient;
 
 /**
  * Extract user-friendly error message from API errors.
- * Prefers API `detail` over axios "Request failed with status code 500".
- * Appends request_id for 500s when present so you can look up logs.
+ * Handles validation errors, network errors, and provides actionable messages.
  */
 export function getApiErrorMessage(error: unknown): string {
   if (!error || typeof error !== 'object') return String(error);
-  const err = error as { response?: { data?: { detail?: string; request_id?: string }; status?: number }; message?: string };
-  const detail = err.response?.data?.detail;
-  const requestId = err.response?.data?.request_id;
-  const status = err.response?.status;
-  let msg = typeof detail === 'string' && detail ? detail : err.message ?? 'Request failed';
-  if (status === 500 && requestId) {
-    msg += ` (request_id: ${requestId})`;
+  
+  const err = error as { 
+    response?: { 
+      data?: { 
+        detail?: string | Array<{ loc?: string[]; msg?: string; type?: string }>;
+        message?: string;
+        request_id?: string;
+        errors?: Record<string, string[]>;
+      }; 
+      status?: number;
+    }; 
+    message?: string;
+    code?: string;
+  };
+
+  // Network/offline errors
+  if (!err.response) {
+    const code = err.code || err.message;
+    if (code === 'ERR_NETWORK' || code === 'ECONNABORTED' || code === 'ETIMEDOUT' || 
+        err.message?.includes('Network Error') || err.message?.includes('timeout')) {
+      return 'No internet connection. Please check your network and try again.';
+    }
+    if (code === 'ECONNREFUSED' || code === 'ENOTFOUND') {
+      return 'Cannot reach server. Please check your connection or try again later.';
+    }
+    return err.message || 'Network error occurred';
   }
-  return msg;
+
+  const status = err.response.status;
+  const data = err.response.data || {};
+  const requestId = data.request_id;
+
+  // Validation errors (422)
+  if (status === 422) {
+    const detail = data.detail;
+    
+    // Array of validation errors
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .filter((item: any) => item.msg)
+        .map((item: any) => {
+          const field = item.loc?.slice(-1)[0] || 'field';
+          return `${field}: ${item.msg}`;
+        });
+      return messages.length > 0 ? messages.join('\n') : 'Validation error';
+    }
+    
+    // Object with field errors
+    if (data.errors && typeof data.errors === 'object') {
+      const messages = Object.entries(data.errors)
+        .map(([field, errors]) => {
+          const errorList = Array.isArray(errors) ? errors.join(', ') : String(errors);
+          return `${field}: ${errorList}`;
+        });
+      return messages.length > 0 ? messages.join('\n') : 'Validation error';
+    }
+    
+    // String detail
+    if (typeof detail === 'string' && detail) {
+      return detail;
+    }
+    
+    return 'Please check your input and try again.';
+  }
+
+  // Authentication errors
+  if (status === 401) {
+    return 'Your session has expired. Please log in again.';
+  }
+  if (status === 403) {
+    return 'You do not have permission to perform this action.';
+  }
+
+  // Rate limiting
+  if (status === 429) {
+    return 'Too many requests. Please wait a moment and try again.';
+  }
+
+  // Server errors
+  if (status !== undefined && status >= 500) {
+    const detail = typeof data.detail === 'string' ? data.detail : data.message;
+    let msg = detail || 'Server error occurred. Please try again later.';
+    if (requestId) {
+      msg += ` (ID: ${requestId})`;
+    }
+    return msg;
+  }
+
+  // Client errors (400, 404, etc.)
+  if (status !== undefined && status >= 400) {
+    const detail = typeof data.detail === 'string' ? data.detail : data.message;
+    if (detail) return detail;
+    if (status === 404) return 'Resource not found.';
+    if (status === 400) return 'Invalid request. Please check your input.';
+    return `Request failed (${status})`;
+  }
+
+  // Fallback
+  const detail = typeof data.detail === 'string' ? data.detail : data.message;
+  return detail || err.message || 'Request failed';
 }
 
