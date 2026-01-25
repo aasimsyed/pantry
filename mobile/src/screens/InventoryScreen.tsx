@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
 import {
   Card,
   Text,
@@ -13,15 +13,20 @@ import {
   ActivityIndicator,
   IconButton,
 } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
+import { useTheme } from '../contexts/ThemeContext';
+import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { InventoryItem } from '../types';
 
 export default function InventoryScreen() {
   const navigation = useNavigation();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -284,7 +289,7 @@ export default function InventoryScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
         <PantrySelector
           selectedPantryId={selectedPantryId}
@@ -321,101 +326,124 @@ export default function InventoryScreen() {
           {filteredItems.length} items
         </Text>
 
-        {filteredItems.map((item) => (
-          <Card key={item.id} style={styles.card}>
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitle}>
-                  {(() => {
-                    // Clean up product name to remove duplicate brand names
-                    let displayName = item.product_name || 'Unknown';
-                    if (item.brand && item.product_name) {
-                      const brand = item.brand.trim();
-                      let name = item.product_name;
-                      
-                      // Strategy 1: Remove brand from the start (most common case)
-                      const brandLower = brand.toLowerCase();
-                      const nameLower = name.toLowerCase();
-                      
-                      // Check if product name starts with brand (with optional space/hyphen)
-                      if (nameLower.startsWith(brandLower)) {
-                        // Remove brand from start, including any following space, hyphen, or space-hyphen
-                        const afterBrand = name.substring(brand.length);
-                        name = afterBrand.replace(/^[\s-]+/, '').trim();
-                      }
-                      
-                      // Strategy 2: Remove all instances of brand as whole word (case-insensitive)
-                      // Escape special regex characters
-                      const escapedBrand = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      // Match brand as whole word, or at start/end of string
-                      const brandRegex = new RegExp(`(^|\\s)${escapedBrand}(\\s|$)`, 'gi');
-                      name = name.replace(brandRegex, (match, before, after) => {
-                        // Preserve the space before if it exists, but remove brand and space after
-                        return before || '';
-                      }).trim();
-                      
-                      // Strategy 3: Remove exact brand matches (case-insensitive) anywhere
-                      // Split by spaces and filter out brand matches
-                      const words = name.split(/\s+/);
-                      const filteredWords = words.filter(word => 
-                        word.toLowerCase() !== brandLower
-                      );
-                      name = filteredWords.join(' ');
-                      
-                      // Clean up multiple spaces and trim
-                      name = name.replace(/\s+/g, ' ').trim();
-                      
-                      // If we removed everything, keep the original
-                      if (name.length === 0) {
-                        name = item.product_name;
-                      }
-                      
-                      displayName = name;
-                    }
-                    return <Text variant="titleMedium">{displayName}</Text>;
-                  })()}
-                  {item.brand && (
-                    <Text variant="bodySmall" style={styles.brand}>
-                      Brand: {item.brand}
-                    </Text>
+        {filteredItems.map((item) => {
+          // Clean up product name to remove duplicate brand names
+          let displayName = item.product_name || 'Unknown';
+          if (item.brand && item.product_name) {
+            const brand = item.brand.trim();
+            let name = item.product_name;
+            
+            const brandLower = brand.toLowerCase();
+            const nameLower = name.toLowerCase();
+            
+            if (nameLower.startsWith(brandLower)) {
+              const afterBrand = name.substring(brand.length);
+              name = afterBrand.replace(/^[\s-]+/, '').trim();
+            }
+            
+            const escapedBrand = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const brandRegex = new RegExp(`(^|\\s)${escapedBrand}(\\s|$)`, 'gi');
+            name = name.replace(brandRegex, (match, before, after) => {
+              return before || '';
+            }).trim();
+            
+            const words = name.split(/\s+/);
+            const filteredWords = words.filter(word => 
+              word.toLowerCase() !== brandLower
+            );
+            name = filteredWords.join(' ');
+            name = name.replace(/\s+/g, ' ').trim();
+            
+            if (name.length === 0) {
+              name = item.product_name;
+            }
+            
+            displayName = name;
+          }
+
+          const locationColor = item.storage_location === 'pantry' 
+            ? ds.colors.pantry 
+            : item.storage_location === 'fridge'
+            ? ds.colors.fridge
+            : ds.colors.freezer;
+
+          return (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.9}
+              onPress={() => handleEditItem(item)}
+            >
+              <Card style={styles.modernCard}>
+                <Card.Content style={styles.modernCardContent}>
+                  <View style={styles.modernCardHeader}>
+                    <View style={styles.modernCardTitleSection}>
+                      <Text style={styles.modernProductName}>{displayName}</Text>
+                      {item.brand && (
+                        <View style={styles.brandBadge}>
+                          <Text style={styles.brandText}>{item.brand}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.modernCardActions}>
+                      <TouchableOpacity
+                        style={[styles.actionIconButton, { backgroundColor: ds.colors.surfaceHover }]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleEditItem(item);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="pencil" size={20} color={ds.colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionIconButton, { backgroundColor: ds.colors.surfaceHover }]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeleteItem(item);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="delete" size={20} color={ds.colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.modernDetailsRow}>
+                    <View style={[styles.quantityBadge, { backgroundColor: ds.colors.surfaceHover }]}>
+                      <MaterialCommunityIcons name="scale" size={16} color={ds.colors.textSecondary} />
+                      <Text style={[styles.quantityText, getTextStyle('label', ds.colors.textPrimary, isDark)]}>
+                        {item.quantity} {item.unit}
+                      </Text>
+                    </View>
+                    <View style={[styles.locationBadge, { backgroundColor: `${locationColor}15` }]}>
+                      <MaterialCommunityIcons 
+                        name={item.storage_location === 'pantry' ? 'archive' : item.storage_location === 'fridge' ? 'fridge' : 'snowflake'} 
+                        size={16} 
+                        color={locationColor} 
+                      />
+                      <Text style={[styles.locationText, { color: locationColor }]}>
+                        {item.storage_location?.charAt(0).toUpperCase()}{item.storage_location?.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {item.expiration_date && (
+                    <View style={styles.expirationRow}>
+                      <MaterialCommunityIcons name="calendar-clock" size={16} color={ds.colors.warning} />
+                      <Text style={[styles.expirationText, getTextStyle('caption', ds.colors.warning, isDark)]}>
+                        Expires: {new Date(item.expiration_date).toLocaleDateString()}
+                      </Text>
+                    </View>
                   )}
-                </View>
-                <View style={styles.cardActions}>
-                  <IconButton
-                    icon="pencil"
-                    size={20}
-                    onPress={() => handleEditItem(item)}
-                  />
-                  <IconButton
-                    icon="delete"
-                    size={20}
-                    iconColor="#dc2626"
-                    onPress={() => handleDeleteItem(item)}
-                  />
-                </View>
-              </View>
-              <View style={styles.details}>
-                <Text variant="bodyMedium">
-                  {item.quantity} {item.unit}
-                </Text>
-                <Text variant="bodySmall" style={styles.location}>
-                  📍 {item.storage_location?.charAt(0).toUpperCase()}
-                  {item.storage_location?.slice(1)}
-                </Text>
-              </View>
-              {item.expiration_date && (
-                <Text variant="bodySmall" style={styles.expiration}>
-                  📅 Expires: {new Date(item.expiration_date).toLocaleDateString()}
-                </Text>
-              )}
-            </Card.Content>
-          </Card>
-        ))}
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       <FAB
         icon="camera"
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: ds.colors.accent }]}
+        color={ds.colors.surface}
         onPress={() => setDialogVisible(true)}
       />
 
@@ -452,7 +480,7 @@ export default function InventoryScreen() {
                 ❄️ Freezer
               </Button>
             </View>
-            <View style={styles.separator} />
+            <View style={[styles.separator, { backgroundColor: ds.colors.surfaceHover }]} />
             <Button
               mode="contained"
               icon="camera"
@@ -751,7 +779,6 @@ export default function InventoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   center: {
     flex: 1,
@@ -759,70 +786,205 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: 16,
+    padding: DesignSystem.spacing.md,
   },
   searchbar: {
-    marginBottom: 12,
+    marginBottom: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.md,
+    ...DesignSystem.shadows.sm,
   },
   chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: DesignSystem.spacing.md,
+    marginHorizontal: -DesignSystem.spacing.xs,
   },
   chip: {
-    marginRight: 8,
-    marginBottom: 8,
+    marginRight: DesignSystem.spacing.sm,
+    marginBottom: DesignSystem.spacing.sm,
+    marginHorizontal: DesignSystem.spacing.xs,
+    borderRadius: DesignSystem.borderRadius.full,
   },
   count: {
-    marginBottom: 12,
+    marginBottom: DesignSystem.spacing.md,
+    paddingHorizontal: DesignSystem.spacing.sm,
+  },
+  // Modern Card Styles
+  modernCard: {
+    marginBottom: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.lg,
+    ...DesignSystem.shadows.md,
+    overflow: 'hidden',
+  },
+  modernCardContent: {
+    padding: DesignSystem.spacing.md,
+  },
+  modernCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: DesignSystem.spacing.md,
+  },
+  modernCardTitleSection: {
+    flex: 1,
+    marginRight: DesignSystem.spacing.sm,
+  },
+  modernProductName: {
+    marginBottom: DesignSystem.spacing.xs,
+  },
+  brandBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: DesignSystem.spacing.sm,
+    paddingVertical: DesignSystem.spacing.xs,
+    borderRadius: DesignSystem.borderRadius.sm,
+    marginTop: DesignSystem.spacing.xs,
+  },
+  brandText: {
+  },
+  modernCardActions: {
+    flexDirection: 'row',
+    gap: DesignSystem.spacing.xs,
+  },
+  actionIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: DesignSystem.borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modernDetailsRow: {
+    flexDirection: 'row',
+    gap: DesignSystem.spacing.sm,
+    marginBottom: DesignSystem.spacing.sm,
+    flexWrap: 'wrap',
+  },
+  quantityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: DesignSystem.spacing.sm,
+    paddingVertical: DesignSystem.spacing.xs,
+    borderRadius: DesignSystem.borderRadius.md,
+    gap: DesignSystem.spacing.xs,
+  },
+  quantityText: {
+  },
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: DesignSystem.spacing.sm,
+    paddingVertical: DesignSystem.spacing.xs,
+    borderRadius: DesignSystem.borderRadius.md,
+    gap: DesignSystem.spacing.xs,
+  },
+  locationText: {
+    ...getTextStyle('label'),
     fontWeight: '600',
   },
+  expirationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignSystem.spacing.xs,
+    marginTop: DesignSystem.spacing.xs,
+  },
+  expirationText: {
+  },
+  // Legacy styles (keeping for compatibility)
   card: {
-    marginBottom: 12,
-    elevation: 2,
+    marginBottom: DesignSystem.spacing.md,
+    ...DesignSystem.shadows.md,
   },
   brand: {
-    color: '#6b7280',
-    marginTop: 4,
+    marginTop: DesignSystem.spacing.xs,
   },
   details: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: DesignSystem.spacing.sm,
   },
   location: {
-    color: '#6b7280',
   },
   expiration: {
-    color: '#f97316',
-    marginTop: 4,
+    marginTop: DesignSystem.spacing.xs,
   },
   fab: {
     position: 'absolute',
     right: 16,
     bottom: 16,
-    backgroundColor: '#0284c7',
+    borderRadius: 9999,
+    elevation: 8,
   },
   dialogButton: {
-    marginVertical: 8,
+    marginVertical: DesignSystem.spacing.sm,
   },
   locationLabel: {
-    marginBottom: 8,
-    fontWeight: '600',
+    marginBottom: DesignSystem.spacing.sm,
   },
   locationSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: DesignSystem.spacing.md,
+    gap: DesignSystem.spacing.sm,
   },
   locationButton: {
     flex: 1,
   },
   separator: {
     height: 1,
-    backgroundColor: '#e5e7eb',
-    marginVertical: 16,
+    marginVertical: DesignSystem.spacing.md,
+  },
+  // Modern Dialog Styles
+  modernDialog: {
+    borderRadius: DesignSystem.borderRadius.xl,
+  },
+  modernDialogTitle: {
+    paddingBottom: DesignSystem.spacing.sm,
+  },
+  modernDialogContent: {
+    paddingTop: DesignSystem.spacing.md,
+  },
+  modernLocationButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: DesignSystem.spacing.md,
+    paddingHorizontal: DesignSystem.spacing.sm,
+    borderRadius: DesignSystem.borderRadius.md,
+    borderWidth: 2,
+    gap: DesignSystem.spacing.xs,
+  },
+  modernLocationButtonActive: {
+    // Colors applied inline
+  },
+  modernLocationButtonText: {
+  },
+  modernLocationButtonTextActive: {
+    fontWeight: '600',
+  },
+  modernDialogActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: DesignSystem.spacing.md,
+    paddingHorizontal: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.md,
+    marginBottom: DesignSystem.spacing.sm,
+    gap: DesignSystem.spacing.sm,
+    ...DesignSystem.shadows.sm,
+  },
+  modernDialogActionButtonOutlined: {
+    borderWidth: 2,
+  },
+  modernDialogActionText: {
+    fontWeight: '600',
+  },
+  modernDialogActionTextOutlined: {
+  },
+  modernDialogActions: {
+    paddingHorizontal: DesignSystem.spacing.md,
+    paddingBottom: DesignSystem.spacing.md,
+  },
+  modernDialogCancelLabel: {
   },
   processingText: {
     marginTop: 16,

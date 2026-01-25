@@ -1,13 +1,18 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View, TouchableOpacity, Animated, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Button, Text, useTheme } from 'react-native-paper';
+import { Card, Button, Text, useTheme as usePaperTheme } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const theme = useTheme();
+  const paperTheme = usePaperTheme();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const { user, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -17,175 +22,261 @@ export default function HomeScreen() {
   const quickActions = [
     { 
       title: 'View Inventory', 
+      subtitle: 'Manage your pantry',
       icon: 'package-variant', 
       screen: 'Inventory',
-      color: '#3b82f6'
+      gradient: ['#3B82F6', '#2563EB'],
+      iconBg: 'rgba(59, 130, 246, 0.1)',
     },
     { 
       title: 'Generate Recipes', 
+      subtitle: 'AI-powered suggestions',
       icon: 'chef-hat', 
       screen: 'Recipes',
-      color: '#10b981'
+      gradient: ['#10B981', '#059669'],
+      iconBg: 'rgba(16, 185, 129, 0.1)',
     },
     { 
       title: 'View Statistics', 
+      subtitle: 'Insights & analytics',
       icon: 'chart-bar', 
       screen: 'Statistics',
-      color: '#8b5cf6'
+      gradient: ['#8B5CF6', '#7C3AED'],
+      iconBg: 'rgba(139, 92, 246, 0.1)',
     },
-        {
-          title: 'Recipe Box',
-          icon: 'book-open-variant',
-          screen: 'RecipeBox',
-          color: '#ec4899'
-        },
-        {
-          title: 'Settings',
-          icon: 'cog',
-          screen: 'Settings',
-          color: '#6b7280'
-        },
-      ];
+    {
+      title: 'Recipe Box',
+      subtitle: 'Your saved recipes',
+      icon: 'book-open-variant',
+      screen: 'RecipeBox',
+      gradient: ['#EC4899', '#DB2777'],
+      iconBg: 'rgba(236, 72, 153, 0.1)',
+    },
+    {
+      title: 'Settings',
+      subtitle: 'Preferences & account',
+      icon: 'cog',
+      screen: 'Settings',
+      gradient: ['#6B7280', '#4B5563'],
+      iconBg: 'rgba(107, 114, 128, 0.1)',
+    },
+  ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-      <Text variant="headlineLarge" style={styles.title}>
-        Smart Pantry
-      </Text>
-      <Text variant="bodyLarge" style={styles.subtitle}>
-        Manage your pantry inventory with AI-powered OCR and recipe generation
-      </Text>
-
-      <Text variant="titleMedium" style={styles.sectionTitle}>
-        Quick Actions
-      </Text>
-
-      {quickActions.map((action, index) => (
-        <Card
-          key={index}
-          style={styles.card}
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={ds.colors.background} />
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: ds.colors.background }}
         >
-          <Card.Content style={styles.cardContent}>
-            <Button
-              icon={action.icon}
-              mode="contained"
-              buttonColor={action.color}
-              style={styles.actionButton}
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <Text style={[styles.heroTitle, getTextStyle('display', ds.colors.primary, isDark)]}>Smart Pantry</Text>
+          <Text style={[styles.heroSubtitle, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
+            Manage your pantry with AI-powered intelligence
+          </Text>
+        </View>
+
+        {/* Quick Actions Grid */}
+        <View style={styles.quickActionsGrid}>
+          {quickActions.map((action, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.actionCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}
               onPress={() => navigation.navigate(action.screen as never)}
+              activeOpacity={0.8}
             >
-              {action.title}
-            </Button>
-          </Card.Content>
-        </Card>
-      ))}
+              <View style={[styles.actionIconContainer, { backgroundColor: action.iconBg }]}>
+                <MaterialCommunityIcons 
+                  name={action.icon as any} 
+                  size={28} 
+                  color={action.gradient[0]} 
+                />
+              </View>
+              <Text style={[styles.actionTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{action.title}</Text>
+              <Text style={[styles.actionSubtitle, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>{action.subtitle}</Text>
+              <View style={[styles.actionGradient, { backgroundColor: ds.colors.primary }]} />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      <Text variant="titleMedium" style={styles.sectionTitle}>
-        Features
-      </Text>
+        {/* Features Section */}
+        <View style={styles.featuresSection}>
+          <Text style={[styles.sectionTitle, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>Features</Text>
+          <View style={styles.featuresGrid}>
+            {[
+              { icon: '📸', title: 'Image Processing', desc: 'Automatic product extraction from photos' },
+              { icon: '🤖', title: 'AI Analysis', desc: 'Intelligent recognition and categorization' },
+              { icon: '🍳', title: 'Recipe Generation', desc: 'Flavor chemistry-based recipe suggestions' },
+              { icon: '📊', title: 'Analytics', desc: 'Track inventory and consumption patterns' },
+            ].map((feature, index) => (
+              <Card key={index} style={[styles.featureCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
+                <Card.Content style={styles.featureContent}>
+                  <Text style={styles.featureIcon}>{feature.icon}</Text>
+                  <Text style={[styles.featureTitle, getTextStyle('label', ds.colors.textPrimary, isDark)]}>{feature.title}</Text>
+                  <Text style={[styles.featureDesc, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>{feature.desc}</Text>
+                </Card.Content>
+              </Card>
+            ))}
+          </View>
+        </View>
 
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="bodyMedium">📸 Image Processing</Text>
-          <Text variant="bodySmall" style={styles.featureText}>
-            Upload images of pantry items and automatically extract product information
-          </Text>
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="bodyMedium">🤖 AI-Powered Analysis</Text>
-          <Text variant="bodySmall" style={styles.featureText}>
-            Intelligent product recognition and categorization
-          </Text>
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="bodyMedium">🍳 Recipe Generation</Text>
-          <Text variant="bodySmall" style={styles.featureText}>
-            Generate recipes based on available ingredients with flavor chemistry insights
-          </Text>
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="bodyMedium">📊 Analytics</Text>
-          <Text variant="bodySmall" style={styles.featureText}>
-            Track inventory, expiration dates, and consumption patterns
-          </Text>
-        </Card.Content>
-      </Card>
-
-      {user && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="bodyMedium" style={styles.userInfo}>
-              {user.full_name || user.email}
-            </Text>
-            <Button
-              mode="outlined"
-              onPress={handleLogout}
-              textColor="#dc2626"
-              style={styles.logoutButton}
-            >
-              Sign Out
-            </Button>
-          </Card.Content>
-        </Card>
-      )}
+        {/* User Section */}
+        {user && (
+          <Card style={[styles.userCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+            <Card.Content style={styles.userContent}>
+              <View style={styles.userInfo}>
+                <View style={[styles.userAvatar, { backgroundColor: ds.colors.surfaceHover }]}>
+                  <MaterialCommunityIcons name="account" size={24} color={ds.colors.primary} />
+                </View>
+                <View style={styles.userDetails}>
+                  <Text style={[styles.userName, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{user.full_name || 'User'}</Text>
+                  <Text style={[styles.userEmail, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>{user.email}</Text>
+                </View>
+              </View>
+              <Button
+                mode="outlined"
+                onPress={handleLogout}
+                textColor={ds.colors.error}
+                style={styles.logoutButton}
+                labelStyle={[styles.logoutLabel, getTextStyle('label', ds.colors.error, isDark)]}
+              >
+                Sign Out
+              </Button>
+            </Card.Content>
+          </Card>
+        )}
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   content: {
-    padding: 16,
+    padding: DesignSystem.spacing.md,
+    paddingBottom: DesignSystem.spacing.xxl,
   },
-  title: {
-    fontWeight: 'bold',
+  // Hero Section
+  heroSection: {
+    marginBottom: DesignSystem.spacing.xl,
+    paddingTop: DesignSystem.spacing.md,
+  },
+  heroTitle: {
     marginBottom: 8,
-    color: '#0284c7',
   },
-  subtitle: {
-    marginBottom: 24,
-    color: '#6b7280',
+  heroSubtitle: {
+    lineHeight: 24,
+  },
+  // Quick Actions
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -DesignSystem.spacing.sm,
+    marginBottom: DesignSystem.spacing.xl,
+  },
+  actionCard: {
+    width: '48%',
+    margin: '1%',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  actionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: DesignSystem.borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: DesignSystem.spacing.md,
+  },
+  actionTitle: {
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    marginBottom: 8,
+  },
+  actionGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    opacity: 0.1,
+  },
+  // Features
+  featuresSection: {
+    marginBottom: DesignSystem.spacing.xl,
   },
   sectionTitle: {
-    fontWeight: '600',
+    marginBottom: 16,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -DesignSystem.spacing.sm,
+  },
+  featureCard: {
+    width: '48%',
+    margin: '1%',
+    marginBottom: 16,
+    borderRadius: 16,
+  },
+  featureContent: {
+    padding: DesignSystem.spacing.md,
+    alignItems: 'center',
+  },
+  featureIcon: {
+    fontSize: 40,
+    marginBottom: DesignSystem.spacing.sm,
+  },
+  featureTitle: {
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  featureDesc: {
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  // User Card
+  userCard: {
+    borderRadius: 16,
     marginTop: 16,
-    marginBottom: 12,
-    color: '#111827',
   },
-  card: {
-    marginBottom: 12,
-    elevation: 2,
-  },
-  cardContent: {
-    paddingVertical: 8,
-  },
-  actionButton: {
-    marginVertical: 4,
-  },
-  featureText: {
-    marginTop: 4,
-    color: '#6b7280',
+  userContent: {
+    padding: DesignSystem.spacing.md,
   },
   userInfo: {
-    marginBottom: 8,
-    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignSystem.spacing.md,
+  },
+  userAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 9999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    marginBottom: 2,
+  },
+  userEmail: {
   },
   logoutButton: {
-    marginTop: 8,
-    borderColor: '#dc2626',
+    borderRadius: 12,
+  },
+  logoutLabel: {
   },
 });
 

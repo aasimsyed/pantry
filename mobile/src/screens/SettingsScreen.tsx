@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
@@ -8,8 +8,12 @@ import {
   RadioButton,
   ActivityIndicator,
   Divider,
+  List,
 } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
+import { useTheme } from '../contexts/ThemeContext';
+import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 
 interface UserSettings {
   id: number;
@@ -35,9 +39,11 @@ const AI_MODELS = {
 };
 
 export default function SettingsScreen() {
+  const { themeMode, isDark, setThemeMode } = useTheme();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const ds = getDesignSystem(isDark);
 
   useEffect(() => {
     loadSettings();
@@ -91,10 +97,10 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" />
-          <Text style={{ marginTop: 16 }}>Loading settings...</Text>
+          <ActivityIndicator size="large" color={ds.colors.primary} />
+          <Text style={[styles.loadingText, getTextStyle('body', ds.colors.textSecondary, isDark)]}>Loading settings...</Text>
         </View>
       </SafeAreaView>
     );
@@ -102,9 +108,9 @@ export default function SettingsScreen() {
 
   if (!settings) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.center}>
-          <Text>Failed to load settings</Text>
+          <Text style={getTextStyle('body', ds.colors.textPrimary, isDark)}>Failed to load settings</Text>
         </View>
       </SafeAreaView>
     );
@@ -115,24 +121,89 @@ export default function SettingsScreen() {
     : [];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-        <Text variant="headlineSmall" style={styles.title}>
+        <Text style={[styles.title, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>
           Settings
         </Text>
 
-        <Card style={styles.card}>
+        {/* Appearance Settings */}
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
           <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>
+              Appearance
+            </Text>
+            <Text style={[styles.description, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
+              Choose your preferred theme. System will follow your device settings.
+            </Text>
+
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+
+            <List.Item
+              title="Theme"
+              description={
+                themeMode === 'system' 
+                  ? 'Follow system' 
+                  : themeMode === 'dark' 
+                  ? 'Dark mode' 
+                  : 'Light mode'
+              }
+              left={(props) => (
+                <MaterialCommunityIcons 
+                  name={isDark ? "weather-night" : "weather-sunny"} 
+                  size={24} 
+                  color={ds.colors.primary} 
+                  style={{ marginTop: 8 }}
+                />
+              )}
+              right={() => (
+                <View style={styles.themeSelector}>
+                  <Button
+                    mode={themeMode === 'light' ? 'contained' : 'outlined'}
+                    onPress={() => setThemeMode('light')}
+                    compact
+                    style={styles.themeButton}
+                    labelStyle={styles.themeButtonLabel}
+                  >
+                    Light
+                  </Button>
+                  <Button
+                    mode={themeMode === 'system' ? 'contained' : 'outlined'}
+                    onPress={() => setThemeMode('system')}
+                    compact
+                    style={styles.themeButton}
+                    labelStyle={styles.themeButtonLabel}
+                  >
+                    System
+                  </Button>
+                  <Button
+                    mode={themeMode === 'dark' ? 'contained' : 'outlined'}
+                    onPress={() => setThemeMode('dark')}
+                    compact
+                    style={styles.themeButton}
+                    labelStyle={styles.themeButtonLabel}
+                  >
+                    Dark
+                  </Button>
+                </View>
+              )}
+              style={styles.listItem}
+            />
+          </Card.Content>
+        </Card>
+
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+          <Card.Content>
+            <Text style={[styles.sectionTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>
               AI Model Preferences
             </Text>
-            <Text variant="bodySmall" style={styles.description}>
+            <Text style={[styles.description, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
               Choose which AI model to use for recipe generation. GPT-5 offers the best quality and reasoning, GPT-4o provides excellent balance, while Claude models excel at creative recipes.
             </Text>
 
-            <Divider style={styles.divider} />
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
 
-            <Text variant="bodyMedium" style={styles.label}>
+            <Text style={[styles.label, getTextStyle('body', ds.colors.textPrimary, isDark)]}>
               AI Provider
             </Text>
             <RadioButton.Group
@@ -146,8 +217,8 @@ export default function SettingsScreen() {
 
             {settings.ai_provider && (
               <>
-                <Divider style={styles.divider} />
-                <Text variant="bodyMedium" style={styles.label}>
+                <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+                <Text style={[styles.label, getTextStyle('body', ds.colors.textPrimary, isDark)]}>
                   AI Model
                 </Text>
                 <RadioButton.Group
@@ -184,17 +255,17 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   content: {
     padding: 16,
   },
   title: {
     marginBottom: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   card: {
     marginBottom: 16,
+    borderRadius: 16,
   },
   sectionTitle: {
     marginBottom: 8,
@@ -202,7 +273,6 @@ const styles = StyleSheet.create({
   },
   description: {
     marginBottom: 16,
-    color: '#6b7280',
   },
   divider: {
     marginVertical: 16,
@@ -213,11 +283,30 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 24,
+    borderRadius: 12,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+  },
+  listItem: {
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  themeSelector: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  themeButton: {
+    borderRadius: 8,
+  },
+  themeButtonLabel: {
+    fontSize: 12,
   },
 });
 

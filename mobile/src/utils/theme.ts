@@ -1,18 +1,27 @@
-import { MD3LightTheme } from 'react-native-paper';
+import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
+import { getDesignSystem } from './designSystem';
 
-export const theme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: '#0284c7',
-    secondary: '#0ea5e9',
-    background: '#f9fafb',
-    surface: '#ffffff',
-    error: '#ef4444',
-    onPrimary: '#ffffff',
-    onSecondary: '#ffffff',
-    onBackground: '#111827',
-    onSurface: '#111827',
-  },
+export const getTheme = (isDark: boolean = false) => {
+  const baseTheme = isDark ? MD3DarkTheme : MD3LightTheme;
+  const ds = getDesignSystem(isDark);
+
+  return {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      primary: ds.colors.primary,
+      secondary: ds.colors.accent,
+      background: ds.colors.background,
+      surface: ds.colors.surface,
+      error: ds.colors.error,
+      onPrimary: ds.colors.textInverse,
+      onSecondary: ds.colors.textInverse,
+      onBackground: ds.colors.textPrimary,
+      onSurface: ds.colors.textPrimary,
+    },
+  };
 };
+
+// Legacy export for backward compatibility
+export const theme = getTheme(false);
 

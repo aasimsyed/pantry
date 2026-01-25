@@ -1,18 +1,40 @@
 import React from 'react';
+import { StatusBar } from 'react-native';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import AppNavigator from './src/navigation/AppNavigator';
-import { theme } from './src/utils/theme';
+import { getTheme } from './src/utils/theme';
+import { getDesignSystem } from './src/utils/designSystem';
 
-export default function App() {
+function AppContent() {
+  const { isDark } = useTheme();
+  const theme = getTheme(isDark);
+  const ds = getDesignSystem(isDark);
+
   return (
-    <SafeAreaProvider>
+    <>
+      <StatusBar 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
+        backgroundColor={ds.colors.background}
+        translucent={false}
+      />
       <PaperProvider theme={theme}>
         <AuthProvider>
           <AppNavigator />
         </AuthProvider>
       </PaperProvider>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

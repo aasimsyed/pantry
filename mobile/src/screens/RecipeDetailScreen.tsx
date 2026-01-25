@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
+import { useTheme } from '../contexts/ThemeContext';
+import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { Recipe, RecentRecipe, SavedRecipe } from '../types';
 
 type RouteParams = {
@@ -16,6 +19,8 @@ type RouteParams = {
 export default function RecipeDetailScreen() {
   const route = useRoute<RouteProp<RouteParams, 'RecipeDetail'>>();
   const navigation = useNavigation();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const { recipe: initialRecipe } = route.params;
   const [recipe, setRecipe] = useState(initialRecipe);
   const [editDialogVisible, setEditDialogVisible] = useState(false);
@@ -245,56 +250,78 @@ export default function RecipeDetailScreen() {
     : Array.isArray(recipe.instructions) ? recipe.instructions : [];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-      <Text variant="headlineMedium" style={styles.title}>
-        {recipe.name}
-      </Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>{recipe.name}</Text>
+          {recipe.description && (
+            <Text style={styles.heroDescription}>{recipe.description}</Text>
+          )}
+        </View>
 
-      {recipe.description && (
-        <Text variant="bodyLarge" style={styles.description}>
-          {recipe.description}
-        </Text>
-      )}
-
-      <View style={styles.meta}>
-        <Text variant="bodyMedium">⏱️ Prep: {recipe.prep_time || 0} min</Text>
-        <Text variant="bodyMedium">🔥 Cook: {recipe.cook_time || 0} min</Text>
-        <Text variant="bodyMedium">👥 Serves: {scaledServings}</Text>
-      </View>
+        {/* Meta Information Cards */}
+        <View style={styles.metaGrid}>
+          <View style={[styles.metaCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
+            <MaterialCommunityIcons name="timer-outline" size={24} color={ds.colors.primary} />
+            <Text style={[styles.metaValue, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{recipe.prep_time || 0}</Text>
+            <Text style={[styles.metaLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>Prep (min)</Text>
+          </View>
+          <View style={[styles.metaCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
+            <MaterialCommunityIcons name="fire" size={24} color={ds.colors.accent} />
+            <Text style={[styles.metaValue, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{recipe.cook_time || 0}</Text>
+            <Text style={[styles.metaLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>Cook (min)</Text>
+          </View>
+          <View style={[styles.metaCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
+            <MaterialCommunityIcons name="account-group" size={24} color={ds.colors.success} />
+            <Text style={[styles.metaValue, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{scaledServings}</Text>
+            <Text style={[styles.metaLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>Serves</Text>
+          </View>
+        </View>
 
       {/* Servings Scale Control - only for saved recipes */}
       {isSavedRecipe && (
-        <Card style={styles.scaleCard}>
+        <Card style={[styles.modernScaleCard, { backgroundColor: `${ds.colors.primary}08`, borderLeftColor: ds.colors.primary, ...ds.shadows.sm }]}>
           <Card.Content>
-            <Text variant="titleSmall" style={styles.scaleTitle}>
-              📏 Scale Recipe
-            </Text>
-            <Text variant="bodySmall" style={styles.scaleSubtitle}>
-              Adjust servings: {scaledServings} {scaledServings === 1 ? 'serving' : 'servings'}
-              {scaleFactor !== 1 && ` (${scaleFactor > 1 ? '+' : ''}${((scaleFactor - 1) * 100).toFixed(0)}%)`}
-            </Text>
+            <View style={styles.scaleHeader}>
+              <MaterialCommunityIcons name="scale" size={24} color={ds.colors.primary} />
+              <View style={styles.scaleHeaderText}>
+                <Text style={[styles.scaleTitle, getTextStyle('title', ds.colors.primary, isDark)]}>Scale Recipe</Text>
+                <Text style={[styles.scaleSubtitle, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>
+                  {scaledServings} {scaledServings === 1 ? 'serving' : 'servings'}
+                  {scaleFactor !== 1 && (
+                    <Text style={[styles.scalePercentage, getTextStyle('caption', ds.colors.primary, isDark)]}>
+                      {' '}({scaleFactor > 1 ? '+' : ''}{((scaleFactor - 1) * 100).toFixed(0)}%)
+                    </Text>
+                  )}
+                </Text>
+              </View>
+            </View>
             <View style={styles.sliderContainer}>
-              <Text variant="bodySmall" style={styles.sliderLabel}>1</Text>
+              <Text style={[styles.sliderLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>1</Text>
               <Slider
                 value={scaledServings}
                 onValueChange={(value) => setScaledServings(Math.round(value))}
                 minimumValue={1}
                 maximumValue={20}
                 step={1}
-                minimumTrackTintColor="#0284c7"
-                maximumTrackTintColor="#d1d5db"
-                thumbTintColor="#0284c7"
+                minimumTrackTintColor={ds.colors.primary}
+                maximumTrackTintColor={ds.colors.surfaceHover}
+                thumbTintColor={ds.colors.primary}
                 style={styles.servingsSlider}
               />
-              <Text variant="bodySmall" style={styles.sliderLabel}>20</Text>
+              <Text style={[styles.sliderLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>20</Text>
             </View>
             <View style={styles.scaleButtons}>
               <Button
                 mode="outlined"
                 compact
                 onPress={() => setScaledServings(Math.max(1, scaledServings - 1))}
-                style={styles.scaleButton}
+                style={[styles.modernScaleButton, { borderColor: ds.colors.primary }]}
+                labelStyle={[styles.modernScaleButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
               >
                 -1
               </Button>
@@ -302,15 +329,17 @@ export default function RecipeDetailScreen() {
                 mode="outlined"
                 compact
                 onPress={() => setScaledServings(originalServings)}
-                style={styles.scaleButton}
+                style={[styles.modernScaleButton, { borderColor: ds.colors.primary }]}
+                labelStyle={[styles.modernScaleButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
               >
-                Reset ({originalServings})
+                Reset
               </Button>
               <Button
                 mode="outlined"
                 compact
                 onPress={() => setScaledServings(Math.min(20, scaledServings + 1))}
-                style={styles.scaleButton}
+                style={[styles.modernScaleButton, { borderColor: ds.colors.primary }]}
+                labelStyle={[styles.modernScaleButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
               >
                 +1
               </Button>
@@ -319,52 +348,59 @@ export default function RecipeDetailScreen() {
         </Card>
       )}
 
+      {/* Cuisine Badge */}
       {'cuisine' in recipe && recipe.cuisine && (
-        <Text variant="bodyMedium" style={styles.cuisine}>
-          🌍 {recipe.cuisine} Cuisine
-        </Text>
+        <View style={[styles.cuisineBadge, { backgroundColor: ds.colors.surfaceHover }]}>
+          <MaterialCommunityIcons name="earth" size={18} color={ds.colors.accent} />
+          <Text style={[styles.cuisineText, getTextStyle('label', ds.colors.textPrimary, isDark)]}>{recipe.cuisine} Cuisine</Text>
+        </View>
       )}
 
+      {/* Rating & Notes Section */}
       {isSavedRecipe && (
         <>
           {'rating' in recipe && recipe.rating != null && recipe.rating > 0 && (
-            <View style={styles.ratingContainer}>
-              <Text variant="bodyMedium" style={styles.ratingText}>
-                ⭐ Rating: {recipe.rating}/5
-              </Text>
+            <View style={[styles.ratingBadge, { backgroundColor: `${ds.colors.warning}15` }]}>
+              <MaterialCommunityIcons name="star" size={20} color={ds.colors.warning} />
+              <Text style={[styles.ratingText, getTextStyle('label', ds.colors.warning, isDark)]}>Rating: {recipe.rating}/5</Text>
             </View>
           )}
           {'notes' in recipe && recipe.notes && (
-            <Card style={styles.notesCard}>
+            <Card style={[styles.modernNotesCard, { backgroundColor: ds.colors.surfaceHover, ...ds.shadows.sm }]}>
               <Card.Content>
-                <Text variant="titleSmall" style={styles.notesTitle}>📝 Notes</Text>
-                <Text variant="bodyMedium" style={styles.notesText}>{recipe.notes}</Text>
+                <View style={styles.notesHeader}>
+                  <MaterialCommunityIcons name="note-text" size={20} color={ds.colors.primary} />
+                  <Text style={[styles.notesTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>Notes</Text>
+                </View>
+                <Text style={[styles.notesText, getTextStyle('body', ds.colors.textSecondary, isDark)]}>{recipe.notes}</Text>
               </Card.Content>
             </Card>
           )}
-          <View style={styles.editButtonContainer}>
-            <Button
-              mode="outlined"
-              onPress={() => {
-                setNotes('notes' in recipe ? (recipe.notes || '') : '');
-                setRating('rating' in recipe ? (recipe.rating || 0) : 0);
-                setEditDialogVisible(true);
-              }}
-              style={styles.editButton}
-            >
-              {('notes' in recipe && recipe.notes) || ('rating' in recipe && recipe.rating) ? 'Edit Notes & Rating' : 'Add Notes & Rating'}
-            </Button>
-          </View>
+          <Button
+            mode="outlined"
+            icon="pencil"
+            onPress={() => {
+              setNotes('notes' in recipe ? (recipe.notes || '') : '');
+              setRating('rating' in recipe ? (recipe.rating || 0) : 0);
+              setEditDialogVisible(true);
+            }}
+            style={[styles.modernEditButton, { borderColor: ds.colors.primary }]}
+            labelStyle={[styles.modernEditButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
+          >
+            {('notes' in recipe && recipe.notes) || ('rating' in recipe && recipe.rating) 
+              ? 'Edit Notes & Rating' 
+              : 'Add Notes & Rating'}
+          </Button>
         </>
       )}
 
-      <Divider style={styles.divider} />
-
-      <Text variant="titleLarge" style={styles.sectionTitle}>
-        Ingredients
-      </Text>
-      <Card style={styles.ingredientsTableCard}>
-        <Card.Content>
+      {/* Ingredients Section */}
+      <View style={styles.sectionHeader}>
+        <MaterialCommunityIcons name="format-list-bulleted" size={24} color={ds.colors.primary} />
+        <Text style={[styles.sectionTitle, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>Ingredients</Text>
+      </View>
+      <Card style={[styles.modernIngredientsCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+        <Card.Content style={styles.ingredientsTableContent}>
           {ingredients.map((ing, i) => {
             const rawItemName = typeof ing === 'string' ? ing : ing.item || ing.name || JSON.stringify(ing);
             const itemName = cleanIngredientName(rawItemName);
@@ -374,24 +410,21 @@ export default function RecipeDetailScreen() {
               : originalAmount;
             
             return (
-              <View key={i} style={styles.ingredientRow}>
-                <View style={styles.ingredientNameColumn}>
-                  <Text variant="bodyMedium">{itemName}</Text>
+              <View key={i} style={[styles.modernIngredientRow, { borderBottomColor: ds.colors.surfaceHover }]}>
+                <View style={styles.modernIngredientNameColumn}>
+                  <View style={[styles.ingredientBullet, { backgroundColor: ds.colors.primary }]} />
+                  <Text style={[styles.modernIngredientName, getTextStyle('body', ds.colors.textPrimary, isDark)]}>{itemName}</Text>
                 </View>
-                <View style={styles.ingredientAmountColumn}>
+                <View style={styles.modernIngredientAmountColumn}>
                   {scaledAmount ? (
-                    <View>
-                      <Text variant="bodyMedium" style={styles.amountText}>
-                        {scaledAmount}
-                      </Text>
+                    <View style={styles.amountContainer}>
+                      <Text style={[styles.modernAmountText, getTextStyle('body', ds.colors.textPrimary, isDark)]}>{scaledAmount}</Text>
                       {isSavedRecipe && scaleFactor !== 1 && originalAmount && originalAmount !== scaledAmount && (
-                        <Text variant="bodySmall" style={styles.originalAmount}>
-                          (was {originalAmount})
-                        </Text>
+                        <Text style={[styles.modernOriginalAmount, getTextStyle('caption', ds.colors.textTertiary, isDark)]}>(was {originalAmount})</Text>
                       )}
                     </View>
                   ) : (
-                    <Text variant="bodyMedium" style={styles.amountText}>—</Text>
+                    <Text style={[styles.modernAmountText, getTextStyle('body', ds.colors.textPrimary, isDark)]}>—</Text>
                   )}
                 </View>
               </View>
@@ -406,10 +439,13 @@ export default function RecipeDetailScreen() {
         Instructions
       </Text>
       {instructions.map((step, i) => (
-        <Card key={i} style={styles.instructionCard}>
-          <Card.Content>
-            <Text variant="bodyMedium">
-              {i + 1}. {typeof step === 'string' ? step : JSON.stringify(step)}
+        <Card key={i} style={[styles.modernInstructionCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
+          <Card.Content style={styles.instructionContent}>
+            <View style={[styles.instructionNumber, { backgroundColor: ds.colors.primary }]}>
+              <Text style={[styles.instructionNumberText, getTextStyle('label', ds.colors.surface, isDark)]}>{i + 1}</Text>
+            </View>
+            <Text style={[styles.modernInstructionText, getTextStyle('body', ds.colors.textPrimary, isDark)]}>
+              {typeof step === 'string' ? step : JSON.stringify(step)}
             </Text>
           </Card.Content>
         </Card>
@@ -539,54 +575,143 @@ export default function RecipeDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   content: {
-    padding: 16,
+    padding: DesignSystem.spacing.md,
+    paddingBottom: DesignSystem.spacing.xxl,
   },
-  title: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#111827',
+  // Hero Section
+  heroSection: {
+    marginBottom: DesignSystem.spacing.lg,
   },
-  description: {
-    marginBottom: 16,
-    color: '#6b7280',
+  heroTitle: {
+    marginBottom: DesignSystem.spacing.sm,
   },
-  meta: {
+  heroDescription: {
+    lineHeight: 24,
+  },
+  // Meta Grid
+  metaGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: DesignSystem.spacing.lg,
+    gap: DesignSystem.spacing.sm,
   },
-  cuisine: {
+  metaCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  metaValue: {
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  metaLabel: {
+  },
+  // Badges
+  cuisineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 9999,
     marginBottom: 16,
-    color: '#6b7280',
+    gap: 4,
   },
-  divider: {
-    marginVertical: 16,
+  cuisineText: {
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 9999,
+    marginBottom: 16,
+    gap: 4,
+  },
+  ratingText: {
+    fontWeight: '600',
+  },
+  // Section Headers
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: DesignSystem.spacing.lg,
+    marginBottom: DesignSystem.spacing.md,
+    gap: DesignSystem.spacing.sm,
   },
   sectionTitle: {
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#111827',
   },
-  ingredientCard: {
-    marginBottom: 8,
-    elevation: 1,
+  divider: {
+    marginVertical: DesignSystem.spacing.lg,
+  },
+  // Modern Ingredients Table
+  modernIngredientsCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   ingredientsTableCard: {
-    marginBottom: 8,
-    elevation: 1,
+    marginBottom: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.lg,
+    ...DesignSystem.shadows.md,
+  },
+  ingredientsTableContent: {
+    padding: 0,
+  },
+  modernIngredientRow: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  modernIngredientNameColumn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: DesignSystem.spacing.md,
+  },
+  ingredientBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  modernIngredientName: {
+    flex: 1,
+  },
+  modernIngredientAmountColumn: {
+    minWidth: 100,
+    alignItems: 'flex-end',
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
+  },
+  modernAmountText: {
+    textAlign: 'right',
+    fontWeight: '600',
+  },
+  modernOriginalAmount: {
+    textAlign: 'right',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  // Legacy styles
+  ingredientCard: {
+    marginBottom: DesignSystem.spacing.sm,
+    ...DesignSystem.shadows.sm,
   },
   ingredientRow: {
     flexDirection: 'row',
-    paddingVertical: 8,
+    paddingVertical: DesignSystem.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   ingredientNameColumn: {
     flex: 1,
-    paddingRight: 12,
+    paddingRight: DesignSystem.spacing.md,
   },
   ingredientAmountColumn: {
     minWidth: 100,
@@ -595,51 +720,87 @@ const styles = StyleSheet.create({
   amountText: {
     textAlign: 'right',
   },
-  instructionCard: {
-    marginBottom: 8,
-    elevation: 1,
+  // Modern Instruction Cards
+  modernInstructionCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
+  instructionContent: {
+    flexDirection: 'row',
+    padding: DesignSystem.spacing.md,
+    gap: DesignSystem.spacing.md,
+  },
+  instructionNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  instructionNumberText: {
+    fontWeight: '700',
+  },
+  modernInstructionText: {
+    flex: 1,
+    lineHeight: 24,
+  },
+  // Legacy instruction card
+  instructionCard: {
+    marginBottom: DesignSystem.spacing.sm,
+    ...DesignSystem.shadows.sm,
+  },
+  // Missing Ingredients
   missingCard: {
-    backgroundColor: '#fff7ed',
     borderLeftWidth: 4,
-    borderLeftColor: '#f97316',
-    marginTop: 8,
+    marginTop: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.lg,
+    ...DesignSystem.shadows.sm,
   },
   missingTitle: {
-    fontWeight: '600',
-    color: '#ea580c',
-    marginBottom: 8,
+    marginBottom: DesignSystem.spacing.sm,
   },
   missingItem: {
-    color: '#ea580c',
   },
-  ratingContainer: {
-    marginTop: 8,
-    marginBottom: 8,
+  // Notes Card
+  modernNotesCard: {
+    marginTop: DesignSystem.spacing.md,
+    marginBottom: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.lg,
   },
-  ratingText: {
-    color: '#f59e0b',
-    fontWeight: '600',
-  },
-  notesCard: {
-    marginTop: 8,
-    marginBottom: 8,
-    backgroundColor: '#f9fafb',
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignSystem.spacing.sm,
+    gap: DesignSystem.spacing.sm,
   },
   notesTitle: {
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#374151',
   },
   notesText: {
-    color: '#6b7280',
+    lineHeight: 22,
+  },
+  // Legacy notes card
+  notesCard: {
+    marginTop: DesignSystem.spacing.sm,
+    marginBottom: DesignSystem.spacing.sm,
+    ...DesignSystem.shadows.sm,
+  },
+  // Edit Button
+  modernEditButton: {
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  modernEditButtonLabel: {
+    fontWeight: '600',
   },
   editButtonContainer: {
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: DesignSystem.spacing.sm,
+    marginBottom: DesignSystem.spacing.sm,
   },
   editButton: {
-    marginTop: 8,
+    marginTop: DesignSystem.spacing.sm,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -700,47 +861,59 @@ const styles = StyleSheet.create({
   actionButton: {
     minWidth: 80,
   },
-  scaleCard: {
-    marginTop: 8,
-    marginBottom: 16,
-    backgroundColor: '#eff6ff',
+  // Modern Scale Card
+  modernScaleCard: {
+    marginTop: 16,
+    marginBottom: 24,
+    borderRadius: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#0284c7',
+  },
+  scaleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignSystem.spacing.md,
+    gap: DesignSystem.spacing.sm,
+  },
+  scaleHeaderText: {
+    flex: 1,
   },
   scaleTitle: {
-    fontWeight: '600',
-    marginBottom: 4,
-    color: '#0284c7',
+    marginBottom: 2,
   },
   scaleSubtitle: {
-    color: '#64748b',
-    marginBottom: 12,
+  },
+  scalePercentage: {
+    fontWeight: '600',
   },
   sliderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: DesignSystem.spacing.md,
   },
   sliderLabel: {
-    color: '#64748b',
-    minWidth: 20,
+    minWidth: 24,
     textAlign: 'center',
   },
   servingsSlider: {
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: DesignSystem.spacing.md,
     height: 40,
   },
   scaleButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    gap: 8,
+    gap: DesignSystem.spacing.sm,
+  },
+  modernScaleButton: {
+    flex: 1,
+    borderRadius: DesignSystem.borderRadius.md,
+  },
+  modernScaleButtonLabel: {
   },
   scaleButton: {
     flex: 1,
   },
   originalAmount: {
-    color: '#9ca3af',
     fontStyle: 'italic',
   },
 });

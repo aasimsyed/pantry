@@ -3,9 +3,13 @@ import { ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { Card, Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
+import { useTheme } from '../contexts/ThemeContext';
+import { getDesignSystem } from '../utils/designSystem';
 import type { Statistics } from '../types';
 
 export default function StatisticsScreen() {
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const [stats, setStats] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +46,7 @@ export default function StatisticsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="titleLarge" style={styles.title}>
         Pantry Statistics

@@ -19,10 +19,14 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
+import { useTheme } from '../contexts/ThemeContext';
+import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { Recipe, RecentRecipe, InventoryItem } from '../types';
 
 export default function RecipesScreen() {
   const navigation = useNavigation();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
   const [loadingIngredients, setLoadingIngredients] = useState(false);
   const [ingredientsError, setIngredientsError] = useState<string | null>(null);
@@ -211,7 +215,7 @@ export default function RecipesScreen() {
 
   if (selectedPantryId === undefined) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
         <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
@@ -230,7 +234,7 @@ export default function RecipesScreen() {
 
   if (loadingIngredients) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
         <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
@@ -252,7 +256,7 @@ export default function RecipesScreen() {
 
   if (ingredientsError && availableIngredients.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
         <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
@@ -276,7 +280,7 @@ export default function RecipesScreen() {
 
   if (availableIngredients.length === 0 && !loadingIngredients && selectedPantryId !== undefined) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
         <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
@@ -296,7 +300,7 @@ export default function RecipesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
       <Text variant="titleLarge" style={styles.title}>
         Recipe Suggestions
@@ -808,7 +812,6 @@ export default function RecipesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   center: {
     flex: 1,

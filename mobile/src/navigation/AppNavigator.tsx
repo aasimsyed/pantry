@@ -1,10 +1,12 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { DesignSystem, getDesignSystem } from '../utils/designSystem';
 
 // Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -21,13 +23,39 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function MainTabs() {
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0284c7',
-        tabBarInactiveTintColor: '#6b7280',
+        tabBarActiveTintColor: ds.colors.primary,
+        tabBarInactiveTintColor: ds.colors.textTertiary,
         tabBarShowLabel: true,
+        tabBarStyle: {
+          backgroundColor: ds.colors.surface,
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: isDark ? 0.3 : 0.1,
+          shadowRadius: 12,
+          height: 85,
+          paddingBottom: 24,
+          paddingTop: 12,
+          marginBottom: 8,
+          borderRadius: ds.borderRadius.lg,
+          marginHorizontal: 12,
+        },
+        tabBarLabelStyle: {
+          fontSize: 13,
+          fontWeight: '600',
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
+        },
       }}
     >
       <Tab.Screen
@@ -73,51 +101,82 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { isAuthenticated, loading } = useAuth();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: ds.colors.background }}>
+        <ActivityIndicator size="large" color={ds.colors.primary} />
       </View>
     );
   }
 
+  // Use DefaultTheme or DarkTheme as base, then override colors
+  const navigationTheme = isDark
+    ? {
+        ...DarkTheme,
+        colors: {
+          ...DarkTheme.colors,
+          primary: ds.colors.primary,
+          background: ds.colors.background,
+          card: ds.colors.surface,
+          text: ds.colors.textPrimary,
+          border: ds.colors.surfaceHover,
+          notification: ds.colors.error,
+        },
+      }
+    : {
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          primary: ds.colors.primary,
+          background: ds.colors.background,
+          card: ds.colors.surface,
+          text: ds.colors.textPrimary,
+          border: ds.colors.surfaceHover,
+          notification: ds.colors.error,
+        },
+      };
+
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
-          // Auth screens
-          <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
-        ) : (
-          // Main app screens
-          <>
-            <Stack.Screen
-              name="Main"
-              component={MainTabs}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Statistics"
-              component={StatisticsScreen}
-              options={{ title: 'Statistics', headerShown: true }}
-            />
-            <Stack.Screen
-              name="RecipeDetail"
-              component={RecipeDetailScreen}
-              options={{ title: 'Recipe Details', headerShown: true }}
-            />
-            <Stack.Screen
-              name="Settings"
-              component={SettingsScreen}
-              options={{ title: 'Settings', headerShown: true }}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <View style={{ flex: 1, backgroundColor: ds.colors.background }}>
+      <NavigationContainer theme={navigationTheme}>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {!isAuthenticated ? (
+            // Auth screens
+            <>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+            </>
+          ) : (
+            // Main app screens
+            <>
+              <Stack.Screen
+                name="Main"
+                component={MainTabs}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Statistics"
+                component={StatisticsScreen}
+                options={{ title: 'Statistics', headerShown: true }}
+              />
+              <Stack.Screen
+                name="RecipeDetail"
+                component={RecipeDetailScreen}
+                options={{ title: 'Recipe Details', headerShown: true }}
+              />
+              <Stack.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{ title: 'Settings', headerShown: true }}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+    </View>
   );
 }
 

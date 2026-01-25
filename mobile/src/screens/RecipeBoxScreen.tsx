@@ -3,11 +3,15 @@ import { ScrollView, StyleSheet, View, Alert, RefreshControl } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../contexts/ThemeContext';
+import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 import apiClient, { getApiErrorMessage } from '../api/client';
 import type { SavedRecipe } from '../types';
 
 export default function RecipeBoxScreen() {
   const navigation = useNavigation();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,10 +77,10 @@ export default function RecipeBoxScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0284c7" />
-          <Text variant="bodyMedium" style={{ marginTop: 16, color: '#6b7280' }}>
+          <ActivityIndicator size="large" color={ds.colors.primary} />
+          <Text variant="bodyMedium" style={[styles.loadingText, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
             Loading your recipes...
           </Text>
         </View>
@@ -85,7 +89,7 @@ export default function RecipeBoxScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView 
         contentContainerStyle={[styles.content, { paddingTop: 16 }]}
         refreshControl={
@@ -190,12 +194,14 @@ export default function RecipeBoxScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
   },
   content: {
     padding: 16,
