@@ -8,6 +8,9 @@ export default function RecipeBox() {
   const [error, setError] = useState<string | null>(null);
   const [cuisineFilter, setCuisineFilter] = useState('All');
   const [difficultyFilter, setDifficultyFilter] = useState('All');
+  const [editingRecipe, setEditingRecipe] = useState<number | null>(null);
+  const [editNotes, setEditNotes] = useState('');
+  const [editRating, setEditRating] = useState(0);
 
   useEffect(() => {
     loadRecipes();
@@ -37,6 +40,28 @@ export default function RecipeBox() {
     } catch (err: any) {
       alert(`Failed to delete recipe: ${err.message}`);
     }
+  };
+
+  const handleEdit = (recipe: SavedRecipe) => {
+    setEditingRecipe(recipe.id);
+    setEditNotes(recipe.notes || '');
+    setEditRating(recipe.rating || 0);
+  };
+
+  const handleSaveEdit = async (recipeId: number) => {
+    try {
+      await apiClient.updateSavedRecipe(recipeId, editNotes || undefined, editRating > 0 ? editRating : undefined);
+      setEditingRecipe(null);
+      await loadRecipes();
+    } catch (err: any) {
+      alert(`Failed to update recipe: ${err.message}`);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRecipe(null);
+    setEditNotes('');
+    setEditRating(0);
   };
 
   const parseJson = (str: string | null | undefined): any[] => {
@@ -113,15 +138,34 @@ export default function RecipeBox() {
 
       {loading ? (
         <div className="card">
-          <p className="text-gray-600">Loading recipes...</p>
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+            <p className="text-gray-600">Loading your recipes...</p>
+          </div>
         </div>
       ) : error ? (
-        <div className="card border-2 border-red-300">
-          <p className="text-red-600">Error: {error}</p>
+        <div className="card border-2 border-red-300 bg-red-50">
+          <div className="flex flex-col items-center justify-center py-8">
+            <p className="text-4xl mb-4">❌</p>
+            <p className="text-red-600 font-semibold mb-2">Error Loading Recipes</p>
+            <p className="text-red-600 text-sm mb-4">{error}</p>
+            <button onClick={loadRecipes} className="btn-primary">
+              Try Again
+            </button>
+          </div>
         </div>
       ) : recipes.length === 0 ? (
         <div className="card">
-          <p className="text-gray-600">No saved recipes found. Generate and save recipes from the Recipes page!</p>
+          <div className="flex flex-col items-center justify-center py-12">
+            <p className="text-6xl mb-4">📚</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Recipes Yet</h2>
+            <p className="text-gray-600 text-center mb-6 max-w-md">
+              Your saved recipes will appear here. Generate and save recipes from the Recipes page!
+            </p>
+            <a href="/recipes" className="btn-primary">
+              Go to Recipes
+            </a>
+          </div>
         </div>
       ) : (
         <>
@@ -171,6 +215,57 @@ export default function RecipeBox() {
                     </div>
                   </div>
 
+                  {editingRecipe === recipe.id ? (
+                    <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                      <h3 className="font-semibold mb-2">Edit Notes & Rating</h3>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Rating: {editRating}/5
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="5"
+                          value={editRating}
+                          onChange={(e) => setEditRating(parseInt(e.target.value))}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                        <textarea
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          className="input w-full h-24"
+                          placeholder="Add your personal notes about this recipe..."
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSaveEdit(recipe.id)}
+                          className="btn-primary"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="btn-secondary"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {recipe.notes && (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                          <h3 className="font-semibold mb-1">📝 Notes</h3>
+                          <p className="text-sm text-gray-600">{recipe.notes}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                     <div>
                       <h3 className="font-semibold mb-2">📋 Ingredients</h3>
@@ -202,14 +297,16 @@ export default function RecipeBox() {
                     </div>
                   </div>
 
-                  {recipe.notes && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                      <h3 className="font-semibold mb-1">📝 Notes</h3>
-                      <p className="text-sm text-gray-600">{recipe.notes}</p>
-                    </div>
-                  )}
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    {editingRecipe !== recipe.id && (
+                      <button
+                        onClick={() => handleEdit(recipe)}
+                        className="btn-secondary"
+                      >
+                        ✏️ Edit Notes & Rating
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(recipe.id)}
                       className="btn-secondary text-red-600 hover:bg-red-50"

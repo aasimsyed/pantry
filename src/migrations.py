@@ -705,6 +705,61 @@ def add_recent_recipes_table():
             raise
 
 
+def add_performance_indexes():
+    """
+    Add performance indexes for common query patterns.
+    
+    This migration adds composite indexes for frequently used query combinations
+    to improve database performance.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    
+    logger.info("Adding performance indexes...")
+    
+    indexes_to_add = [
+        # Inventory items - common filter combinations
+        ("inventory_items", "ix_inventory_user_pantry_status", ["user_id", "pantry_id", "status"]),
+        ("inventory_items", "ix_inventory_user_status", ["user_id", "status"]),
+        ("inventory_items", "ix_inventory_pantry_status", ["pantry_id", "status"]),
+        
+        # Saved recipes - filter by user and cuisine/difficulty
+        ("saved_recipes", "ix_saved_recipes_user_cuisine", ["user_id", "cuisine"]),
+        ("saved_recipes", "ix_saved_recipes_user_difficulty", ["user_id", "difficulty"]),
+        ("saved_recipes", "ix_saved_recipes_user_created", ["user_id", "created_at"]),
+        
+        # Recent recipes - already has user_id and generated_at indexes, but add composite
+        ("recent_recipes", "ix_recent_recipes_user_generated", ["user_id", "generated_at"]),
+        
+        # Products - search by name and category
+        ("products", "ix_products_name_category", ["product_name", "category"]),
+    ]
+    
+    for table_name, index_name, columns in indexes_to_add:
+        try:
+            # Check if table exists
+            if table_name not in inspector.get_table_names():
+                logger.info(f"Skipping index {index_name} - table {table_name} doesn't exist")
+                continue
+            
+            # Check if index already exists
+            existing_indexes = [idx["name"] for idx in inspector.get_indexes(table_name)]
+            if index_name in existing_indexes:
+                logger.info(f"Index {index_name} already exists on {table_name}")
+                continue
+            
+            # Create index
+            with engine.connect() as conn:
+                columns_str = ", ".join(columns)
+                conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({columns_str})"))
+                conn.commit()
+            logger.info(f"✅ Created index {index_name} on {table_name}")
+        except Exception as e:
+            logger.warning(f"Failed to create index {index_name} on {table_name}: {e}")
+    
+    logger.info("✅ Performance indexes migration completed")
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
@@ -718,6 +773,7 @@ def run_migrations():
     add_ai_model_to_saved_recipes()
     add_security_events_table()  # Ensure security_events table exists
     add_recent_recipes_table()  # Create recent_recipes table
+    add_performance_indexes()  # Add performance indexes
     logger.info("✅ All migrations completed")
 
 

@@ -445,6 +445,19 @@ class APIClient {
     return this.request<void>('DELETE', `/api/recipes/saved/${recipeId}`);
   }
 
+  async updateSavedRecipe(
+    recipeId: number,
+    notes?: string,
+    rating?: number,
+    tags?: string[]
+  ): Promise<SavedRecipe> {
+    const data: any = {};
+    if (notes !== undefined) data.notes = notes;
+    if (rating !== undefined) data.rating = rating;
+    if (tags !== undefined) data.tags = tags;
+    return this.request<SavedRecipe>('PUT', `/api/recipes/saved/${recipeId}`, { data });
+  }
+
   // Recent Recipes
   async getRecentRecipes(limit: number = 20): Promise<RecentRecipe[]> {
     return this.request<RecentRecipe[]>('GET', '/api/recipes/recent', {

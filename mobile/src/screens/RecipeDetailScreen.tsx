@@ -1,8 +1,10 @@
-import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Text, Divider } from 'react-native-paper';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
+import Slider from '@react-native-community/slider';
+import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import apiClient from '../api/client';
 import type { Recipe, RecentRecipe, SavedRecipe } from '../types';
 
 type RouteParams = {
@@ -13,7 +15,47 @@ type RouteParams = {
 
 export default function RecipeDetailScreen() {
   const route = useRoute<RouteProp<RouteParams, 'RecipeDetail'>>();
-  const { recipe } = route.params;
+  const navigation = useNavigation();
+  const { recipe: initialRecipe } = route.params;
+  const [recipe, setRecipe] = useState(initialRecipe);
+  const [editDialogVisible, setEditDialogVisible] = useState(false);
+  const [notes, setNotes] = useState('notes' in recipe ? (recipe.notes || '') : '');
+  const [rating, setRating] = useState('rating' in recipe ? (recipe.rating || 0) : 0);
+  const [saving, setSaving] = useState(false);
+
+  // Check if this is a SavedRecipe
+  // SavedRecipe: has id, has created_at/updated_at (from to_dict()), NO generated_at
+  // RecentRecipe: has id, has generated_at, NO created_at/updated_at
+  // Recipe (generated): no id, no timestamps
+  // 
+  // Note: All SavedRecipe records (old and new) have created_at/updated_at because:
+  // - They're required fields with default values in the database
+  // - to_dict() always includes them in the API response
+  const isSavedRecipe = 
+    'id' in recipe && 
+    !('generated_at' in recipe) && // Not a RecentRecipe
+    (('created_at' in recipe) || ('updated_at' in recipe)); // Has SavedRecipe timestamps
+
+  const handleSaveNotesRating = async () => {
+    if (!isSavedRecipe) return;
+    
+    setSaving(true);
+    try {
+      const updated = await apiClient.updateSavedRecipe(
+        recipe.id,
+        notes || undefined,
+        rating > 0 ? rating : undefined,
+        undefined // tags not editable here
+      );
+      setRecipe(updated);
+      setEditDialogVisible(false);
+      Alert.alert('Success', 'Recipe updated successfully');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update recipe');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const parseJson = (str: string | null | undefined): any[] => {
     if (!str) return [];
@@ -55,6 +97,39 @@ export default function RecipeDetailScreen() {
         <Text variant="bodyMedium" style={styles.cuisine}>
           🌍 {recipe.cuisine} Cuisine
         </Text>
+      )}
+
+      {isSavedRecipe && (
+        <>
+          {'rating' in recipe && recipe.rating != null && recipe.rating > 0 && (
+            <View style={styles.ratingContainer}>
+              <Text variant="bodyMedium" style={styles.ratingText}>
+                ⭐ Rating: {recipe.rating}/5
+              </Text>
+            </View>
+          )}
+          {'notes' in recipe && recipe.notes && (
+            <Card style={styles.notesCard}>
+              <Card.Content>
+                <Text variant="titleSmall" style={styles.notesTitle}>📝 Notes</Text>
+                <Text variant="bodyMedium" style={styles.notesText}>{recipe.notes}</Text>
+              </Card.Content>
+            </Card>
+          )}
+          <View style={styles.editButtonContainer}>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                setNotes('notes' in recipe ? (recipe.notes || '') : '');
+                setRating('rating' in recipe ? (recipe.rating || 0) : 0);
+                setEditDialogVisible(true);
+              }}
+              style={styles.editButton}
+            >
+              {('notes' in recipe && recipe.notes) || ('rating' in recipe && recipe.rating) ? 'Edit Notes & Rating' : 'Add Notes & Rating'}
+            </Button>
+          </View>
+        </>
       )}
 
       <Divider style={styles.divider} />
@@ -104,6 +179,49 @@ export default function RecipeDetailScreen() {
             </Card.Content>
           </Card>
         </>
+      )}
+
+      {/* Edit Notes & Rating Dialog */}
+      {isSavedRecipe && (
+        <Portal>
+          <Dialog visible={editDialogVisible} onDismiss={() => setEditDialogVisible(false)}>
+            <Dialog.Title>Edit Notes & Rating</Dialog.Title>
+            <Dialog.Content>
+              <Text variant="bodyMedium" style={{ marginBottom: 8 }}>Rating: {Math.round(rating)}/5</Text>
+              <Slider
+                value={rating}
+                onValueChange={(value) => setRating(Math.round(value))}
+                minimumValue={0}
+                maximumValue={5}
+                step={1}
+                minimumTrackTintColor="#0284c7"
+                maximumTrackTintColor="#d1d5db"
+                thumbTintColor="#0284c7"
+                style={{ marginBottom: 24, width: '100%', height: 40 }}
+              />
+              <TextInput
+                label="Notes"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={4}
+                mode="outlined"
+                placeholder="Add your personal notes about this recipe..."
+              />
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={() => setEditDialogVisible(false)}>Cancel</Button>
+              <Button
+                onPress={handleSaveNotesRating}
+                mode="contained"
+                loading={saving}
+                disabled={saving}
+              >
+                Save
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
       )}
       </ScrollView>
     </SafeAreaView>
@@ -165,6 +283,34 @@ const styles = StyleSheet.create({
   },
   missingItem: {
     color: '#ea580c',
+  },
+  ratingContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  ratingText: {
+    color: '#f59e0b',
+    fontWeight: '600',
+  },
+  notesCard: {
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: '#f9fafb',
+  },
+  notesTitle: {
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#374151',
+  },
+  notesText: {
+    color: '#6b7280',
+  },
+  editButtonContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  editButton: {
+    marginTop: 8,
   },
 });
 
