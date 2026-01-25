@@ -488,6 +488,30 @@ def generate_single_recipe(
             "ai_model": recipe.get("ai_model"),  # Track which AI model generated this recipe
         }
 
+        # Save to recent recipes so user can go back and save it later
+        if current_user:
+            try:
+                recent_recipe = service.save_recent_recipe(
+                    user_id=current_user.id,
+                    name=result["name"],
+                    description=result["description"],
+                    cuisine=result["cuisine"],
+                    difficulty=result["difficulty"],
+                    prep_time=result["prep_time"],
+                    cook_time=result["cook_time"],
+                    servings=result["servings"],
+                    ingredients=result["ingredients"],
+                    instructions=result["instructions"],
+                    available_ingredients=result["available_ingredients"],
+                    missing_ingredients=result["missing_ingredients"],
+                    flavor_pairings=result["flavor_pairings"],
+                    ai_model=result["ai_model"]
+                )
+                result["recent_recipe_id"] = recent_recipe.id
+                logger.info(f"Saved generated recipe to recent recipes (ID: {recent_recipe.id})")
+            except Exception as e:
+                logger.warning(f"Failed to save to recent recipes: {e}")
+
         logger.info(f"Successfully generated recipe: {result['name']}")
         return result
 
@@ -685,6 +709,30 @@ def generate_recipes(
             )
 
         logger.info(f"Successfully generated {len(result)}/{recipe_request.max_recipes} recipes")
+
+        # Save all generated recipes to recent recipes so user can go back and save them later
+        if current_user:
+            for recipe_data in result:
+                try:
+                    recent_recipe = service.save_recent_recipe(
+                        user_id=current_user.id,
+                        name=recipe_data["name"],
+                        description=recipe_data["description"],
+                        cuisine=recipe_data["cuisine"],
+                        difficulty=recipe_data["difficulty"],
+                        prep_time=recipe_data["prep_time"],
+                        cook_time=recipe_data["cook_time"],
+                        servings=recipe_data["servings"],
+                        ingredients=recipe_data["ingredients"],
+                        instructions=recipe_data["instructions"],
+                        available_ingredients=recipe_data["available_ingredients"],
+                        missing_ingredients=recipe_data["missing_ingredients"],
+                        flavor_pairings=recipe_data["flavor_pairings"],
+                        ai_model=recipe_data["ai_model"]
+                    )
+                    recipe_data["recent_recipe_id"] = recent_recipe.id
+                except Exception as e:
+                    logger.warning(f"Failed to save recipe '{recipe_data['name']}' to recent recipes: {e}")
 
         # If we got fewer recipes than requested, add a note in the response
         if len(result) < recipe_request.max_recipes:

@@ -19,7 +19,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
-import type { Recipe, InventoryItem } from '../types';
+import type { Recipe, RecentRecipe, InventoryItem } from '../types';
 
 export default function RecipesScreen() {
   const navigation = useNavigation();
@@ -42,6 +42,8 @@ export default function RecipesScreen() {
   const [requiredIngredientsDialogVisible, setRequiredIngredientsDialogVisible] = useState(false);
   const [excludedIngredientsDialogVisible, setExcludedIngredientsDialogVisible] = useState(false);
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
+  const [recentRecipes, setRecentRecipes] = useState<RecentRecipe[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
 
   // Load available ingredients from API
   const loadAvailableIngredients = useCallback(async () => {
@@ -72,13 +74,28 @@ export default function RecipesScreen() {
     }
   }, [selectedPantryId]);
 
+  // Load recent recipes
+  const loadRecentRecipes = useCallback(async () => {
+    setLoadingRecent(true);
+    try {
+      const recent = await apiClient.getRecentRecipes(20);
+      setRecentRecipes(recent);
+    } catch (err: any) {
+      console.error('Error loading recent recipes:', err);
+      // Don't show error - recent recipes are optional
+    } finally {
+      setLoadingRecent(false);
+    }
+  }, []);
+
   // Reload ingredients when screen comes into focus or pantry changes
   useFocusEffect(
     useCallback(() => {
       if (selectedPantryId !== undefined) {
         loadAvailableIngredients();
       }
-    }, [loadAvailableIngredients, selectedPantryId])
+      loadRecentRecipes();
+    }, [loadAvailableIngredients, selectedPantryId, loadRecentRecipes])
   );
 
   const handleGenerateRecipes = async () => {
@@ -133,6 +150,8 @@ export default function RecipesScreen() {
         ai_model: recipe.ai_model, // Track which AI model generated this recipe
       });
       Alert.alert('Success', `Saved "${recipe.name}" to recipe box!`);
+      // Reload recent recipes in case this was saved from recent
+      loadRecentRecipes();
     } catch (err: any) {
       // Extract error message from API response
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
@@ -143,6 +162,32 @@ export default function RecipesScreen() {
       } else {
         Alert.alert('Error', errorMessage);
       }
+    }
+  };
+
+  const handleSaveRecentRecipe = async (recentRecipe: RecentRecipe) => {
+    try {
+      await apiClient.saveRecentRecipe(recentRecipe.id);
+      Alert.alert('Success', `Saved "${recentRecipe.name}" to recipe box!`);
+      // Remove from recent recipes list
+      setRecentRecipes(recentRecipes.filter((r) => r.id !== recentRecipe.id));
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
+      if (err.response?.status === 409 || errorMessage.includes('already saved')) {
+        Alert.alert('Already Saved', errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    }
+  };
+
+  const handleDeleteRecentRecipe = async (recipeId: number) => {
+    try {
+      await apiClient.deleteRecentRecipe(recipeId);
+      setRecentRecipes(recentRecipes.filter((r) => r.id !== recipeId));
+      Alert.alert('Success', 'Recent recipe deleted');
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.detail || err.message || 'Failed to delete recipe');
     }
   };
 
@@ -466,6 +511,82 @@ export default function RecipesScreen() {
           )}
         </Card.Content>
       </Card>
+
+      {/* Recent Recipes Section */}
+      {recentRecipes.length > 0 && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              📋 Recent Recipes
+            </Text>
+            <Text variant="bodySmall" style={{ color: '#6b7280', marginBottom: 12 }}>
+              Recipes you generated recently. Save them to your Recipe Box to keep them forever.
+            </Text>
+            {recentRecipes.map((recentRecipe) => (
+              <Card key={recentRecipe.id} style={[styles.card, { marginBottom: 12, backgroundColor: '#f9fafb' }]}>
+                <Card.Content>
+                  <Text variant="titleMedium">{recentRecipe.name}</Text>
+                  {recentRecipe.description && (
+                    <Text variant="bodySmall" style={styles.description}>
+                      {recentRecipe.description}
+                    </Text>
+                  )}
+                  <View style={styles.recipeMeta}>
+                    {recentRecipe.prep_time != null && <Text variant="bodySmall">⏱️ {recentRecipe.prep_time} min prep</Text>}
+                    {recentRecipe.cook_time != null && <Text variant="bodySmall">🔥 {recentRecipe.cook_time} min cook</Text>}
+                    {recentRecipe.servings != null && <Text variant="bodySmall">👥 {recentRecipe.servings} servings</Text>}
+                  </View>
+                  {recentRecipe.cuisine && (
+                    <Text variant="bodySmall" style={styles.cuisine}>
+                      🌍 {recentRecipe.cuisine} Cuisine
+                    </Text>
+                  )}
+                  {recentRecipe.generated_at && (
+                    <Text variant="bodySmall" style={{ color: '#9ca3af', fontSize: 11, marginTop: 4 }}>
+                      Generated {new Date(recentRecipe.generated_at).toLocaleDateString()}
+                    </Text>
+                  )}
+                  <View style={styles.buttonRow}>
+                    <Button
+                      mode="contained"
+                      onPress={() => navigation.navigate('RecipeDetail', { recipe: recentRecipe } as never)}
+                      style={[styles.viewButton, { marginRight: 8 }]}
+                    >
+                      View
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      onPress={() => handleSaveRecentRecipe(recentRecipe)}
+                      style={[styles.saveButton, { marginRight: 8 }]}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      mode="text"
+                      onPress={() => handleDeleteRecentRecipe(recentRecipe.id)}
+                      textColor="#dc2626"
+                      style={styles.deleteButton}
+                    >
+                      Delete
+                    </Button>
+                  </View>
+                </Card.Content>
+              </Card>
+            ))}
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* Generated Recipes Section */}
+      {recipes.length > 0 && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              🍳 Generated Recipes
+            </Text>
+          </Card.Content>
+        </Card>
+      )}
 
       {recipes.map((recipe, idx) => (
         <Card

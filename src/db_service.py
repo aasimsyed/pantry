@@ -40,6 +40,7 @@ from src.database import (
     Pantry,
     ProcessingLog,
     Product,
+    RecentRecipe,
     SavedRecipe,
     UserSettings,
     get_db_session,
@@ -858,6 +859,206 @@ class PantryService:
         
         logger.info(f"Deleted recipe ID {recipe_id}")
         return True
+    
+    # ========================================================================
+    # Recent Recipe Operations
+    # ========================================================================
+    
+    def save_recent_recipe(
+        self,
+        user_id: int,
+        name: str,
+        description: Optional[str] = None,
+        cuisine: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        prep_time: Optional[int] = None,
+        cook_time: Optional[int] = None,
+        servings: Optional[int] = None,
+        ingredients: List[Dict] = None,
+        instructions: List[str] = None,
+        available_ingredients: Optional[List[str]] = None,
+        missing_ingredients: Optional[List[str]] = None,
+        flavor_pairings: Optional[List[str]] = None,
+        ai_model: Optional[str] = None
+    ) -> RecentRecipe:
+        """Save a recently generated recipe to recent_recipes table.
+        
+        Args:
+            user_id: User ID
+            name: Recipe name
+            description: Recipe description
+            cuisine: Cuisine type
+            difficulty: Difficulty level
+            prep_time: Preparation time in minutes
+            cook_time: Cooking time in minutes
+            servings: Number of servings
+            ingredients: List of ingredient dictionaries
+            instructions: List of instruction strings
+            available_ingredients: List of ingredients from pantry
+            missing_ingredients: List of ingredients not in pantry
+            flavor_pairings: List of flavor pairings
+            ai_model: AI model used to generate recipe
+            
+        Returns:
+            Saved RecentRecipe instance
+        """
+        import json
+        from datetime import datetime, timedelta
+        
+        # Clean up old recent recipes (older than 7 days)
+        cutoff_date = datetime.utcnow() - timedelta(days=7)
+        self.session.query(RecentRecipe).filter(
+            RecentRecipe.generated_at < cutoff_date
+        ).delete()
+        
+        recipe = RecentRecipe(
+            user_id=user_id,
+            name=name,
+            description=description,
+            cuisine=cuisine,
+            difficulty=difficulty,
+            prep_time=prep_time,
+            cook_time=cook_time,
+            servings=servings,
+            ingredients=json.dumps(ingredients or []),
+            instructions=json.dumps(instructions or []),
+            available_ingredients=json.dumps(available_ingredients) if available_ingredients else None,
+            missing_ingredients=json.dumps(missing_ingredients) if missing_ingredients else None,
+            flavor_pairings=json.dumps(flavor_pairings) if flavor_pairings else None,
+            ai_model=ai_model
+        )
+        
+        self.session.add(recipe)
+        self.session.commit()
+        self.session.refresh(recipe)
+        
+        logger.info(f"Saved recent recipe: {name} (ID: {recipe.id})")
+        return recipe
+    
+    def get_recent_recipes(
+        self,
+        user_id: int,
+        limit: Optional[int] = 20
+    ) -> List[RecentRecipe]:
+        """Get recent recipes for a user.
+        
+        Args:
+            user_id: User ID
+            limit: Maximum number of recipes to return (default: 20)
+            
+        Returns:
+            List of recent recipes, ordered by most recent first
+        """
+        query = self.session.query(RecentRecipe).filter(
+            RecentRecipe.user_id == user_id
+        ).order_by(RecentRecipe.generated_at.desc())
+        
+        if limit:
+            query = query.limit(limit)
+        
+        return query.all()
+    
+    def get_recent_recipe(self, recipe_id: int, user_id: int) -> Optional[RecentRecipe]:
+        """Get a specific recent recipe by ID (with user verification).
+        
+        Args:
+            recipe_id: Recipe ID
+            user_id: User ID (for security - ensures user owns the recipe)
+            
+        Returns:
+            Recent recipe or None if not found or not owned by user
+        """
+        return self.session.query(RecentRecipe).filter(
+            RecentRecipe.id == recipe_id,
+            RecentRecipe.user_id == user_id
+        ).first()
+    
+    def delete_recent_recipe(self, recipe_id: int, user_id: int) -> bool:
+        """Delete a recent recipe.
+        
+        Args:
+            recipe_id: Recipe ID to delete
+            user_id: User ID (for security)
+            
+        Returns:
+            True if deleted, False if not found or not owned by user
+        """
+        recipe = self.get_recent_recipe(recipe_id, user_id)
+        if not recipe:
+            return False
+        
+        self.session.delete(recipe)
+        self.session.commit()
+        
+        logger.info(f"Deleted recent recipe ID {recipe_id}")
+        return True
+    
+    def save_recent_to_saved(
+        self,
+        recent_recipe_id: int,
+        user_id: int,
+        notes: Optional[str] = None,
+        rating: Optional[int] = None,
+        tags: Optional[List[str]] = None
+    ) -> SavedRecipe:
+        """Save a recent recipe to saved recipes (recipe box).
+        
+        Args:
+            recent_recipe_id: Recent recipe ID
+            user_id: User ID (for security)
+            notes: Optional notes to add
+            rating: Optional rating (1-5)
+            tags: Optional tags
+            
+        Returns:
+            Saved recipe instance
+            
+        Raises:
+            ValueError: If recent recipe not found or duplicate name
+        """
+        import json
+        
+        recent = self.get_recent_recipe(recent_recipe_id, user_id)
+        if not recent:
+            raise ValueError(f"Recent recipe {recent_recipe_id} not found")
+        
+        # Check for duplicate name
+        existing = self.session.query(SavedRecipe).filter(
+            SavedRecipe.user_id == user_id,
+            SavedRecipe.name == recent.name
+        ).first()
+        
+        if existing:
+            raise ValueError(f"Recipe '{recent.name}' is already saved in your recipe box")
+        
+        # Convert recent recipe to saved recipe
+        saved = SavedRecipe(
+            name=recent.name,
+            user_id=user_id,
+            description=recent.description,
+            cuisine=recent.cuisine,
+            difficulty=recent.difficulty,
+            prep_time=recent.prep_time,
+            cook_time=recent.cook_time,
+            servings=recent.servings,
+            ingredients=recent.ingredients,  # Already JSON
+            instructions=recent.instructions,  # Already JSON
+            notes=notes,
+            rating=rating,
+            tags=json.dumps(tags) if tags else None,
+            ai_model=recent.ai_model
+        )
+        
+        self.session.add(saved)
+        self.session.commit()
+        self.session.refresh(saved)
+        
+        # Optionally delete the recent recipe after saving
+        self.session.delete(recent)
+        self.session.commit()
+        
+        logger.info(f"Saved recent recipe {recent_recipe_id} to recipe box (ID: {saved.id})")
+        return saved
     
     # ========================================================================
     # Pantry Operations

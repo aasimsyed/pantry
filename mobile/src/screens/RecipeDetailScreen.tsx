@@ -3,11 +3,11 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, Divider } from 'react-native-paper';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { Recipe, SavedRecipe } from '../types';
+import type { Recipe, RecentRecipe, SavedRecipe } from '../types';
 
 type RouteParams = {
   RecipeDetail: {
-    recipe: Recipe | SavedRecipe;
+    recipe: Recipe | RecentRecipe | SavedRecipe;
   };
 };
 

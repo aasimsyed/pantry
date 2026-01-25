@@ -6,6 +6,7 @@ import type {
   Pantry,
   InventoryItem,
   Recipe,
+  RecentRecipe,
   SavedRecipe,
   Statistics,
   SourceDirectory,
@@ -442,6 +443,34 @@ class APIClient {
 
   async deleteSavedRecipe(recipeId: number): Promise<void> {
     return this.request<void>('DELETE', `/api/recipes/saved/${recipeId}`);
+  }
+
+  // Recent Recipes
+  async getRecentRecipes(limit: number = 20): Promise<RecentRecipe[]> {
+    return this.request<RecentRecipe[]>('GET', '/api/recipes/recent', {
+      params: { limit },
+    });
+  }
+
+  async getRecentRecipe(recipeId: number): Promise<RecentRecipe> {
+    return this.request<RecentRecipe>('GET', `/api/recipes/recent/${recipeId}`);
+  }
+
+  async saveRecentRecipe(
+    recipeId: number,
+    notes?: string,
+    rating?: number,
+    tags?: string[]
+  ): Promise<SavedRecipe> {
+    const data: any = {};
+    if (notes !== undefined) data.notes = notes;
+    if (rating !== undefined) data.rating = rating;
+    if (tags !== undefined) data.tags = tags;
+    return this.request<SavedRecipe>('POST', `/api/recipes/recent/${recipeId}/save`, { data });
+  }
+
+  async deleteRecentRecipe(recipeId: number): Promise<void> {
+    return this.request<void>('DELETE', `/api/recipes/recent/${recipeId}`);
   }
 
   // Products

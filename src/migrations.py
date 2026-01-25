@@ -634,6 +634,77 @@ def add_security_events_table():
             raise
 
 
+def add_recent_recipes_table():
+    """
+    Create recent_recipes table if it doesn't exist.
+    
+    This migration creates the recent_recipes table for storing temporarily
+    generated recipes that users can save later.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    
+    # Check if recent_recipes table already exists
+    if 'recent_recipes' in inspector.get_table_names():
+        logger.info("recent_recipes table already exists")
+        return
+    
+    logger.info("Creating recent_recipes table...")
+    
+    try:
+        from src.database import RecentRecipe
+        RecentRecipe.__table__.create(engine, checkfirst=True)
+        logger.info("✅ recent_recipes table created successfully")
+    except Exception as e:
+        # If it's just a duplicate index/table error, that's okay - table might already exist
+        if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+            logger.info(f"recent_recipes table/index already exists (SQLAlchemy): {e}")
+            # Verify table actually exists
+            if 'recent_recipes' in inspector.get_table_names():
+                logger.info("✅ recent_recipes table verified to exist")
+                return
+        logger.error(f"Failed to create recent_recipes table: {e}", exc_info=True)
+        # Try SQL directly as fallback
+        try:
+            with engine.connect() as conn:
+                trans = conn.begin()
+                try:
+                    conn.execute(text("""
+                        CREATE TABLE IF NOT EXISTS recent_recipes (
+                            id SERIAL PRIMARY KEY,
+                            user_id INTEGER NOT NULL,
+                            name VARCHAR(255) NOT NULL,
+                            description TEXT,
+                            cuisine VARCHAR(100),
+                            difficulty VARCHAR(50),
+                            prep_time INTEGER,
+                            cook_time INTEGER,
+                            servings INTEGER,
+                            ingredients TEXT NOT NULL,
+                            instructions TEXT NOT NULL,
+                            available_ingredients TEXT,
+                            missing_ingredients TEXT,
+                            flavor_pairings TEXT,
+                            ai_model VARCHAR(100),
+                            generated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT fk_recent_recipes_user_id 
+                                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                        )
+                    """))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_recent_recipes_user_id ON recent_recipes(user_id)"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_recent_recipes_generated_at ON recent_recipes(generated_at)"))
+                    trans.commit()
+                    logger.info("✅ recent_recipes table created via SQL")
+                except Exception as sql_error:
+                    trans.rollback()
+                    if "already exists" not in str(sql_error).lower():
+                        raise
+                    logger.info("recent_recipes table already exists (via SQL check)")
+        except Exception as fallback_error:
+            logger.error(f"Fallback SQL creation also failed: {fallback_error}", exc_info=True)
+            raise
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
@@ -646,6 +717,7 @@ def run_migrations():
     add_user_settings_table()
     add_ai_model_to_saved_recipes()
     add_security_events_table()  # Ensure security_events table exists
+    add_recent_recipes_table()  # Create recent_recipes table
     logger.info("✅ All migrations completed")
 
 

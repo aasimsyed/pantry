@@ -836,6 +836,110 @@ class SavedRecipe(Base):
 
 
 # ============================================================================
+# Recent Recipe Model - Temporary storage for generated recipes
+# ============================================================================
+
+class RecentRecipe(Base):
+    """Recently generated recipes (temporary storage).
+    
+    Stores recipes that were generated but not yet saved to recipe box.
+    Allows users to go back and save recipes they generated earlier.
+    Recipes older than 7 days are automatically cleaned up.
+    
+    Attributes:
+        id: Primary key
+        user_id: Foreign key to users table
+        name: Recipe name
+        description: Recipe description
+        cuisine: Cuisine type
+        difficulty: Difficulty level
+        prep_time: Preparation time in minutes
+        cook_time: Cooking time in minutes
+        servings: Number of servings
+        ingredients: JSON list of ingredients
+        instructions: JSON list of instructions
+        available_ingredients: JSON list of ingredients used from pantry
+        missing_ingredients: JSON list of ingredients not in pantry
+        flavor_pairings: JSON list of flavor pairings
+        ai_model: AI model used to generate recipe
+        generated_at: When recipe was generated
+    """
+    
+    __tablename__ = "recent_recipes"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Foreign key to user
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    
+    # Recipe information (same structure as SavedRecipe)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    cuisine = Column(String(100), nullable=True)
+    difficulty = Column(String(50), nullable=True)
+    prep_time = Column(Integer, nullable=True)  # minutes
+    cook_time = Column(Integer, nullable=True)  # minutes
+    servings = Column(Integer, nullable=True)
+    
+    # Recipe content (stored as JSON)
+    ingredients = Column(Text, nullable=False)  # JSON: List of ingredient dicts
+    instructions = Column(Text, nullable=False)  # JSON: List of instruction strings
+    available_ingredients = Column(Text, nullable=True)  # JSON: List of strings
+    missing_ingredients = Column(Text, nullable=True)  # JSON: List of strings
+    flavor_pairings = Column(Text, nullable=True)  # JSON: List of strings
+    
+    # AI metadata
+    ai_model = Column(String(100), nullable=True)
+    
+    # Timestamp
+    generated_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="recent_recipes")
+    
+    # Indexes
+    __table_args__ = (
+        Index("ix_recent_recipes_generated_at", "generated_at"),
+    )
+    
+    def __repr__(self) -> str:
+        """String representation."""
+        return f"<RecentRecipe(id={self.id}, name='{self.name}', generated_at={self.generated_at})>"
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary.
+        
+        Returns:
+            Dictionary representation of recent recipe
+        """
+        import json
+        
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "cuisine": self.cuisine,
+            "difficulty": self.difficulty,
+            "prep_time": self.prep_time,
+            "cook_time": self.cook_time,
+            "servings": self.servings,
+            "ingredients": json.loads(self.ingredients) if self.ingredients else [],
+            "instructions": json.loads(self.instructions) if self.instructions else [],
+            "available_ingredients": json.loads(self.available_ingredients) if self.available_ingredients else [],
+            "missing_ingredients": json.loads(self.missing_ingredients) if self.missing_ingredients else [],
+            "flavor_pairings": json.loads(self.flavor_pairings) if self.flavor_pairings else [],
+            "ai_model": self.ai_model,
+            "generated_at": self.generated_at.isoformat() if self.generated_at else None,
+        }
+
+
+# ============================================================================
 # Pantry Model - Multiple Pantries per User
 # ============================================================================
 
@@ -979,6 +1083,7 @@ class User(Base):
     inventory_items = relationship("InventoryItem", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     saved_recipes = relationship("SavedRecipe", back_populates="user", cascade="all, delete-orphan")
+    recent_recipes = relationship("RecentRecipe", back_populates="user", cascade="all, delete-orphan")
     pantries = relationship("Pantry", back_populates="user", cascade="all, delete-orphan")
     
     # Indexes (email already indexed via index=True; avoid duplicate ix_users_email)

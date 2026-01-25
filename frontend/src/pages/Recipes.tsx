@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
-import type { Recipe } from '../types';
+import type { Recipe, RecentRecipe } from '../types';
 
 export default function Recipes() {
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
@@ -22,11 +22,14 @@ export default function Recipes() {
   const [difficulty, setDifficulty] = useState('');
   const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
   const [allowMissing, setAllowMissing] = useState(false);
+  const [recentRecipes, setRecentRecipes] = useState<RecentRecipe[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
 
   useEffect(() => {
     if (selectedPantryId !== undefined) {
       loadAvailableIngredients();
     }
+    loadRecentRecipes();
   }, [selectedPantryId]);
 
   const loadAvailableIngredients = async () => {
@@ -50,6 +53,19 @@ export default function Recipes() {
       setAvailableIngredients([]);
     } finally {
       setLoadingIngredients(false);
+    }
+  };
+
+  const loadRecentRecipes = async () => {
+    setLoadingRecent(true);
+    try {
+      const recent = await apiClient.getRecentRecipes(20);
+      setRecentRecipes(recent);
+    } catch (err: any) {
+      console.error('Error loading recent recipes:', err);
+      // Don't show error - recent recipes are optional
+    } finally {
+      setLoadingRecent(false);
     }
   };
 
@@ -83,6 +99,8 @@ export default function Recipes() {
       }
 
       setProgress(100);
+      // Reload recent recipes after generation
+      loadRecentRecipes();
     } catch (err: any) {
       setError(err.message || 'Failed to generate recipes');
     } finally {
@@ -106,6 +124,7 @@ export default function Recipes() {
         ai_model: recipe.ai_model, // Track which AI model generated this recipe
       });
       alert(`Saved "${recipe.name}" to recipe box!`);
+      loadRecentRecipes(); // Reload in case this was saved from recent
     } catch (err: any) {
       // Extract error message from API response
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
@@ -116,6 +135,31 @@ export default function Recipes() {
       } else {
         alert(`Failed to save recipe: ${errorMessage}`);
       }
+    }
+  };
+
+  const handleSaveRecentRecipe = async (recentRecipe: RecentRecipe) => {
+    try {
+      await apiClient.saveRecentRecipe(recentRecipe.id);
+      alert(`Saved "${recentRecipe.name}" to recipe box!`);
+      setRecentRecipes(recentRecipes.filter((r) => r.id !== recentRecipe.id));
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
+      if (err.response?.status === 409 || errorMessage.includes('already saved')) {
+        alert(errorMessage);
+      } else {
+        alert(`Failed to save recipe: ${errorMessage}`);
+      }
+    }
+  };
+
+  const handleDeleteRecentRecipe = async (recipeId: number) => {
+    if (!confirm('Delete this recent recipe?')) return;
+    try {
+      await apiClient.deleteRecentRecipe(recipeId);
+      setRecentRecipes(recentRecipes.filter((r) => r.id !== recipeId));
+    } catch (err: any) {
+      alert(err.response?.data?.detail || err.message || 'Failed to delete recipe');
     }
   };
 
@@ -380,7 +424,67 @@ export default function Recipes() {
             </div>
           )}
 
-          {recipes.length === 0 && !generating && !error && (
+          {/* Recent Recipes Section */}
+          {recentRecipes.length > 0 && (
+            <div className="card mb-6 border-2 border-blue-200 bg-blue-50">
+              <h2 className="text-xl font-bold mb-2">📋 Recent Recipes</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Recipes you generated recently. Save them to your Recipe Box to keep them forever.
+              </p>
+              {recentRecipes.map((recentRecipe) => (
+                <div key={recentRecipe.id} className="card mb-4 bg-white">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold mb-2">{recentRecipe.name}</h3>
+                      {recentRecipe.description && (
+                        <p className="text-gray-600 mb-2">{recentRecipe.description}</p>
+                      )}
+                      {recentRecipe.cuisine && (
+                        <p className="text-sm text-gray-500">🌍 {recentRecipe.cuisine} Cuisine</p>
+                      )}
+                      {recentRecipe.generated_at && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Generated {new Date(recentRecipe.generated_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {recentRecipe.difficulty && (
+                        <p className="font-semibold">
+                          {difficultyEmoji(recentRecipe.difficulty)} {recentRecipe.difficulty}
+                        </p>
+                      )}
+                      {recentRecipe.prep_time && (
+                        <p className="text-sm text-gray-600">⏱️ Prep: {recentRecipe.prep_time} min</p>
+                      )}
+                      {recentRecipe.cook_time && (
+                        <p className="text-sm text-gray-600">🔥 Cook: {recentRecipe.cook_time} min</p>
+                      )}
+                      {recentRecipe.servings && (
+                        <p className="text-sm text-gray-600">👥 Serves: {recentRecipe.servings}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSaveRecentRecipe(recentRecipe)}
+                      className="btn-primary flex-1"
+                    >
+                      💾 Save to Recipe Box
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRecentRecipe(recentRecipe.id)}
+                      className="btn-secondary"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {recipes.length === 0 && !generating && !error && recentRecipes.length === 0 && (
             <div className="card">
               <p className="text-gray-600 mb-4">
                 👆 Use the sidebar to configure recipe options and click 'Generate Recipes'
@@ -396,6 +500,13 @@ export default function Recipes() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Generated Recipes Section */}
+          {recipes.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-bold mb-4">🍳 Generated Recipes</h2>
             </div>
           )}
 

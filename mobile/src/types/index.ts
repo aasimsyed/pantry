@@ -59,6 +59,7 @@ export interface Recipe {
   missing_ingredients: string[];
   flavor_pairings?: FlavorPairing[];
   ai_model?: string;
+  recent_recipe_id?: number; // ID if this recipe is in recent recipes
 }
 
 export interface RecipeIngredient {
@@ -90,6 +91,24 @@ export interface SavedRecipe {
   ai_model?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface RecentRecipe {
+  id: number;
+  name: string;
+  description?: string;
+  cuisine?: string;
+  difficulty?: string;
+  prep_time?: number;
+  cook_time?: number;
+  servings?: number;
+  ingredients: RecipeIngredient[];
+  instructions: string[];
+  available_ingredients?: string[];
+  missing_ingredients?: string[];
+  flavor_pairings?: FlavorPairing[];
+  ai_model?: string;
+  generated_at: string;
 }
 
 export interface Statistics {
