@@ -1,0 +1,120 @@
+# Inventory Advanced Features Test - For Expo Go
+# Use this when testing with Expo Go app
+
+appId: host.exp.Exponent
+---
+- launchApp
+# Expo Go opens to project selector - tap our app to open it
+- runFlow:
+    when:
+      visible: "Smart Pantry AI"
+    commands:
+      - tapOn: "Smart Pantry AI"
+      - waitForAnimationToEnd:
+          timeout: 5000
+# When on login screen, log in first (admin test user)
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn:
+          id: "email-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "admin@pantry.com"
+      - pasteText
+      - tapOn:
+          id: "password-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "Admin12345"
+      - pasteText
+      - waitForAnimationToEnd:
+          timeout: 1000
+      - hideKeyboard
+      - tapOn:
+          id: "login-button"
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 15000
+# Dismiss iCloud "Save Password?" dialog if it appears
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+# Navigate to Inventory
+- assertVisible:
+    id: "home-title"
+- tapOn:
+    id: "quick-action-inventory"
+- assertVisible: "Inventory"
+# Verify inventory screen elements
+- assertVisible:
+    id: "inventory-search"
+- assertVisible:
+    id: "location-filter-all"
+- assertVisible:
+    id: "location-filter-pantry"
+- assertVisible:
+    id: "location-filter-fridge"
+- assertVisible:
+    id: "location-filter-freezer"
+- assertVisible:
+    id: "add-item-fab"
+# Test location filters
+- tapOn:
+    id: "location-filter-pantry"
+- tapOn:
+    id: "location-filter-all"
+# Test add item dialog
+- tapOn:
+    id: "add-item-fab"
+# Verify dialog options are visible
+- assertVisible: "Add Item"
+- assertVisible:
+    id: "add-item-take-photo"
+- assertVisible:
+    id: "add-item-choose-photo"
+- assertVisible:
+    id: "add-item-manual-entry"
+# Test manual entry flow
+- tapOn:
+    id: "add-item-manual-entry"
+# Verify manual entry form
+- assertVisible: "Add Item Manually"
+- assertVisible:
+    id: "manual-entry-product-name"
+- assertVisible:
+    id: "manual-entry-brand"
+- assertVisible:
+    id: "manual-entry-cancel"
+- assertVisible:
+    id: "manual-entry-submit"
+# Fill in manual entry form (but don't submit - requires API)
+- tapOn:
+    id: "manual-entry-product-name"
+- inputText: "Test Product"
+- hideKeyboard
+# Cancel manual entry
+- tapOn:
+    id: "manual-entry-cancel"
+# Test edit item (if items exist)
+- runFlow:
+    when:
+      id: "inventory-item-1"
+    commands:
+      # Tap on an item to edit
+      - tapOn:
+          id: "inventory-item-1"
+      # Verify edit dialog
+      - assertVisible: "Edit Item"
+      - assertVisible:
+          id: "edit-item-cancel"
+      - assertVisible:
+          id: "edit-item-save"
+      # Cancel edit
+      - tapOn:
+          id: "edit-item-cancel"
+# Note: Delete operation requires confirmation dialog
+# which is handled by system Alert, so harder to test automatically

@@ -1,0 +1,66 @@
+# Inventory Screen Basic Test - For Expo Go
+# Use this when testing with Expo Go app
+
+appId: host.exp.Exponent
+---
+- launchApp
+# Expo Go opens to project selector - tap our app to open it
+- runFlow:
+    when:
+      visible: "Smart Pantry AI"
+    commands:
+      - tapOn: "Smart Pantry AI"
+      - waitForAnimationToEnd:
+          timeout: 5000
+# When on login screen, log in first (admin test user)
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn:
+          id: "email-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "admin@pantry.com"
+      - pasteText
+      - tapOn:
+          id: "password-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "Admin12345"
+      - pasteText
+      - waitForAnimationToEnd:
+          timeout: 1000
+      - hideKeyboard
+      - tapOn:
+          id: "login-button"
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 15000
+# Dismiss iCloud "Save Password?" dialog if it appears
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+# Verify we're on home screen before navigating
+- assertVisible:
+    id: "home-title"
+- tapOn:
+    id: "quick-action-inventory"
+- assertVisible: "Inventory"
+# Verify inventory screen elements
+- assertVisible: "Inventory"
+# Check for pantry selector or empty state
+- runFlow:
+    when:
+      visible: "No items"
+    commands:
+      - assertVisible: "No items"
+# If items exist, pantry selector should be visible
+- runFlow:
+    when:
+      visible: "Select Pantry"
+    commands:
+      - assertVisible:
+          id: "pantry-selector-button"

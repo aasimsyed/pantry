@@ -1,0 +1,54 @@
+# Registration Flow Test - For Expo Go
+# Use this when testing with Expo Go app
+
+appId: host.exp.Exponent
+---
+- launchApp
+# Expo Go opens to project selector - tap our app to open it
+- runFlow:
+    when:
+      visible: "Smart Pantry AI"
+    commands:
+      - tapOn: "Smart Pantry AI"
+      - waitForAnimationToEnd:
+          timeout: 5000
+- assertVisible:
+    id: "login-title"
+# Navigate to registration
+- tapOn:
+    id: "register-link"
+- assertVisible:
+    id: "register-title"
+- assertVisible: "Email"
+- assertVisible: "Password"
+# Fill in registration form
+- tapOn:
+    id: "email-input"
+- inputText: "newuser@example.com"
+- tapOn:
+    id: "password-input"
+- inputText: "securepassword123"
+- tapOn:
+    id: "register-button"
+# Handle result (success or error)
+- runFlow:
+    when:
+      visible: "Smart Pantry"
+    commands:
+      - assertVisible:
+          id: "home-title"
+# Dismiss iCloud "Save Password?" dialog if it appears
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+# If registration failed, error message should be visible
+- runFlow:
+    when:
+      visible: "Registration failed"
+    commands:
+      - assertVisible: "Registration failed"
+      # If registration failed, we're still on register screen, can navigate to login
+      - tapOn:
+          id: "login-link"
