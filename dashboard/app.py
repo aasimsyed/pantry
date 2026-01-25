@@ -191,5 +191,5 @@ Use the sidebar to navigate between pages:
 
 # Footer
 st.markdown("---")
-st.caption("Smart Pantry Management System v1.0.0")
+st.caption("Smart Pantry Management System v1.1.1")
 
