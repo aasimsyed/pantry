@@ -537,15 +537,50 @@ export default function Recipes() {
 
               <div className="mb-4">
                 <h3 className="font-semibold mb-2">📋 Ingredients</h3>
-                <ul className="list-disc list-inside space-y-1">
-                  {recipe.ingredients.map((ing, i) => (
-                    <li key={i}>
-                      <strong>{typeof ing === 'string' ? ing : ing.item}</strong>
-                      {typeof ing === 'object' && ing.amount && `: ${ing.amount}`}
-                      {typeof ing === 'object' && ing.notes && ` (${ing.notes})`}
-                    </li>
-                  ))}
-                </ul>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Ingredient</th>
+                        <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recipe.ingredients.map((ing, i) => {
+                        const rawItemName = typeof ing === 'string' ? ing : ing.item;
+                        // Remove duplicate brand names (e.g., "H-E-B H-E-B" -> "H-E-B")
+                        const cleanName = (name: string): string => {
+                          if (!name) return name;
+                          const words = name.trim().split(/\s+/);
+                          if (words.length < 2) return name;
+                          for (let wordCount = 1; wordCount <= Math.min(3, Math.floor(words.length / 2)); wordCount++) {
+                            const firstPart = words.slice(0, wordCount).join(' ');
+                            const secondPart = words.slice(wordCount, wordCount * 2).join(' ');
+                            if (firstPart.toLowerCase() === secondPart.toLowerCase()) {
+                              return words.slice(wordCount).join(' ');
+                            }
+                          }
+                          return name;
+                        };
+                        const itemName = cleanName(rawItemName);
+                        const amount = typeof ing === 'object' ? ing.amount : undefined;
+                        const notes = typeof ing === 'object' ? ing.notes : undefined;
+                        
+                        return (
+                          <tr key={i} className="border-t border-gray-200">
+                            <td className="px-4 py-2">
+                              <strong>{itemName}</strong>
+                              {notes && <span className="text-gray-500 text-sm ml-2">({notes})</span>}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {amount || <span className="text-gray-400">—</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div className="mb-4">

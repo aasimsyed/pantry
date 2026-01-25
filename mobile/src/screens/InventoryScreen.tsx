@@ -325,7 +325,54 @@ export default function InventoryScreen() {
             <Card.Content>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitle}>
-                  <Text variant="titleMedium">{item.product_name || 'Unknown'}</Text>
+                  {(() => {
+                    // Clean up product name to remove duplicate brand names
+                    let displayName = item.product_name || 'Unknown';
+                    if (item.brand && item.product_name) {
+                      const brand = item.brand.trim();
+                      let name = item.product_name;
+                      
+                      // Strategy 1: Remove brand from the start (most common case)
+                      const brandLower = brand.toLowerCase();
+                      const nameLower = name.toLowerCase();
+                      
+                      // Check if product name starts with brand (with optional space/hyphen)
+                      if (nameLower.startsWith(brandLower)) {
+                        // Remove brand from start, including any following space, hyphen, or space-hyphen
+                        const afterBrand = name.substring(brand.length);
+                        name = afterBrand.replace(/^[\s-]+/, '').trim();
+                      }
+                      
+                      // Strategy 2: Remove all instances of brand as whole word (case-insensitive)
+                      // Escape special regex characters
+                      const escapedBrand = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      // Match brand as whole word, or at start/end of string
+                      const brandRegex = new RegExp(`(^|\\s)${escapedBrand}(\\s|$)`, 'gi');
+                      name = name.replace(brandRegex, (match, before, after) => {
+                        // Preserve the space before if it exists, but remove brand and space after
+                        return before || '';
+                      }).trim();
+                      
+                      // Strategy 3: Remove exact brand matches (case-insensitive) anywhere
+                      // Split by spaces and filter out brand matches
+                      const words = name.split(/\s+/);
+                      const filteredWords = words.filter(word => 
+                        word.toLowerCase() !== brandLower
+                      );
+                      name = filteredWords.join(' ');
+                      
+                      // Clean up multiple spaces and trim
+                      name = name.replace(/\s+/g, ' ').trim();
+                      
+                      // If we removed everything, keep the original
+                      if (name.length === 0) {
+                        name = item.product_name;
+                      }
+                      
+                      displayName = name;
+                    }
+                    return <Text variant="titleMedium">{displayName}</Text>;
+                  })()}
                   {item.brand && (
                     <Text variant="bodySmall" style={styles.brand}>
                       Brand: {item.brand}

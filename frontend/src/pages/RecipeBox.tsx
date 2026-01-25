@@ -11,6 +11,7 @@ export default function RecipeBox() {
   const [editingRecipe, setEditingRecipe] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState('');
   const [editRating, setEditRating] = useState(0);
+  const [scaledServings, setScaledServings] = useState<Record<number, number>>({});
 
   useEffect(() => {
     loadRecipes();
@@ -84,6 +85,148 @@ export default function RecipeBox() {
       default:
         return '🟡';
     }
+  };
+
+  // Utility function to scale ingredient amounts
+  const scaleAmount = (amount: string | undefined, scaleFactor: number): string => {
+    if (!amount) return '';
+    
+    const amountStr = amount.trim();
+    // Match: simple fractions, mixed numbers, decimals, or whole numbers (in that order)
+    const numberMatch = amountStr.match(/^(\d+\/\d+|\d+(?:\.\d+)?\s+\d+\/\d+|\d+\.\d+|\d+)/);
+    if (!numberMatch) return amount;
+    
+    const matchedText = numberMatch[0];
+    const unitPart = amountStr.substring(matchedText.length).trim();
+    
+    let value = 0;
+    if (matchedText.includes('/')) {
+      if (matchedText.includes(' ')) {
+        // Mixed number like "1 1/2"
+        const parts = matchedText.split(/\s+/);
+        const whole = parseFloat(parts[0]);
+        const [num, den] = parts[1].split('/').map(Number);
+        value = whole + (num / den);
+      } else {
+        // Simple fraction like "1/2"
+        const [num, den] = matchedText.split('/').map(Number);
+        value = num / den;
+      }
+    } else {
+      value = parseFloat(matchedText);
+    }
+    
+    const scaledValue = value * scaleFactor;
+    
+    if (scaledValue < 1 && scaledValue > 0) {
+      const fraction = toFraction(scaledValue);
+      return fraction + (unitPart ? ' ' + unitPart : '');
+    } else {
+      const rounded = Math.round(scaledValue * 100) / 100;
+      const formatted = rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2).replace(/\.?0+$/, '');
+      return formatted + (unitPart ? ' ' + unitPart : '');
+    }
+  };
+
+  const toFraction = (decimal: number): string => {
+    const tolerance = 0.001;
+    
+    // Extended list of common cooking fractions
+    const commonFractions = [
+      [1, 8, '1/8'],
+      [1, 4, '1/4'],
+      [3, 8, '3/8'],
+      [1, 2, '1/2'],
+      [5, 8, '5/8'],
+      [3, 4, '3/4'],
+      [7, 8, '7/8'],
+      [1, 3, '1/3'],
+      [2, 3, '2/3'],
+      [1, 5, '1/5'],
+      [2, 5, '2/5'],
+      [3, 5, '3/5'],
+      [4, 5, '4/5'],
+      [1, 6, '1/6'],
+      [5, 6, '5/6'],
+    ];
+    
+    // First try exact matches with common fractions
+    for (const [num, den, str] of commonFractions) {
+      if (Math.abs(decimal - num / den) < tolerance) {
+        return str;
+      }
+    }
+    
+    // If no exact match, try to find the simplest fraction representation
+    // Use continued fractions algorithm for better accuracy
+    const maxDenominator = 64; // Common cooking denominators go up to 64 (like 1/64 tsp)
+    let bestNum = 0;
+    let bestDen = 1;
+    let bestError = Math.abs(decimal);
+    
+    for (let den = 2; den <= maxDenominator; den++) {
+      const num = Math.round(decimal * den);
+      const error = Math.abs(decimal - num / den);
+      if (error < bestError) {
+        bestError = error;
+        bestNum = num;
+        bestDen = den;
+      }
+    }
+    
+    // Only use the calculated fraction if it's accurate enough
+    if (bestError < tolerance) {
+      // Simplify the fraction
+      const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+      const divisor = gcd(Math.abs(bestNum), bestDen);
+      const simplifiedNum = bestNum / divisor;
+      const simplifiedDen = bestDen / divisor;
+      
+      // Prefer common fractions over calculated ones if close
+      for (const [num, den, str] of commonFractions) {
+        if (simplifiedNum === num && simplifiedDen === den) {
+          return str;
+        }
+      }
+      
+      // Return simplified fraction
+      return `${simplifiedNum}/${simplifiedDen}`;
+    }
+    
+    // Fallback: return as decimal (rounded to 2 places)
+    return decimal.toFixed(2).replace(/\.?0+$/, '');
+  };
+
+  // Utility function to remove duplicate brand names from ingredient names
+  const cleanIngredientName = (name: string): string => {
+    if (!name || typeof name !== 'string') return name;
+    
+    // Split into words
+    const words = name.trim().split(/\s+/);
+    if (words.length < 2) return name;
+    
+    // Check if first word(s) are repeated (common pattern: "Brand Brand Product Name")
+    // Try matching 1-3 words at the start
+    for (let wordCount = 1; wordCount <= Math.min(3, Math.floor(words.length / 2)); wordCount++) {
+      const firstPart = words.slice(0, wordCount).join(' ');
+      const secondPart = words.slice(wordCount, wordCount * 2).join(' ');
+      
+      // Case-insensitive comparison
+      if (firstPart.toLowerCase() === secondPart.toLowerCase()) {
+        // Found duplicate! Remove the first occurrence
+        return words.slice(wordCount).join(' ');
+      }
+    }
+    
+    return name;
+  };
+
+  const getScaledServings = (recipeId: number, originalServings: number): number => {
+    return scaledServings[recipeId] ?? originalServings;
+  };
+
+  const setRecipeScaledServings = (recipeId: number, servings: number) => {
+    setScaledServings(prev => ({ ...prev, [recipeId]: servings }));
   };
 
   return (
@@ -175,6 +318,9 @@ export default function RecipeBox() {
               const ingredients = parseJson(recipe.ingredients);
               const instructions = parseJson(recipe.instructions);
               const tags = parseJson(recipe.tags);
+              const originalServings = recipe.servings || 4;
+              const currentServings = getScaledServings(recipe.id, originalServings);
+              const scaleFactor = currentServings / originalServings;
 
               return (
                 <div key={recipe.id} className="card">
@@ -206,7 +352,7 @@ export default function RecipeBox() {
                       </p>
                       <p className="text-sm text-gray-600">⏱️ Prep: {recipe.prep_time || 0} min</p>
                       <p className="text-sm text-gray-600">🔥 Cook: {recipe.cook_time || 0} min</p>
-                      <p className="text-sm text-gray-600">👥 Serves: {recipe.servings || 4}</p>
+                      <p className="text-sm text-gray-600">👥 Serves: {currentServings}</p>
                       {recipe.rating && (
                         <p className="text-sm text-gray-600">
                           ⭐ Rating: {'⭐'.repeat(recipe.rating)}
@@ -263,24 +409,105 @@ export default function RecipeBox() {
                           <p className="text-sm text-gray-600">{recipe.notes}</p>
                         </div>
                       )}
+                      
+                      {/* Servings Scale Control */}
+                      <div className="mb-4 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                        <h3 className="font-semibold mb-2 text-blue-700">📏 Scale Recipe</h3>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Adjust servings: <strong>{currentServings}</strong> {currentServings === 1 ? 'serving' : 'servings'}
+                          {scaleFactor !== 1 && (
+                            <span className="text-gray-500">
+                              {' '}({scaleFactor > 1 ? '+' : ''}{((scaleFactor - 1) * 100).toFixed(0)}%)
+                            </span>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-4 mb-3">
+                          <span className="text-sm text-gray-600 w-8">1</span>
+                          <input
+                            type="range"
+                            min="1"
+                            max="20"
+                            value={currentServings}
+                            onChange={(e) => setRecipeScaledServings(recipe.id, parseInt(e.target.value))}
+                            className="flex-1"
+                          />
+                          <span className="text-sm text-gray-600 w-8">20</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setRecipeScaledServings(recipe.id, Math.max(1, currentServings - 1))}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                          >
+                            -1
+                          </button>
+                          <button
+                            onClick={() => setRecipeScaledServings(recipe.id, originalServings)}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                          >
+                            Reset ({originalServings})
+                          </button>
+                          <button
+                            onClick={() => setRecipeScaledServings(recipe.id, Math.min(20, currentServings + 1))}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                          >
+                            +1
+                          </button>
+                        </div>
+                      </div>
                     </>
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                     <div>
                       <h3 className="font-semibold mb-2">📋 Ingredients</h3>
-                      <ul className="list-disc list-inside space-y-1">
-                        {ingredients.length > 0 ? (
-                          ingredients.map((ing, i) => (
-                            <li key={i}>
-                              {typeof ing === 'string' ? ing : ing.item || ing.name || JSON.stringify(ing)}
-                              {typeof ing === 'object' && ing.amount && `: ${ing.amount}`}
-                            </li>
-                          ))
-                        ) : (
-                          <li className="text-gray-500">No ingredients listed</li>
-                        )}
-                      </ul>
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Ingredient</th>
+                              <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ingredients.length > 0 ? (
+                              ingredients.map((ing, i) => {
+                                const rawItemName = typeof ing === 'string' ? ing : ing.item || ing.name || JSON.stringify(ing);
+                                const itemName = cleanIngredientName(rawItemName);
+                                const originalAmount = typeof ing === 'object' ? ing.amount : undefined;
+                                const scaledAmount = scaleFactor !== 1 && originalAmount 
+                                  ? scaleAmount(originalAmount, scaleFactor)
+                                  : originalAmount;
+                                
+                                return (
+                                  <tr key={i} className="border-t border-gray-200">
+                                    <td className="px-4 py-2">{itemName}</td>
+                                    <td className="px-4 py-2 text-right">
+                                      {scaledAmount ? (
+                                        <div>
+                                          <span>{scaledAmount}</span>
+                                          {scaleFactor !== 1 && originalAmount && originalAmount !== scaledAmount && (
+                                            <span className="text-gray-400 italic text-xs block">
+                                              (was {originalAmount})
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400">—</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            ) : (
+                              <tr>
+                                <td colSpan={2} className="px-4 py-2 text-gray-500 text-center">
+                                  No ingredients listed
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
 
                     <div>
