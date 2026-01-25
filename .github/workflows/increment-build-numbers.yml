@@ -1,0 +1,61 @@
+name: Auto-Increment Build Numbers
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'mobile/**'
+      - 'scripts/increment-build-numbers.sh'
+      - '.github/workflows/increment-build-numbers.yml'
+  workflow_dispatch:
+
+jobs:
+  increment-build-numbers:
+    runs-on: ubuntu-latest
+    # Skip if the commit message contains [skip ci] or [skip build-increment]
+    # This prevents infinite loops when we commit the incremented numbers
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip build-increment]')"
+    
+    permissions:
+      contents: write  # Required to commit changes
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Make script executable
+        run: chmod +x scripts/increment-build-numbers.sh
+
+      - name: Increment build numbers
+        working-directory: ./mobile
+        run: |
+          cd ..
+          ./scripts/increment-build-numbers.sh
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if [ -n "$(git status --porcelain mobile/app.json)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add mobile/app.json
+          git commit -m "chore: auto-increment build numbers [skip ci]"
+          git push
