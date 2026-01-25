@@ -9,10 +9,10 @@
 # Usage:
 #   # With Cloud SQL Proxy running on localhost:5432
 #   export DATABASE_URL='postgresql://pantry-user:password@localhost:5432/pantry'
-#   ./create_admin_production.sh
+#   ./scripts/create_admin_production.sh
 #
 #   # Or with direct credentials
-#   ./create_admin_production.sh --email admin@pantry.com --password Admin12345
+#   ./scripts/create_admin_production.sh --email admin@pantry.com --password Admin12345
 
 set -e
 

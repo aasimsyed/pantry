@@ -35,7 +35,15 @@ export default function LoginScreen() {
       await login({ email, password });
       // Navigation will be handled by AppNavigator based on auth state
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Login failed');
+      const isNetwork =
+        err.code === 'ERR_NETWORK' ||
+        err.message?.includes('Network Error') ||
+        err.message?.includes('timeout');
+      setError(
+        isNetwork
+          ? "Can't reach API. Is the backend running? (Physical device? Use Mac IP — see terminal.)"
+          : err.response?.data?.detail || err.message || 'Login failed'
+      );
     } finally {
       setLoading(false);
     }

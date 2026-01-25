@@ -1,7 +1,5 @@
 # Docker Compose for local development or self-hosting
-# Usage: docker-compose up -d
-
-version: '3.8'
+# Usage: docker-compose up -d   (or: docker compose up -d)
 
 services:
   api:
@@ -31,7 +29,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"   # 5433 on host to avoid conflict with system Postgres on 5432
     restart: unless-stopped
 
 volumes:

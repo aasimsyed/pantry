@@ -405,6 +405,49 @@ def add_ai_model_to_saved_recipes():
             raise
 
 
+def add_storage_location_to_inventory_items():
+    """
+    Add storage_location column to inventory_items if it doesn't exist.
+    
+    The app uses storage_location (pantry/fridge/freezer) for inventory items.
+    Production DBs created before this column was added will lack it.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+
+    if 'inventory_items' not in inspector.get_table_names():
+        logger.info("inventory_items table doesn't exist yet, skipping storage_location migration")
+        return
+
+    columns = [col['name'] for col in inspector.get_columns('inventory_items')]
+    if 'storage_location' in columns:
+        logger.info("storage_location column already exists in inventory_items")
+        return
+
+    logger.info("Adding storage_location column to inventory_items...")
+
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            if db_url.startswith('sqlite'):
+                conn.execute(text("""
+                    ALTER TABLE inventory_items
+                    ADD COLUMN storage_location VARCHAR(50) NOT NULL DEFAULT 'pantry'
+                """))
+            else:
+                conn.execute(text("""
+                    ALTER TABLE inventory_items
+                    ADD COLUMN storage_location VARCHAR(50) NOT NULL DEFAULT 'pantry'
+                """))
+            trans.commit()
+            logger.info("✅ Migration completed: storage_location added to inventory_items")
+        except Exception as e:
+            trans.rollback()
+            logger.error(f"Migration failed: {e}", exc_info=True)
+            raise
+
+
 def add_security_events_table():
     """
     Create security_events table if it doesn't exist.
@@ -467,6 +510,7 @@ def run_migrations():
     logger.info("Running database migrations...")
     add_user_id_to_saved_recipes()
     add_pantries_table_and_pantry_id()
+    add_storage_location_to_inventory_items()
     assign_null_items_to_default_pantry()
     add_user_settings_table()
     add_ai_model_to_saved_recipes()

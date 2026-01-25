@@ -27,7 +27,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from recipe_generator import RecipeGenerator
@@ -1720,26 +1720,41 @@ def process_single_image(
             user_agent=user_agent if "user_agent" in locals() else get_user_agent(request),
         )
         raise
-    except Exception as e:
-        logger.error(f"Error processing image: {e}", exc_info=True)
-        import traceback
-
-        logger.error(f"Traceback: {traceback.format_exc()}")
-
-        # Log file upload error
+    except (IntegrityError, ProgrammingError, SQLAlchemyError) as e:
+        err_msg = str(e).lower()
+        logger.error(f"Error processing image (DB): {e}", exc_info=True)
         log_security_event(
             db=db,
             event_type="file_upload_error",
             user_id=current_user.id if "current_user" in locals() else None,
             ip_address=ip_address if "ip_address" in locals() else get_client_ip(request),
-            details={"filename": file.filename if file else None, "error": str(e)},
+            details={"filename": file.filename if file else None, "error": err_msg[:500]},
             severity="error",
             user_agent=user_agent if "user_agent" in locals() else get_user_agent(request),
         )
-
+        if "does not exist" in err_msg or "undefinedcolumn" in err_msg or "storage_location" in err_msg:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database schema is out of date. Run migrations against Cloud SQL: see CLOUD_RUN_DEPLOYMENT.md or ./scripts/run-migrations-cloudsql.sh",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process image: {str(e)}",
+            detail="Failed to save inventory item. Please try again.",
+        )
+    except Exception as e:
+        logger.error(f"Error processing image: {e}", exc_info=True)
+        log_security_event(
+            db=db,
+            event_type="file_upload_error",
+            user_id=current_user.id if "current_user" in locals() else None,
+            ip_address=ip_address if "ip_address" in locals() else get_client_ip(request),
+            details={"filename": file.filename if file else None, "error": str(e)[:500]},
+            severity="error",
+            user_agent=user_agent if "user_agent" in locals() else get_user_agent(request),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process image. Please try again.",
         )
 
 

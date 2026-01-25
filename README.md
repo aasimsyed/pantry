@@ -9,19 +9,49 @@ Pantry inventory app with OCR (Google Vision / Tesseract), AI-powered product ex
 | **API** | [Google Cloud Run](https://cloud.google.com/run) |
 | **Frontend** | [Vercel](https://vercel.com) |
 | **Mobile** | EAS / Expo (TestFlight, etc.) |
-| **Database** | Cloud SQL (PostgreSQL) or SQLite (local) |
+| **Database** | Cloud SQL (PostgreSQL); local: Postgres via Docker or SQLite |
 
 - **API URL:** `https://pantry-api-apqja3ye2q-vp.a.run.app`
 - **Frontend:** `https://smartpantryai.vercel.app`
+
+## Project Structure
+
+```
+├── api/                 # FastAPI app (routes, config, deps, models)
+├── src/                 # Core logic: DB, auth, OCR, AI, image processing
+├── dashboard/           # Streamlit dashboard (optional)
+├── frontend/            # Vite + React web app
+├── mobile/              # Expo React Native app
+├── tests/               # Pytest tests
+├── scripts/             # Automation: deploy, secrets, admin, smoke tests
+├── start_server.py      # Production entrypoint (Cloud Run)
+├── start-backend-local.sh
+├── deploy-cloud-run.sh
+├── sync-cloud-run-env.sh
+└── .env.example         # Env template → copy to .env
+```
 
 ## Local Development
 
 ### Backend
 
+**Option A – Postgres (recommended, matches production)**
+
+Same engine as Cloud SQL. Catches migration/schema issues locally before deploy.
+
 ```bash
-# Create venv, install deps, configure .env (see SECURITY_ENV_EXAMPLE.txt)
+./scripts/start-db-local.sh   # start Postgres via Docker (port 5433)
+# Add to .env: DATABASE_URL=postgresql://pantry_user:pantry_pass@localhost:5433/pantry_db
 source venv/bin/activate
-./start-backend-local.sh   # or ./kill-and-restart-backend.sh
+./start-backend-local.sh
+```
+
+**Option B – SQLite**
+
+```bash
+# In .env: DATABASE_URL=sqlite:///pantry.db
+source venv/bin/activate
+./start-backend-local.sh
 ```
 
 API: `http://localhost:8000`, docs: `http://localhost:8000/docs`.
@@ -42,11 +72,17 @@ EXPO_PUBLIC_API_URL=http://localhost:8000 ./run-local.sh
 
 See `mobile/LOCAL_DEVELOPMENT.md` for details.
 
+### Dashboard (Streamlit)
+
+```bash
+streamlit run dashboard/app.py
+```
+
 ## Deployment
 
 - **API:** See [CLOUD_RUN_DEPLOYMENT.md](CLOUD_RUN_DEPLOYMENT.md). Use `./deploy-cloud-run.sh` or GitHub Actions.
-- **Env vars:** `./sync-cloud-run-env.sh` to push `.env` → Cloud Run.
-- **Admin user (production):** Cloud SQL Proxy + `./create_admin_production.sh`, or `create_admin.py` / `reset_admin_password.py` with `DATABASE_URL` set.
+- **Env vars:** `./sync-cloud-run-env.sh` syncs `.env.production` (or `.env`) → Cloud Run.
+- **Admin user (production):** Cloud SQL Proxy + `./scripts/create_admin_production.sh`, or `create_admin.py` / `reset_admin_password.py` with `DATABASE_URL` set.
 
 ## Scripts
 
@@ -54,17 +90,22 @@ See `mobile/LOCAL_DEVELOPMENT.md` for details.
 |--------|---------|
 | `start_server.py` | Production entrypoint (Cloud Run). |
 | `start-backend-local.sh` | Local API with DB init, `.env` loaded. |
-| `kill-and-restart-backend.sh` | Kill port 8000, then start backend. |
 | `deploy-cloud-run.sh` | Build and deploy API to Cloud Run. |
-| `sync-cloud-run-env.sh` | Sync `.env` vars to Cloud Run. |
+| `sync-cloud-run-env.sh` | Sync env vars to Cloud Run (`.env.production` / `.env`). |
 | `create_admin.py` | Create admin user (local or prod DB). |
 | `reset_admin_password.py` | Reset user password. |
-| `create_admin_production.sh` | Create admin in Cloud SQL (via proxy). |
+| `scripts/kill-and-restart-backend.sh` | Kill port 8000, then start backend. |
+| `scripts/create_admin_production.sh` | Create admin in Cloud SQL (via proxy). |
+| `scripts/setup-secret-manager.sh` | Create/update Secret Manager secrets for Cloud Run. |
+| `scripts/smoke-test-prod.sh` | Smoke-test production API (health, auth, etc.). |
+| `scripts/run-migrations-cloudsql.sh` | Run migrations against Cloud SQL (via proxy). Fixes "column X does not exist" errors. |
+| `scripts/start-db-local.sh` | Start local Postgres via Docker (parity with production). |
 
 ## Configuration
 
-- Copy `SECURITY_ENV_EXAMPLE.txt` → `.env` and set `SECRET_KEY`, `OPENAI_API_KEY`, `DATABASE_URL`, etc.
+- Copy `.env.example` → `.env` and set `SECRET_KEY`, `OPENAI_API_KEY`, `DATABASE_URL`, etc.
 - OCR: `GOOGLE_APPLICATION_CREDENTIALS` or `GOOGLE_VISION_API_KEY` for Vision; else Tesseract.
+- Production: use `.env.production` for Cloud Run; `sync-cloud-run-env.sh` syncs it.
 
 ## Tests
 

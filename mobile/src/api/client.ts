@@ -28,21 +28,19 @@ const getApiBaseUrl = () => {
     return process.env.EXPO_PUBLIC_API_URL || 'https://pantry-api-apqja3ye2q-vp.a.run.app';
   }
   
-  // Development: Use local IP for physical devices, localhost for simulators
-  // You can override this with EXPO_PUBLIC_API_URL environment variable
+  // Development: Use EXPO_PUBLIC_API_URL (set by run-local.sh) or fall back to production
   const devUrl = process.env.EXPO_PUBLIC_API_URL;
   if (devUrl) {
     return devUrl;
   }
-  
-  // Default development URL (update with your local IP)
-  // For iOS Simulator: localhost works
-  // For physical devices: use your computer's local IP
-  // Default to Cloud Run production backend (has API keys configured)
   return 'https://pantry-api-apqja3ye2q-vp.a.run.app';
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+if (__DEV__) {
+  console.log('[API] Base URL:', API_BASE_URL);
+}
 
 class APIClient {
   private client: AxiosInstance;

@@ -320,6 +320,25 @@ gcloud builds triggers create github \
     --build-config=cloudbuild.yaml
 ```
 
+## Run Migrations Against Cloud SQL
+
+If you get **`column "storage_location" of relation "inventory_items" does not exist`** (or other schema errors) when using the API:
+
+1. Start Cloud SQL Proxy (from project root):
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/pantry-manager-416004-1428ba71c020.json"
+   cloud-sql-proxy --port 5434 pantry-manager-416004:us-south1:pantry-db
+   ```
+2. In another terminal, run migrations (from project root):
+   ```bash
+   export DATABASE_URL='postgresql://pantry-user:YOUR_PASSWORD@localhost:5434/pantry'
+   ./scripts/run-migrations-cloudsql.sh
+   ```
+   Or: `python -m src.migrations`
+3. Restart the app or redeploy. Image upload and inventory INSERTs should work.
+
+Cloud Run also runs migrations on startup (`init_database`). Deploying the latest code applies them when a new revision starts.
+
 ## Troubleshooting
 
 ### Service Won't Start

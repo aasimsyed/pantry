@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 5.0.0"
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -21,12 +22,12 @@
     },
     "production": {
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "autoIncrement": true
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pantry-api-apqja3ye2q-vp.a.run.app"
       },
-      "autoIncrement": "buildNumber",
       "ios": {
         "autoIncrement": true
       }

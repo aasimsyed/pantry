@@ -142,24 +142,29 @@ expo start --dev-client
 
 Set API URL for local development:
 
-**Option 1: Environment Variable (Recommended)**
+**Option 1: run-local.sh (Recommended)**
 ```bash
-# macOS/Linux
-export EXPO_PUBLIC_API_URL="http://localhost:8000"
+cd mobile
+./run-local.sh
+```
+Uses `http://127.0.0.1:8000` by default. **Start the backend first** (from project root):
+`./scripts/kill-and-restart-backend.sh`
+
+**Option 2: Environment Variable**
+```bash
+# Use 127.0.0.1 to avoid IPv6 localhost issues
+export EXPO_PUBLIC_API_URL="http://127.0.0.1:8000"
 npm start
 
-# Or inline
-EXPO_PUBLIC_API_URL="http://localhost:8000" npm start
+# Physical device: use your Mac's IP
+export EXPO_PUBLIC_API_URL="http://192.168.1.100:8000"
+./run-local.sh
 ```
 
-**Option 2: .env File (Not native in Expo, requires expo-env or similar)**
-
-**Option 3: Hardcode for testing** (edit `mobile/src/api/client.ts` temporarily)
-
-**For Physical Device:**
-- Use your computer's local IP address instead of `localhost`
-- Find your IP: `ifconfig | grep "inet " | grep -v 127.0.0.1`
-- Example: `export EXPO_PUBLIC_API_URL="http://192.168.1.100:8000"`
+**For Physical Device (Expo Go):**
+- `localhost` / `127.0.0.1` = your phone, not your Mac → use your Mac's IP
+- Find IP: `ipconfig getifaddr en0` (or `en1`)
+- Example: `EXPO_PUBLIC_API_URL=http://192.168.1.100:8000 ./run-local.sh`
 
 ## Common Logging Patterns
 
@@ -208,12 +213,13 @@ try {
 3. **Restart Expo**: Stop and restart `expo start`
 4. **Check device connection**: Ensure device/simulator is connected
 
-### Network Errors
+### Network Errors ("API request failed: Network Error")
 
-1. **Check API URL**: Verify `EXPO_PUBLIC_API_URL` is correct
-2. **For physical device**: Use local IP, not `localhost`
-3. **Check CORS**: Ensure backend allows mobile app origin
-4. **Check firewall**: Ensure ports are open
+1. **Start the backend** (from project root): `./scripts/kill-and-restart-backend.sh`
+2. **Check API URL**: In dev, the app logs `[API] Base URL: ...` — confirm it matches your backend.
+3. **Physical device**: Use your Mac's IP, not `localhost`. Example: `EXPO_PUBLIC_API_URL=http://192.168.x.x:8000 ./run-local.sh`
+4. **iOS**: `app.json` includes `NSAllowsLocalNetworking` so HTTP to local IP works.
+5. **Clear cache** after changing API URL: `npx expo start --clear`
 
 ### View Detailed Errors
 
@@ -229,15 +235,14 @@ console.error('Full error:', JSON.stringify(error, null, 2));
 
 1. **Start backend** (if testing locally):
    ```bash
-   # In another terminal
-   cd /path/to/pantry
-   ./start-backend-local.sh
+   # From project root
+   ./scripts/kill-and-restart-backend.sh
    ```
 
 2. **Start mobile app**:
    ```bash
    cd mobile
-   EXPO_PUBLIC_API_URL="http://localhost:8000" ./run-local.sh
+   ./run-local.sh
    ```
 
 3. **Open iOS Simulator**:

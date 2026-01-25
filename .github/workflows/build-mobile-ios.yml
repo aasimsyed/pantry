@@ -41,9 +41,7 @@ jobs:
         working-directory: ./mobile
         run: npm ci
 
-      - name: Configure EAS
-        working-directory: ./mobile
-        run: eas login --non-interactive --token ${{ secrets.EXPO_TOKEN }}
+      # EAS uses EXPO_TOKEN from env (set above); no eas login needed.
 
       - name: Update build number (if provided)
         if: ${{ github.event.inputs.build_number != '' }}

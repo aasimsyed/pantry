@@ -32,7 +32,7 @@ echo ""
 # Check if we're in the right directory
 if [ ! -f "api/main.py" ]; then
     echo -e "${RED}❌ Error: Must run from project root${NC}"
-    echo "Usage: cd /Users/aasimsyed/src/pantry && ./kill-and-restart-backend.sh"
+    echo "Usage: cd /path/to/pantry && ./scripts/kill-and-restart-backend.sh"
     exit 1
 fi
 

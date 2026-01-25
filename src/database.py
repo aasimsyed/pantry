@@ -189,169 +189,45 @@ def init_database():
         >>> from src.database import init_database
         >>> init_database()
     """
-    from sqlalchemy.exc import OperationalError
     import logging
     logger = logging.getLogger(__name__)
-    
+
     engine = create_database_engine()
-    
-    # Check what tables exist first
-    inspector = inspect(engine)
-    existing_tables = set(inspector.get_table_names())
-    all_table_names = {t.name for t in Base.metadata.sorted_tables}
-    missing_tables = all_table_names - existing_tables
-    
-    if missing_tables:
-        logger.info(f"Missing tables detected: {missing_tables}")
-        # Drop any orphaned indexes that might block table creation
-        # These can exist if a previous table creation failed mid-way
-        try:
-            # Drop known problematic indexes with explicit commit
-            indexes_to_drop = [
-                'ix_users_email',  # Common orphaned index
-            ]
-            with engine.begin() as conn:  # begin() auto-commits
-                for index_name in indexes_to_drop:
-                    try:
-                        conn.execute(text(f"DROP INDEX IF EXISTS {index_name} CASCADE"))
-                        logger.info(f"Dropped orphaned index: {index_name}")
-                    except Exception as e:
-                        logger.debug(f"Could not drop {index_name}: {e}")
-                        pass  # Ignore if doesn't exist
-        except Exception as e:
-            logger.debug(f"Index cleanup failed: {e}")
-            pass  # Continue anyway
-    
+
     try:
-        # Create all tables (SQLAlchemy handles dependencies automatically)
         Base.metadata.create_all(bind=engine, checkfirst=True)
         logger.info(f"✅ Database initialized: {get_database_url()}")
         print(f"✅ Database initialized: {get_database_url()}")
     except Exception as e:
-        # If creation failed, try simpler approach: create tables without indexes first
-        error_str = str(e).lower()
-        logger.warning(f"Initial create_all failed: {e}, trying simplified approach...")
-        
-        # Try creating tables individually, ignoring index errors
+        err = str(e).lower()
+        if "already exists" in err or "duplicate" in err or "duplicatetable" in err:
+            logger.info("create_all hit existing tables/indexes, ensuring schema table-by-table...")
+        else:
+            logger.warning(f"create_all failed: {e}, trying table-by-table create...")
         try:
             for table in Base.metadata.sorted_tables:
                 try:
-                    # Create table without indexes first
                     table.create(engine, checkfirst=True)
-                except Exception as table_error:
-                    error_str = str(table_error).lower()
-                    if "already exists" in error_str or "duplicate" in error_str:
-                        # Table or index exists - that's fine
+                except Exception as te:
+                    te_str = str(te).lower()
+                    if "already exists" in te_str or "duplicate" in te_str:
                         pass
-                    elif "does not exist" in error_str:
-                        # Dependency issue - will be handled by dependency order
-                        logger.debug(f"Deferred {table.name} due to dependency")
+                    elif "does not exist" in te_str:
+                        logger.debug(f"Deferred {table.name} (dependency)")
                     else:
-                        logger.warning(f"Error creating {table.name}: {table_error}")
-            
-            logger.info(f"✅ Database initialization completed")
+                        logger.warning(f"Error creating {table.name}: {te}")
+            logger.info(f"✅ Database schema is up to date: {get_database_url()}")
             print(f"✅ Database schema is up to date: {get_database_url()}")
         except Exception as e2:
             logger.error(f"❌ Database initialization failed: {e2}")
             raise
-            
-            # If initial create_all failed, check what actually exists
-            inspector = inspect(engine)
-            existing_tables = set(inspector.get_table_names())
-            all_table_names = {t.name for t in Base.metadata.sorted_tables}
-            missing_tables = all_table_names - existing_tables
-            
-            if missing_tables:
-                logger.warning(f"Missing tables detected: {missing_tables}")
-                logger.info("Attempting to create missing tables...")
-                
-                # Create missing tables in dependency order
-                # SQLAlchemy's sorted_tables already handles dependency order
-                for table in Base.metadata.sorted_tables:
-                    if table.name in missing_tables:
-                        try:
-                            logger.info(f"Creating table: {table.name}")
-                            # First try with checkfirst=True (safe)
-                            table.create(engine, checkfirst=True)
-                            # Verify table was actually created
-                            inspector = inspect(engine)
-                            if table.name in inspector.get_table_names():
-                                existing_tables.add(table.name)
-                                missing_tables.discard(table.name)
-                                logger.info(f"✅ Successfully created/verified table: {table.name}")
-                            else:
-                                # Table doesn't exist, try force create
-                                logger.warning(f"Table {table.name} not found after create, trying force create...")
-                                try:
-                                    # Drop any conflicting indexes first
-                                    for index in table.indexes:
-                                        try:
-                                            index.drop(engine, checkfirst=True)
-                                        except:
-                                            pass  # Ignore index drop errors
-                                    # Now create table
-                                    table.create(engine, checkfirst=False)
-                                    inspector = inspect(engine)
-                                    if table.name in inspector.get_table_names():
-                                        existing_tables.add(table.name)
-                                        missing_tables.discard(table.name)
-                                        logger.info(f"✅ Successfully created table: {table.name} (after cleanup)")
-                                    else:
-                                        logger.error(f"❌ Table {table.name} still doesn't exist after force create!")
-                                except Exception as force_error:
-                                    logger.error(f"❌ Force create failed for {table.name}: {force_error}")
-                        except Exception as table_error:
-                            error_str = str(table_error).lower()
-                            # Check if table actually exists (might be index conflict)
-                            inspector = inspect(engine)
-                            if table.name in inspector.get_table_names():
-                                existing_tables.add(table.name)
-                                missing_tables.discard(table.name)
-                                logger.info(f"✅ Table {table.name} exists (error was likely index-related)")
-                            elif "does not exist" in error_str:
-                                # Dependency issue - will retry
-                                logger.warning(f"Table {table.name} creation deferred (dependency): {table_error}")
-                            else:
-                                logger.error(f"❌ Error creating table {table.name}: {table_error}")
-                                # Don't discard - we'll retry
-                
-                # Retry any remaining missing tables
-                if missing_tables:
-                    logger.info(f"Retrying {len(missing_tables)} tables...")
-                    for table_name in list(missing_tables):
-                        table = Base.metadata.tables.get(table_name)
-                        if table:
-                            try:
-                                table.create(engine, checkfirst=True)
-                                missing_tables.discard(table_name)
-                                logger.info(f"✅ Created table: {table_name}")
-                            except Exception as retry_error:
-                                error_str = str(retry_error).lower()
-                                if "already exists" in error_str:
-                                    missing_tables.discard(table_name)
-                                else:
-                                    logger.error(f"Failed to create {table_name}: {retry_error}")
-            
-            # Final check
-            inspector = inspect(engine)
-            final_tables = set(inspector.get_table_names())
-            still_missing = all_table_names - final_tables
-            
-            if still_missing:
-                logger.error(f"⚠️  Some tables still missing: {still_missing}")
-            else:
-                logger.info("✅ All tables exist")
-            
-            print(f"⚠️  Database initialization completed with warnings")
-            print(f"✅ Database schema is up to date: {get_database_url()}")
-        else:
-            raise
-    
+
     # Run migrations for existing databases
     try:
         from src.migrations import (
             add_user_id_to_saved_recipes,
             add_pantries_table_and_pantry_id,
+            add_storage_location_to_inventory_items,
             assign_null_items_to_default_pantry,
             add_user_settings_table,
             add_ai_model_to_saved_recipes,
@@ -359,6 +235,7 @@ def init_database():
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
+        add_storage_location_to_inventory_items()
         assign_null_items_to_default_pantry()
         add_user_settings_table()
         add_ai_model_to_saved_recipes()
@@ -935,13 +812,9 @@ class SavedRecipe(Base):
     # Relationships
     user = relationship("User", back_populates="saved_recipes")
     
-    # Indexes
+    # Indexes (user_id, name, cuisine, difficulty already indexed via index=True)
     __table_args__ = (
-        Index("ix_saved_recipes_name", "name"),
-        Index("ix_saved_recipes_cuisine", "cuisine"),
-        Index("ix_saved_recipes_difficulty", "difficulty"),
         Index("ix_saved_recipes_created_at", "created_at"),
-        Index("ix_saved_recipes_user_id", "user_id"),
     )
     
     def __repr__(self) -> str:
@@ -1142,9 +1015,8 @@ class User(Base):
     saved_recipes = relationship("SavedRecipe", back_populates="user", cascade="all, delete-orphan")
     pantries = relationship("Pantry", back_populates="user", cascade="all, delete-orphan")
     
-    # Indexes
+    # Indexes (email already indexed via index=True; avoid duplicate ix_users_email)
     __table_args__ = (
-        Index("ix_users_email", "email"),
         Index("ix_users_role", "role"),
     )
     
