@@ -5,10 +5,8 @@ on:
     branches:
       - main
       - master
-  pull_request:
-    branches:
-      - main
-      - master
+  # Only run on pushes, not PRs (secrets not available from forks)
+  workflow_dispatch:  # Allow manual trigger
 
 env:
   PROJECT_ID: pantry-manager-416004
@@ -19,6 +17,8 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Only deploy on pushes to main/master, not PRs
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       id-token: write
@@ -31,6 +31,8 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+        # Fail fast if secret is missing
+        continue-on-error: false
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
