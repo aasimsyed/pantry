@@ -35,6 +35,7 @@ venv.bak/
 
 # IDE
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
@@ -49,6 +50,9 @@ venv.bak/
 *.db-wal
 *.sqlite
 *.sqlite3
+
+# Local cache
+cache/
 
 # Logs
 *.log
@@ -74,6 +78,14 @@ credentials.json
 pantry-manager-416004-1428ba71c020.json
 
 reports/
+
+# One-off DB fix scripts and local helpers (not committed)
+CLEANUP_SUMMARY.md
+fix_database_direct.py
+fix_database_quick.sql
+fix_database_schema.py
+test-local-stack.sh
+/package-lock.json
 
 # Docker
 docker-compose.override.yml
