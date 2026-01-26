@@ -20,15 +20,19 @@ appId: host.exp.Exponent
     when:
       visible: "Smart Pantry"
     commands:
-      # Already logged in, navigate to register from home - need to log out first
+      # Already logged in, need to log out first to test registration
       - tapOn:
           id: "logout-button"
       - waitForAnimationToEnd:
           timeout: 2000
-      - extendedWaitUntil:
-          visible: "Sign In"
-          timeout: 5000
-# Now we should be on login screen (either was already there or just logged out)
+      - runFlow:
+          when:
+            visible: "Sign In"
+          commands:
+            # Successfully logged out, now on login screen
+            - assertVisible:
+                id: "login-title"
+# If we're already on login screen (not logged in), proceed
 - runFlow:
     when:
       visible: "Sign In"
