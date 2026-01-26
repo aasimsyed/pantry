@@ -20,12 +20,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { Recipe, RecentRecipe, InventoryItem } from '../types';
 
 export default function RecipesScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
+  const { isAuthenticated } = useAuth();
   const ds = getDesignSystem(isDark);
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
   const [loadingIngredients, setLoadingIngredients] = useState(false);
@@ -80,17 +82,36 @@ export default function RecipesScreen() {
 
   // Load recent recipes
   const loadRecentRecipes = useCallback(async () => {
+    // Only load if user is authenticated
+    if (!isAuthenticated) {
+      setRecentRecipes([]);
+      setLoadingRecent(false);
+      return;
+    }
+
     setLoadingRecent(true);
     try {
       const recent = await apiClient.getRecentRecipes(20);
       setRecentRecipes(recent);
+      if (__DEV__) {
+        console.log(`[RecipesScreen] Loaded ${recent.length} recent recipes`);
+      }
     } catch (err: any) {
-      console.error('Error loading recent recipes:', err);
-      // Don't show error - recent recipes are optional
+      // Log detailed error for debugging
+      console.error('[RecipesScreen] Error loading recent recipes:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data,
+        url: err.config?.url,
+        authenticated: isAuthenticated,
+      });
+      // Don't show error to user - recent recipes are optional
+      // But ensure we don't keep stale data
+      setRecentRecipes([]);
     } finally {
       setLoadingRecent(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Reload ingredients when screen comes into focus or pantry changes
   useFocusEffect(
