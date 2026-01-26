@@ -253,19 +253,28 @@ export default function RecipeDetailScreen() {
 
   // Extract flavor pairings - handle both JSON string and array formats
   const flavorPairings: FlavorPairing[] = (() => {
+    if (__DEV__) {
+      console.log('RecipeDetailScreen - recipe type:', isSavedRecipe ? 'SavedRecipe' : ('generated_at' in recipe ? 'RecentRecipe' : 'Recipe'));
+      console.log('RecipeDetailScreen - flavor_pairings in recipe:', 'flavor_pairings' in recipe);
+      console.log('RecipeDetailScreen - flavor_pairings value:', (recipe as any).flavor_pairings);
+    }
     if (!('flavor_pairings' in recipe) || !recipe.flavor_pairings) return [];
-    if (typeof recipe.flavor_pairings === 'string') {
+    const fp = recipe.flavor_pairings;
+    // Handle empty array from API (returned as [] when null)
+    if (Array.isArray(fp) && fp.length === 0) return [];
+    if (typeof fp === 'string') {
       try {
-        return JSON.parse(recipe.flavor_pairings);
+        const parsed = JSON.parse(fp);
+        return Array.isArray(parsed) ? parsed : [];
       } catch {
         return [];
       }
     }
-    return Array.isArray(recipe.flavor_pairings) ? recipe.flavor_pairings : [];
+    return Array.isArray(fp) ? fp : [];
   })();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
       <ScrollView 
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}

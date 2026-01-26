@@ -16,7 +16,7 @@ import {
   Dialog,
   Searchbar,
 } from 'react-native-paper';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
@@ -116,15 +116,17 @@ export default function RecipesScreen() {
     }
   }, [isAuthenticated]);
 
-  // Reload ingredients when screen comes into focus or pantry changes
-  useFocusEffect(
-    useCallback(() => {
-      if (selectedPantryId !== undefined) {
-        loadAvailableIngredients();
-      }
-      loadRecentRecipes();
-    }, [loadAvailableIngredients, selectedPantryId, loadRecentRecipes])
-  );
+  // Load ingredients when pantry changes
+  useEffect(() => {
+    if (selectedPantryId !== undefined) {
+      loadAvailableIngredients();
+    }
+  }, [selectedPantryId, loadAvailableIngredients]);
+
+  // Load recent recipes on mount
+  useEffect(() => {
+    loadRecentRecipes();
+  }, [loadRecentRecipes]);
 
   // Reload recent recipes when authentication state changes (e.g., after login)
   useEffect(() => {
@@ -271,7 +273,7 @@ export default function RecipesScreen() {
   if (selectedPantryId === undefined) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+        <ScrollView contentContainerStyle={styles.content}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
           </Text>
@@ -287,10 +289,11 @@ export default function RecipesScreen() {
     );
   }
 
-  if (loadingIngredients) {
+  // Only show loading if we don't have ingredients yet
+  if (loadingIngredients && availableIngredients.length === 0) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+        <ScrollView contentContainerStyle={styles.content}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
           </Text>
@@ -312,7 +315,7 @@ export default function RecipesScreen() {
   if (ingredientsError && availableIngredients.length === 0) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+        <ScrollView contentContainerStyle={styles.content}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
           </Text>
@@ -336,7 +339,7 @@ export default function RecipesScreen() {
   if (availableIngredients.length === 0 && !loadingIngredients && selectedPantryId !== undefined) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+        <ScrollView contentContainerStyle={styles.content}>
           <Text variant="titleLarge" style={styles.title}>
             Recipe Suggestions
           </Text>
@@ -356,7 +359,7 @@ export default function RecipesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+      <ScrollView contentContainerStyle={styles.content}>
       <Text testID="recipes-title" variant="titleLarge" style={[styles.title, { color: ds.colors.textPrimary, fontSize: 32, fontWeight: '700', letterSpacing: -0.5 }]}>
         Recipe Suggestions
       </Text>
@@ -927,12 +930,14 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   content: {
-    padding: 20,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
   },
   title: {
     fontWeight: '700',
     marginBottom: 20,
+    lineHeight: 40,
   },
   card: {
     marginBottom: 16,

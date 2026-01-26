@@ -33,6 +33,9 @@ function MainTabs() {
         tabBarActiveTintColor: ds.colors.primary,
         tabBarInactiveTintColor: ds.colors.textTertiary,
         tabBarShowLabel: true,
+        lazy: false, // Keep all tabs mounted to prevent flash on switch
+        freezeOnBlur: true, // Freeze inactive screens to prevent re-render flash
+        sceneStyle: { backgroundColor: ds.colors.background }, // Consistent background
         tabBarStyle: {
           backgroundColor: ds.colors.surface,
           borderTopWidth: 0,
@@ -154,7 +157,15 @@ export default function AppNavigator() {
   return (
     <View style={{ flex: 1, backgroundColor: ds.colors.background }}>
       <NavigationContainer theme={navigationTheme}>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator 
+          screenOptions={{ 
+            headerShown: false,
+            animation: 'fade_from_bottom',
+            animationDuration: 200,
+            contentStyle: { backgroundColor: ds.colors.background },
+            fullScreenGestureEnabled: true,
+          }}
+        >
           {!isAuthenticated ? (
             // Auth screens
             <>
@@ -172,17 +183,32 @@ export default function AppNavigator() {
               <Stack.Screen
                 name="Statistics"
                 component={StatisticsScreen}
-                options={{ title: 'Statistics', headerShown: true }}
+                options={{ 
+                  title: 'Statistics', 
+                  headerShown: true,
+                  headerStyle: { backgroundColor: ds.colors.surface },
+                  headerTintColor: ds.colors.textPrimary,
+                }}
               />
               <Stack.Screen
                 name="RecipeDetail"
                 component={RecipeDetailScreen}
-                options={{ title: 'Recipe Details', headerShown: true }}
+                options={{ 
+                  title: 'Recipe Details', 
+                  headerShown: true,
+                  headerStyle: { backgroundColor: ds.colors.surface },
+                  headerTintColor: ds.colors.textPrimary,
+                }}
               />
               <Stack.Screen
                 name="Settings"
                 component={SettingsScreen}
-                options={{ title: 'Settings', headerShown: true }}
+                options={{ 
+                  title: 'Settings', 
+                  headerShown: true,
+                  headerStyle: { backgroundColor: ds.colors.surface },
+                  headerTintColor: ds.colors.textPrimary,
+                }}
               />
             </>
           )}

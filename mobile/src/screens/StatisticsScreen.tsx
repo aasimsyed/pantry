@@ -32,7 +32,7 @@ export default function StatisticsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={ds.colors.primary} />
           <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading statistics...</Text>
@@ -43,7 +43,7 @@ export default function StatisticsScreen() {
 
   if (!stats) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
         <View style={styles.center}>
           <Text style={{ color: ds.colors.textSecondary }}>No statistics available</Text>
         </View>
@@ -61,7 +61,7 @@ export default function StatisticsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text testID="statistics-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Statistics

@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   // Hero Section
   heroSection: {
     marginBottom: DesignSystem.spacing.xl,
-    paddingTop: DesignSystem.spacing.md,
+    paddingTop: 24,
   },
   heroTitle: {
     marginBottom: 8,

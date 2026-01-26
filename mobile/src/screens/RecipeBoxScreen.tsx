@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { ScrollView, StyleSheet, View, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 import apiClient, { getApiErrorMessage } from '../api/client';
@@ -19,14 +19,23 @@ export default function RecipeBoxScreen() {
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const loadRecipes = useCallback(async (showLoading = true) => {
     try {
-      if (showLoading) {
+      // Only show loading skeleton on first load, not on re-renders
+      if (showLoading && !hasLoadedRef.current) {
         setLoading(true);
       }
       const data = await apiClient.getSavedRecipes();
+      if (__DEV__) {
+        console.log('RecipeBoxScreen - loaded recipes:', data.length);
+        data.forEach((r, i) => {
+          console.log(`Recipe ${i}: ${r.name}, flavor_pairings:`, r.flavor_pairings?.length || 0);
+        });
+      }
       setRecipes(data);
+      hasLoadedRef.current = true;
     } catch (err: unknown) {
       Alert.alert('Error', getApiErrorMessage(err));
     } finally {
@@ -40,12 +49,12 @@ export default function RecipeBoxScreen() {
     loadRecipes(false);
   }, [loadRecipes]);
 
-  // Reload recipes when screen comes into focus (e.g., after saving a recipe)
-  useFocusEffect(
-    useCallback(() => {
-      loadRecipes();
-    }, [loadRecipes])
-  );
+  // Load recipes only once on mount (use pull-to-refresh for updates)
+  React.useEffect(() => {
+    if (!hasLoadedRef.current) {
+      loadRecipes(true);
+    }
+  }, [loadRecipes]);
 
 
   const handleDelete = async (recipeId: number) => {
@@ -88,10 +97,11 @@ export default function RecipeBoxScreen() {
     return Array.isArray(pairings) && pairings.length > 0;
   };
 
-  if (loading) {
+  // Only show skeleton on initial load when we have no data yet
+  if (loading && recipes.length === 0) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+        <ScrollView contentContainerStyle={styles.content}>
           <Text testID="recipe-box-title" variant="titleLarge" style={[styles.title, { color: ds.colors.textPrimary }]}>
             Recipe Box
           </Text>
@@ -106,7 +116,7 @@ export default function RecipeBoxScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView 
-        contentContainerStyle={[styles.content, { paddingTop: 16 }]}
+        contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -261,14 +271,15 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   content: {
-    padding: 20,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 32,
   },
   title: {
     fontWeight: '700',
     fontSize: 32,
     letterSpacing: -0.5,
+    lineHeight: 40,
     marginBottom: 20,
   },
   card: {

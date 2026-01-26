@@ -321,7 +321,7 @@ export default function InventoryScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+      <ScrollView contentContainerStyle={styles.content}>
         <PantrySelector
           selectedPantryId={selectedPantryId}
           onPantryChange={setSelectedPantryId}

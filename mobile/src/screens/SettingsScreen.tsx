@@ -99,7 +99,7 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={ds.colors.primary} />
           <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading settings...</Text>
@@ -110,7 +110,7 @@ export default function SettingsScreen() {
 
   if (!settings) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
         <View style={styles.center}>
           <Text style={{ color: ds.colors.textPrimary }}>Failed to load settings</Text>
         </View>
@@ -152,7 +152,7 @@ export default function SettingsScreen() {
   
   // Fallback to app.json values if nothing found
   if (appVersion === 'Unknown') {
-    appVersion = '1.3.1';
+    appVersion = '1.3.2';
     buildNumber = '33'; // iOS build number from app.json
   }
   
@@ -175,7 +175,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
       <ScrollView 
         contentContainerStyle={[styles.content, { paddingTop: 16, paddingBottom: 16 }]}
         showsVerticalScrollIndicator={true}
