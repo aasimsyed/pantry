@@ -64,6 +64,7 @@ export default function InventoryScreen() {
   });
   const [manualUnitMenuVisible, setManualUnitMenuVisible] = useState(false);
   const [manualUnitMenuKey, setManualUnitMenuKey] = useState(0);
+  const [fabOpen, setFabOpen] = useState(false);
 
   // Common cooking units
   const cookingUnits = [
@@ -473,12 +474,32 @@ export default function InventoryScreen() {
         })}
       </ScrollView>
 
-      <FAB
-        testID="add-item-fab"
-        icon="camera"
-        style={[styles.fab, { backgroundColor: ds.colors.accent }]}
+      <FAB.Group
+        open={fabOpen}
+        visible
+        icon={fabOpen ? 'close' : 'plus'}
+        fabStyle={[styles.fab, { backgroundColor: ds.colors.accent }]}
+        style={styles.fabGroup}
         color={ds.colors.surface}
-        onPress={() => setDialogVisible(true)}
+        actions={[
+          {
+            icon: 'pencil',
+            label: 'Add Manually',
+            onPress: () => setManualEntryDialogVisible(true),
+            style: { backgroundColor: ds.colors.primary },
+            color: ds.colors.surface,
+            labelStyle: { fontWeight: '600' },
+          },
+          {
+            icon: 'camera',
+            label: 'Scan Item',
+            onPress: () => setDialogVisible(true),
+            style: { backgroundColor: ds.colors.accent },
+            color: ds.colors.surface,
+            labelStyle: { fontWeight: '600' },
+          },
+        ]}
+        onStateChange={({ open }) => setFabOpen(open)}
       />
 
       <Portal>
@@ -1108,11 +1129,15 @@ const styles = StyleSheet.create({
     marginTop: DesignSystem.spacing.xs,
   },
   fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
     borderRadius: 9999,
     elevation: 8,
+  },
+  fabGroup: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    paddingBottom: 24,
+    paddingRight: 16,
   },
   dialogButton: {
     marginVertical: 6,
