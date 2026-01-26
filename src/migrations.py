@@ -518,10 +518,13 @@ def ensure_processing_log_columns():
 
 def rename_title_to_name_in_saved_recipes():
     """
-    Rename 'title' column to 'name' in saved_recipes table.
+    Handle 'title' -> 'name' column migration in saved_recipes table.
     
     Older schemas used 'title', but the current model uses 'name'.
-    This migration handles the rename for production databases.
+    This migration handles three cases:
+    1. Only 'title' exists: rename to 'name'
+    2. Both exist: drop 'title' (keep 'name')
+    3. Only 'name' exists: nothing to do
     """
     engine = create_database_engine()
     inspector = inspect(engine)
@@ -533,34 +536,27 @@ def rename_title_to_name_in_saved_recipes():
         return
     
     existing = [c["name"] for c in inspector.get_columns("saved_recipes")]
+    has_title = "title" in existing
+    has_name = "name" in existing
     
-    # Only rename if 'title' exists and 'name' doesn't
-    if "title" not in existing:
-        logger.info("No 'title' column in saved_recipes, skipping rename")
+    if not has_title:
+        logger.info("No 'title' column in saved_recipes, nothing to migrate")
         return
-    
-    if "name" in existing:
-        logger.info("'name' column already exists in saved_recipes, skipping rename")
-        return
-    
-    logger.info("Renaming 'title' column to 'name' in saved_recipes...")
     
     with engine.connect() as conn:
         trans = conn.begin()
         try:
-            if is_sqlite:
-                # SQLite doesn't support RENAME COLUMN in older versions
-                # For newer SQLite (3.25+), we can use ALTER TABLE RENAME COLUMN
-                conn.execute(text("""
-                    ALTER TABLE saved_recipes RENAME COLUMN title TO name
-                """))
-            else:
-                # PostgreSQL supports RENAME COLUMN
-                conn.execute(text("""
-                    ALTER TABLE saved_recipes RENAME COLUMN title TO name
-                """))
+            if has_title and has_name:
+                # Both columns exist - drop the old 'title' column
+                logger.info("Both 'title' and 'name' exist, dropping 'title'...")
+                conn.execute(text("ALTER TABLE saved_recipes DROP COLUMN title"))
+                logger.info("✅ Dropped 'title' column from saved_recipes")
+            elif has_title and not has_name:
+                # Only 'title' exists - rename to 'name'
+                logger.info("Renaming 'title' column to 'name' in saved_recipes...")
+                conn.execute(text("ALTER TABLE saved_recipes RENAME COLUMN title TO name"))
+                logger.info("✅ Renamed 'title' to 'name' in saved_recipes")
             trans.commit()
-            logger.info("✅ Renamed 'title' to 'name' in saved_recipes")
         except Exception as e:
             trans.rollback()
             logger.error("Migration failed: %s", e, exc_info=True)
