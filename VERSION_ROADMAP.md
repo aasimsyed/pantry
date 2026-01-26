@@ -270,6 +270,7 @@ Update this file when releasing new versions:
 - **1.2.1** - 2026-01-26 - Bug fixes and UI polish
 - **1.2.2** - 2026-01-26 - Dark mode fixes, recipe notes/ratings UI, empty states, confirmation dialogs
 - **1.3.0** - 2026-01-25 - Jony Ive-inspired UI/UX redesign across all screens
+- **1.3.1** - 2026-01-26 - Flavor chemistry feature, FAB speed dial for manual entry, DB migration fixes
 
 ---
 
