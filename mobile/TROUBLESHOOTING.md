@@ -63,9 +63,42 @@ npx expo start --clear
 - Reinstall: `npm run reset`
 
 ### App won't load in Expo Go
-- Clear Expo cache: `rm -rf .expo && npm start`
-- Restart Expo Go app on your device
-- Try `npm run start:clear`
+
+**Error: "Could not connect to the server" or "Unknown error"**
+
+This usually means:
+1. **Metro bundler is not running** - Start it first:
+   ```bash
+   cd mobile
+   npm start
+   ```
+
+2. **Simulator can't reach Metro bundler** - For iOS Simulator, use localhost:
+   ```bash
+   # Start Metro bundler
+   npm start
+   # Then in Expo Go, manually enter: exp://localhost:8081
+   # Or press 'i' in the terminal to open in simulator
+   ```
+
+3. **Network IP issues** - If using network IP (192.168.x.x):
+   - Make sure your Mac's firewall allows connections
+   - Try using `localhost` instead for simulator
+   - For physical device, use your Mac's IP address
+
+4. **Clear Expo cache**:
+   ```bash
+   rm -rf .expo && npm start
+   ```
+
+5. **Restart everything**:
+   ```bash
+   # Stop Metro bundler (Ctrl+C)
+   # Close Expo Go app
+   # Restart Metro bundler
+   npm start
+   # Reopen Expo Go and scan QR code or enter URL
+   ```
 
 ### Build errors
 - Clear watchman: `watchman watch-del-all` (if installed)
