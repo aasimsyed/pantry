@@ -15,58 +15,60 @@ appId: host.exp.Exponent
       - tapOn: "Smart Pantry AI"
       - waitForAnimationToEnd:
           timeout: 5000
-# Wait for app to load - could be login screen or home screen
-- extendedWaitUntil:
-    visible: "Sign In"
-    timeout: 10000
-    # If login screen doesn't appear, try checking for home screen
+# Wait for app to load - check if already logged in or need to log in
 - runFlow:
     when:
       visible: "Smart Pantry"
     commands:
-      # Already logged in, skip to assertions
+      # Already logged in, verify home screen and we're done
       - assertVisible:
           id: "home-title"
-      - stopFlow
-# Now we should be on login screen
-- assertVisible:
-    id: "login-title"
-- assertVisible: "Email"
-- assertVisible: "Password"
-# Email: tap by id (testID), set clipboard, paste
-- tapOn:
-    id: "email-input"
-- waitForAnimationToEnd:
-    timeout: 2000
-- setClipboard: "admin@pantry.com"
-- pasteText
-# Password: tap by id (testID), set clipboard, paste
-- tapOn:
-    id: "password-input"
-- waitForAnimationToEnd:
-    timeout: 2000
-- setClipboard: "Admin12345"
-- pasteText
-# Dismiss keyboard so Sign In is tappable
-- waitForAnimationToEnd:
-    timeout: 1000
-- hideKeyboard
-- tapOn:
-    id: "login-button"
-# Wait for login to complete (API + navigation) before asserting
-- extendedWaitUntil:
-    visible: "Smart Pantry"
-    timeout: 15000
-# Dismiss iCloud "Save Password?" dialog if it appears (tap "Not Now")
-# This will automatically skip if the dialog is not visible
+      - assertVisible:
+          id: "quick-action-inventory"
+      - assertVisible:
+          id: "quick-action-recipes"
+# If not already logged in, do login flow
 - runFlow:
     when:
-      visible: "Not Now"
+      visible: "Sign In"
     commands:
-      - tapOn: "Not Now"
-- assertVisible:
-    id: "home-title"
-- assertVisible:
-    id: "quick-action-inventory"
-- assertVisible:
-    id: "quick-action-recipes"
+      - assertVisible:
+          id: "login-title"
+      - assertVisible: "Email"
+      - assertVisible: "Password"
+      # Email: tap by id (testID), set clipboard, paste
+      - tapOn:
+          id: "email-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "admin@pantry.com"
+      - pasteText
+      # Password: tap by id (testID), set clipboard, paste
+      - tapOn:
+          id: "password-input"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - setClipboard: "Admin12345"
+      - pasteText
+      # Dismiss keyboard so Sign In is tappable
+      - waitForAnimationToEnd:
+          timeout: 1000
+      - hideKeyboard
+      - tapOn:
+          id: "login-button"
+      # Wait for login to complete (API + navigation) before asserting
+      - extendedWaitUntil:
+          visible: "Smart Pantry"
+          timeout: 15000
+      # Dismiss iCloud "Save Password?" dialog if it appears (tap "Not Now")
+      - runFlow:
+          when:
+            visible: "Not Now"
+          commands:
+            - tapOn: "Not Now"
+      - assertVisible:
+          id: "home-title"
+      - assertVisible:
+          id: "quick-action-inventory"
+      - assertVisible:
+          id: "quick-action-recipes"

@@ -28,7 +28,6 @@ appId: host.exp.Exponent
       # Already logged in, skip to home screen
       - assertVisible:
           id: "home-title"
-      - stopFlow
 # When on login screen, log in first (admin test user)
 - runFlow:
     when:
