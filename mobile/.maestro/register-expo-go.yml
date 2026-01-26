@@ -4,6 +4,9 @@
 appId: host.exp.Exponent
 ---
 - launchApp
+# Wait a bit for Expo Go to load
+- waitForAnimationToEnd:
+    timeout: 3000
 # Expo Go opens to project selector - tap our app to open it
 - runFlow:
     when:
@@ -12,6 +15,24 @@ appId: host.exp.Exponent
       - tapOn: "Smart Pantry AI"
       - waitForAnimationToEnd:
           timeout: 5000
+# Wait for app to load - could be login screen or home screen
+- extendedWaitUntil:
+    visible: "Sign In"
+    timeout: 10000
+    # If login screen doesn't appear, try checking for home screen
+- runFlow:
+    when:
+      visible: "Smart Pantry"
+    commands:
+      # Already logged in, navigate to register from home
+      - tapOn:
+          id: "logout-button"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - extendedWaitUntil:
+          visible: "Sign In"
+          timeout: 5000
+# Now we should be on login screen
 - assertVisible:
     id: "login-title"
 # Navigate to registration

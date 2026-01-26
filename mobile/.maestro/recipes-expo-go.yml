@@ -5,6 +5,9 @@
 appId: host.exp.Exponent
 ---
 - launchApp
+# Wait a bit for Expo Go to load
+- waitForAnimationToEnd:
+    timeout: 3000
 # Expo Go opens to project selector - tap our app to open it
 - runFlow:
     when:
@@ -13,6 +16,19 @@ appId: host.exp.Exponent
       - tapOn: "Smart Pantry AI"
       - waitForAnimationToEnd:
           timeout: 5000
+# Wait for app to load - check if we're on login or home screen
+- extendedWaitUntil:
+    visible: "Sign In"
+    timeout: 10000
+    # If login screen doesn't appear, check for home screen
+- runFlow:
+    when:
+      visible: "Smart Pantry"
+    commands:
+      # Already logged in, skip to home screen
+      - assertVisible:
+          id: "home-title"
+      - stopFlow
 # When on login screen, log in first (admin test user)
 - runFlow:
     when:
