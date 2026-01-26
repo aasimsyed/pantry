@@ -697,7 +697,8 @@ class PantryService:
         notes: Optional[str] = None,
         rating: Optional[int] = None,
         tags: Optional[List[str]] = None,
-        ai_model: Optional[str] = None
+        ai_model: Optional[str] = None,
+        flavor_pairings: Optional[List[Dict]] = None
     ) -> SavedRecipe:
         """Save a recipe to the recipe box.
         
@@ -715,6 +716,7 @@ class PantryService:
             rating: Rating (1-5 stars)
             tags: List of tags
             ai_model: AI model used to generate the recipe (optional)
+            flavor_pairings: List of flavor pairing dictionaries (optional)
             
         Returns:
             Saved recipe object
@@ -747,7 +749,8 @@ class PantryService:
             notes=notes,
             rating=rating,
             tags=json.dumps(tags or []) if tags else None,
-            ai_model=ai_model
+            ai_model=ai_model,
+            flavor_pairings=json.dumps(flavor_pairings) if flavor_pairings else None
         )
         
         self.session.add(recipe)
@@ -1047,7 +1050,8 @@ class PantryService:
             notes=notes,
             rating=rating,
             tags=json.dumps(tags) if tags else None,
-            ai_model=recent.ai_model
+            ai_model=recent.ai_model,
+            flavor_pairings=recent.flavor_pairings  # Copy flavor pairings (already JSON)
         )
         
         self.session.add(saved)

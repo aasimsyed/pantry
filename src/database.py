@@ -197,7 +197,8 @@ def init_database():
             add_ai_model_to_saved_recipes,
             add_security_events_table,
             add_recent_recipes_table,
-            add_performance_indexes
+            add_performance_indexes,
+            add_flavor_pairings_to_saved_recipes
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
@@ -210,6 +211,7 @@ def init_database():
         add_security_events_table()  # Critical: ensure security_events table exists
         add_recent_recipes_table()  # Create recent_recipes table
         add_performance_indexes()  # Add performance indexes
+        add_flavor_pairings_to_saved_recipes()  # Add flavor pairings to saved recipes
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
@@ -769,6 +771,7 @@ class SavedRecipe(Base):
     
     # AI metadata
     ai_model = Column(String(100), nullable=True)  # AI model used to generate recipe (e.g., "gpt-4o", "claude-3-opus-20240229")
+    flavor_pairings = Column(Text, nullable=True)  # JSON: List of flavor pairing objects {ingredients, compounds, effect}
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -814,6 +817,7 @@ class SavedRecipe(Base):
             "rating": self.rating,
             "tags": json.loads(self.tags) if self.tags else [],
             "ai_model": self.ai_model,
+            "flavor_pairings": json.loads(self.flavor_pairings) if self.flavor_pairings else [],
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

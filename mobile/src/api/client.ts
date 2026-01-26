@@ -79,6 +79,7 @@ class APIClient {
   private baseTimeout: number = 30; // Increased to 30 seconds
   private accessToken: string | null = null;
   private isRefreshing: boolean = false; // Prevent concurrent refresh attempts
+  private refreshSubscribers: Array<(token: string | null) => void> = []; // Queue for requests waiting on token refresh
   private pendingRequests: Array<() => Promise<any>> = []; // Queue for offline requests
   private isOnline: boolean = true; // Track online status
 
@@ -133,16 +134,30 @@ class APIClient {
         }
 
         // Handle 401: token expired, try to refresh
-        if (error.response?.status === 401 && this.accessToken && !this.isRefreshing) {
+        if (error.response?.status === 401 && this.accessToken) {
           // Skip refresh if this is already a refresh request (avoid infinite loop)
           if (originalRequest?.url?.includes('/api/auth/refresh')) {
             // Refresh token is invalid, clear tokens
             this.clearTokens();
+            this.onRefreshComplete(null); // Notify waiting requests that refresh failed
+          } else if (this.isRefreshing) {
+            // Another request is already refreshing, wait for it to complete
+            return new Promise((resolve, reject) => {
+              this.refreshSubscribers.push((newToken: string | null) => {
+                if (newToken && originalRequest) {
+                  originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                  resolve(this.client.request(originalRequest));
+                } else {
+                  reject(error);
+                }
+              });
+            });
           } else {
             // Token expired, try to refresh
             try {
               this.isRefreshing = true;
               await this.refreshAccessToken();
+              this.onRefreshComplete(this.accessToken); // Notify waiting requests
               // Retry original request
               if (originalRequest) {
                 originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
@@ -151,6 +166,7 @@ class APIClient {
             } catch (refreshError: any) {
               // Refresh failed (429 rate limit, 401 invalid token, etc.), clear tokens
               this.clearTokens();
+              this.onRefreshComplete(null); // Notify waiting requests that refresh failed
               // Don't retry if it was a rate limit - user needs to wait
               if (refreshError.response?.status === 429) {
                 console.warn('Token refresh rate limited, please log in again');
@@ -189,6 +205,12 @@ class APIClient {
         throw error;
       }
     );
+  }
+
+  // Notify all queued requests that token refresh has completed
+  private onRefreshComplete(newToken: string | null): void {
+    this.refreshSubscribers.forEach((callback) => callback(newToken));
+    this.refreshSubscribers = [];
   }
 
   // Token management

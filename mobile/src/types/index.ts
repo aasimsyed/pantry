@@ -89,6 +89,7 @@ export interface SavedRecipe {
   rating?: number;
   tags?: string;
   ai_model?: string;
+  flavor_pairings?: FlavorPairing[];
   created_at: string;
   updated_at: string;
 }

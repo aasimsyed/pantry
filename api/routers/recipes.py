@@ -24,6 +24,11 @@ def save_recipe(
 ) -> Dict:
     """Save a recipe to the recipe box."""
     try:
+        # Convert FlavorPairing models to dicts if present
+        flavor_pairings_dicts = None
+        if recipe_data.flavor_pairings:
+            flavor_pairings_dicts = [fp.model_dump() for fp in recipe_data.flavor_pairings]
+        
         recipe = service.save_recipe(
             name=recipe_data.name,
             user_id=current_user.id,
@@ -39,6 +44,7 @@ def save_recipe(
             rating=recipe_data.rating,
             tags=recipe_data.tags,
             ai_model=recipe_data.ai_model,
+            flavor_pairings=flavor_pairings_dicts,
         )
         logger.info("Saved recipe: %s (ID: %s)", recipe.name, recipe.id)
         return recipe.to_dict()

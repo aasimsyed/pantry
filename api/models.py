@@ -289,6 +289,7 @@ class SavedRecipeCreate(BaseModel):
     rating: Optional[int] = Field(None, ge=1, le=5)
     tags: Optional[List[str]] = None
     ai_model: Optional[str] = Field(None, max_length=100, description="AI model used to generate this recipe")
+    flavor_pairings: Optional[List[FlavorPairing]] = Field(None, description="Flavor pairings with chemical compounds")
 
 
 class SavedRecipeUpdate(BaseModel):
@@ -314,6 +315,7 @@ class SavedRecipeResponse(BaseModel):
     rating: Optional[int] = None
     tags: List[str]
     ai_model: Optional[str] = Field(None, description="AI model used to generate this recipe")
+    flavor_pairings: Optional[List[FlavorPairing]] = Field(None, description="Flavor pairings with chemical compounds")
     created_at: datetime
     updated_at: datetime
     

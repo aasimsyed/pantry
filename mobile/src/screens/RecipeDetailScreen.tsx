@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
-import type { Recipe, RecentRecipe, SavedRecipe } from '../types';
+import { FlavorChemistrySheet } from '../components/FlavorChemistrySheet';
+import type { Recipe, RecentRecipe, SavedRecipe, FlavorPairing } from '../types';
 
 type RouteParams = {
   RecipeDetail: {
@@ -29,6 +30,7 @@ export default function RecipeDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [scaledServings, setScaledServings] = useState(recipe.servings || 4);
+  const [flavorSheetVisible, setFlavorSheetVisible] = useState(false);
 
   // Track keyboard visibility
   useEffect(() => {
@@ -249,6 +251,19 @@ export default function RecipeDetailScreen() {
     ? parseJson(recipe.instructions)
     : Array.isArray(recipe.instructions) ? recipe.instructions : [];
 
+  // Extract flavor pairings - handle both JSON string and array formats
+  const flavorPairings: FlavorPairing[] = (() => {
+    if (!('flavor_pairings' in recipe) || !recipe.flavor_pairings) return [];
+    if (typeof recipe.flavor_pairings === 'string') {
+      try {
+        return JSON.parse(recipe.flavor_pairings);
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(recipe.flavor_pairings) ? recipe.flavor_pairings : [];
+  })();
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView 
@@ -438,6 +453,34 @@ export default function RecipeDetailScreen() {
         </Card.Content>
       </Card>
 
+      {/* Why This Works - Flavor Chemistry Button */}
+      {flavorPairings.length > 0 && (
+        <TouchableOpacity
+          onPress={() => setFlavorSheetVisible(true)}
+          style={[
+            styles.flavorButton,
+            { 
+              backgroundColor: `${ds.colors.accent}10`,
+              borderColor: ds.colors.accent,
+            }
+          ]}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.flavorIconContainer, { backgroundColor: `${ds.colors.accent}15` }]}>
+            <MaterialCommunityIcons name="flask-outline" size={20} color={ds.colors.accent} />
+          </View>
+          <View style={styles.flavorTextContainer}>
+            <Text style={[styles.flavorButtonTitle, { color: ds.colors.textPrimary }]}>
+              Why This Works
+            </Text>
+            <Text style={[styles.flavorButtonSubtitle, { color: ds.colors.textSecondary }]}>
+              Discover the flavor science
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} />
+        </TouchableOpacity>
+      )}
+
       <Divider style={styles.divider} />
 
       <Text variant="titleLarge" style={styles.sectionTitle}>
@@ -574,6 +617,14 @@ export default function RecipeDetailScreen() {
           </Dialog>
         </Portal>
       )}
+
+      {/* Flavor Chemistry Bottom Sheet */}
+      <FlavorChemistrySheet
+        visible={flavorSheetVisible}
+        onDismiss={() => setFlavorSheetVisible(false)}
+        flavorPairings={flavorPairings}
+        recipeName={recipe.name}
+      />
       </ScrollView>
     </SafeAreaView>
   );
@@ -928,6 +979,35 @@ const styles = StyleSheet.create({
   },
   originalAmount: {
     fontStyle: 'italic',
+  },
+  // Flavor Chemistry Button
+  flavorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    marginTop: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 12,
+  },
+  flavorIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  flavorTextContainer: {
+    flex: 1,
+  },
+  flavorButtonTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  flavorButtonSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
   },
 });
 

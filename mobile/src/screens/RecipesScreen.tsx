@@ -206,6 +206,7 @@ export default function RecipesScreen() {
         ingredients: recipe.ingredients as any, // API expects arrays
         instructions: recipe.instructions as any, // API expects arrays
         ai_model: recipe.ai_model, // Track which AI model generated this recipe
+        flavor_pairings: recipe.flavor_pairings as any, // Flavor chemistry data
       });
       Alert.alert('Success', `Saved "${recipe.name}" to recipe box!`);
       // Reload recent recipes in case this was saved from recent

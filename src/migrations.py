@@ -823,6 +823,39 @@ def add_performance_indexes():
     logger.info("✅ Performance indexes migration completed")
 
 
+def add_flavor_pairings_to_saved_recipes():
+    """
+    Add flavor_pairings column to saved_recipes table to store flavor chemistry data.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    
+    if 'saved_recipes' not in inspector.get_table_names():
+        logger.info("saved_recipes table doesn't exist yet, will be created by init_database()")
+        return
+    
+    columns = [col['name'] for col in inspector.get_columns('saved_recipes')]
+    if 'flavor_pairings' in columns:
+        logger.info("flavor_pairings column already exists in saved_recipes table")
+        return
+    
+    logger.info("Adding flavor_pairings column to saved_recipes table...")
+    
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            conn.execute(text("""
+                ALTER TABLE saved_recipes 
+                ADD COLUMN flavor_pairings TEXT
+            """))
+            trans.commit()
+            logger.info("✅ Migration completed: flavor_pairings added to saved_recipes")
+        except Exception as e:
+            trans.rollback()
+            logger.error(f"Migration failed: {e}", exc_info=True)
+            raise
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
@@ -837,6 +870,7 @@ def run_migrations():
     add_security_events_table()  # Ensure security_events table exists
     add_recent_recipes_table()  # Create recent_recipes table
     add_performance_indexes()  # Add performance indexes
+    add_flavor_pairings_to_saved_recipes()  # Add flavor pairings to saved recipes
     logger.info("✅ All migrations completed")
 
 
