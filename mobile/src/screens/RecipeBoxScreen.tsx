@@ -6,6 +6,9 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 import apiClient, { getApiErrorMessage } from '../api/client';
+import StarRating from '../components/StarRating';
+import { SkeletonRecipeCard } from '../components/Skeleton';
+import { PremiumButton } from '../components/PremiumButton';
 import type { SavedRecipe } from '../types';
 
 export default function RecipeBoxScreen() {
@@ -78,12 +81,14 @@ export default function RecipeBoxScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={ds.colors.primary} />
-          <Text variant="bodyMedium" style={[styles.loadingText, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
-            Loading your recipes...
+        <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
+          <Text testID="recipe-box-title" variant="titleLarge" style={[styles.title, { color: ds.colors.textPrimary }]}>
+            Recipe Box
           </Text>
-        </View>
+          <SkeletonRecipeCard />
+          <SkeletonRecipeCard />
+          <SkeletonRecipeCard />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -110,14 +115,14 @@ export default function RecipeBoxScreen() {
             <Text variant="bodyMedium" style={styles.emptyText}>
               Your saved recipes will appear here. Generate and save recipes from the Recipes tab!
             </Text>
-            <Button
+            <PremiumButton
               testID="empty-recipe-box-button"
               mode="contained"
               onPress={() => navigation.navigate('Recipes' as never)}
               style={styles.emptyButton}
             >
               Go to Recipes
-            </Button>
+            </PremiumButton>
           </Card.Content>
         </Card>
       ) : (
@@ -129,19 +134,49 @@ export default function RecipeBoxScreen() {
             <Card
               key={recipe.id}
               testID={`recipe-box-card-${recipe.id}`}
-              style={styles.card}
+              style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}
             >
-              <Card.Content>
-                <Text variant="titleLarge">{recipe.name}</Text>
+              <Card.Content style={{ paddingVertical: 20, paddingHorizontal: 20 }}>
+                <Text 
+                  variant="titleLarge" 
+                  style={[styles.recipeTitle, { color: ds.colors.textPrimary }]}
+                >
+                  {recipe.name}
+                </Text>
                 {recipe.description && (
-                  <Text variant="bodyMedium" style={styles.description}>
+                  <Text 
+                    variant="bodyMedium" 
+                    style={[styles.description, { color: ds.colors.textSecondary }]}
+                  >
                     {recipe.description}
                   </Text>
                 )}
+                <View style={styles.metaDivider} />
                 <View style={styles.meta}>
-                  <Text variant="bodySmall">⏱️ {recipe.prep_time || 0} min prep</Text>
-                  <Text variant="bodySmall">🔥 {recipe.cook_time || 0} min cook</Text>
-                  <Text variant="bodySmall">👥 {recipe.servings || 4} servings</Text>
+                  <View style={styles.metaItem}>
+                    <Text style={[styles.metaValue, { color: ds.colors.textPrimary }]}>
+                      {recipe.prep_time || 0}
+                    </Text>
+                    <Text style={[styles.metaLabel, { color: ds.colors.textTertiary }]}>
+                      PREP
+                    </Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={[styles.metaValue, { color: ds.colors.textPrimary }]}>
+                      {recipe.cook_time || 0}
+                    </Text>
+                    <Text style={[styles.metaLabel, { color: ds.colors.textTertiary }]}>
+                      COOK
+                    </Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={[styles.metaValue, { color: ds.colors.textPrimary }]}>
+                      {recipe.servings || 4}
+                    </Text>
+                    <Text style={[styles.metaLabel, { color: ds.colors.textTertiary }]}>
+                      SERVINGS
+                    </Text>
+                  </View>
                 </View>
                 {recipe.cuisine && (
                   <Text variant="bodySmall" style={styles.cuisine}>
@@ -149,41 +184,38 @@ export default function RecipeBoxScreen() {
                   </Text>
                 )}
                 {recipe.ai_model && (
-                  <Text variant="bodySmall" style={{ color: '#9ca3af', fontSize: 11, marginTop: 4 }}>
+                  <Text variant="bodySmall" style={{ color: ds.colors.textTertiary, fontSize: 11, marginTop: 4 }}>
                     🤖 Generated by {recipe.ai_model}
                   </Text>
                 )}
                 {recipe.rating != null && recipe.rating > 0 && (
                   <View style={styles.ratingContainer}>
-                    <Text variant="bodySmall" style={styles.ratingText}>
-                      ⭐ {recipe.rating}/5
-                    </Text>
+                    <StarRating rating={recipe.rating} readonly size={18} />
                   </View>
                 )}
                 {recipe.notes && (
                   <View style={styles.notesContainer}>
-                    <Text variant="bodySmall" style={styles.notesLabel}>📝 Notes:</Text>
-                    <Text variant="bodySmall" style={styles.notesText}>{recipe.notes}</Text>
+                    <Text variant="bodySmall" style={[styles.notesLabel, { color: ds.colors.textSecondary }]}>📝 Notes:</Text>
+                    <Text variant="bodySmall" style={[styles.notesText, { color: ds.colors.textPrimary }]}>{recipe.notes}</Text>
                   </View>
                 )}
                 <View style={styles.buttonRow}>
-                  <Button
+                  <PremiumButton
                     testID={`recipe-box-view-${recipe.id}`}
                     mode="contained"
                     onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
                     style={[styles.viewButton, { marginRight: 8 }]}
                   >
                     View
-                  </Button>
-                  <Button
+                  </PremiumButton>
+                  <PremiumButton
                     testID={`recipe-box-delete-${recipe.id}`}
                     mode="outlined"
                     onPress={() => handleDelete(recipe.id)}
-                    style={styles.deleteButton}
-                    textColor="#ef4444"
+                    textColor={isDark ? '#f87171' : '#ef4444'}
                   >
                     Delete
-                  </Button>
+                  </PremiumButton>
                 </View>
               </Card.Content>
             </Card>
@@ -203,40 +235,76 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 20,
   },
   content: {
-    padding: 16,
+    padding: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
   },
   title: {
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#111827',
+    fontWeight: '700',
+    fontSize: 32,
+    letterSpacing: -0.5,
+    marginBottom: 20,
   },
   card: {
-    marginBottom: 12,
-    elevation: 2,
+    marginBottom: 16,
+    borderRadius: 20,
+  },
+  recipeTitle: {
+    fontWeight: '700',
+    fontSize: 22,
+    letterSpacing: -0.3,
+    lineHeight: 30,
   },
   description: {
-    marginTop: 8,
-    color: '#6b7280',
+    marginTop: 10,
+    marginBottom: 0,
+    lineHeight: 22,
+    fontSize: 15,
+    opacity: 0.85,
+  },
+  metaDivider: {
+    height: 20,
   },
   meta: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 12,
-    marginBottom: 8,
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    marginBottom: 16,
+  },
+  metaItem: {
+    alignItems: 'center',
+  },
+  metaValue: {
+    fontWeight: '700',
+    fontSize: 28,
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  metaLabel: {
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    opacity: 0.7,
   },
   cuisine: {
-    color: '#6b7280',
-    marginTop: 4,
+    marginTop: 6,
+    opacity: 0.7,
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 20,
+    gap: 12,
   },
   viewButton: {
     flex: 1,
@@ -245,53 +313,64 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyCard: {
-    marginTop: 32,
-    elevation: 2,
+    marginTop: 60,
+    marginHorizontal: 4,
+    borderRadius: 24,
+    overflow: 'hidden',
   },
   emptyContent: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
   },
   emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 72,
+    marginBottom: 20,
+    opacity: 0.9,
   },
   emptyTitle: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#111827',
+    fontWeight: '700',
+    fontSize: 24,
+    letterSpacing: -0.3,
+    marginBottom: 12,
     textAlign: 'center',
   },
   emptyText: {
     textAlign: 'center',
-    color: '#6b7280',
-    marginBottom: 24,
-    paddingHorizontal: 16,
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 28,
+    paddingHorizontal: 8,
+    opacity: 0.7,
   },
   emptyButton: {
     marginTop: 8,
+    borderRadius: 14,
+    height: 48,
+    minWidth: 160,
   },
   ratingContainer: {
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  ratingText: {
-    color: '#f59e0b',
-    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 6,
   },
   notesContainer: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#f9fafb',
-    borderRadius: 4,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(59, 130, 246, 0.4)',
   },
   notesLabel: {
     fontWeight: '600',
-    marginBottom: 4,
-    color: '#374151',
+    marginBottom: 6,
+    fontSize: 13,
+    letterSpacing: 0.2,
+    opacity: 0.8,
   },
   notesText: {
-    color: '#6b7280',
+    lineHeight: 22,
+    fontSize: 15,
   },
 });
 

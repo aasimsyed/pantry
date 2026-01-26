@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, Card, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { getDesignSystem } from '../utils/designSystem';
+import { PremiumButton } from '../components/PremiumButton';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -21,6 +25,8 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const navigation = useNavigation<NavigationProp>();
 
   const handleRegister = async () => {
@@ -60,7 +66,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -69,13 +75,19 @@ export default function RegisterScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingTop: 16 }]}
           keyboardShouldPersistTaps="handled"
         >
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text testID="register-title" variant="headlineMedium" style={styles.title}>
-              Create Account
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.logoContainer}>
+              <View style={[styles.logoCircle, { backgroundColor: ds.colors.accent }]}>
+                <MaterialCommunityIcons name="account-plus" size={40} color="#FFFFFF" />
+              </View>
+            </View>
+            
+            <Text testID="register-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
+              Get Started
             </Text>
-            <Text testID="register-subtitle" variant="bodyMedium" style={styles.subtitle}>
-              Sign up for Smart Pantry
+            <Text testID="register-subtitle" style={[styles.subtitle, { color: ds.colors.textSecondary }]}>
+              Create your Smart Pantry account
             </Text>
 
             <TextInput
@@ -86,6 +98,7 @@ export default function RegisterScreen() {
               autoCapitalize="words"
               mode="outlined"
               style={styles.input}
+              left={<TextInput.Icon icon="account-outline" />}
             />
 
             <TextInput
@@ -98,6 +111,7 @@ export default function RegisterScreen() {
               autoComplete="email"
               mode="outlined"
               style={styles.input}
+              left={<TextInput.Icon icon="email-outline" />}
             />
 
             <TextInput
@@ -110,10 +124,13 @@ export default function RegisterScreen() {
               autoComplete="password-new"
               mode="outlined"
               style={styles.input}
-              helperText="Must be at least 8 characters"
+              left={<TextInput.Icon icon="lock-outline" />}
             />
+            <Text style={[styles.helperText, { color: ds.colors.textTertiary }]}>
+              Must be at least 8 characters
+            </Text>
 
-            <Button
+            <PremiumButton
               testID="register-button"
               mode="contained"
               onPress={handleRegister}
@@ -122,13 +139,14 @@ export default function RegisterScreen() {
               style={styles.button}
             >
               Create Account
-            </Button>
+            </PremiumButton>
 
             <Button
               testID="login-link"
               mode="text"
               onPress={() => navigation.navigate('Login')}
               style={styles.linkButton}
+              labelStyle={styles.linkButtonLabel}
             >
               Already have an account? Sign in
             </Button>
@@ -151,29 +169,57 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 16,
+    padding: 20,
   },
   card: {
     maxWidth: 400,
     width: '100%',
     alignSelf: 'center',
+    borderRadius: 24,
+  },
+  cardContent: {
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
-    marginBottom: 24,
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 32,
     textAlign: 'center',
-    color: '#666',
   },
   input: {
     marginBottom: 16,
+  },
+  helperText: {
+    fontSize: 13,
+    marginTop: -12,
+    marginBottom: 16,
+    marginLeft: 4,
   },
   button: {
     marginTop: 8,
@@ -181,6 +227,10 @@ const styles = StyleSheet.create({
   },
   linkButton: {
     marginTop: 8,
+  },
+  linkButtonLabel: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
 

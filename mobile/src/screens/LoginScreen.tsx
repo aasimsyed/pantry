@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, Card, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { getDesignSystem } from '../utils/designSystem';
+import { PremiumButton } from '../components/PremiumButton';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -20,6 +24,8 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
   const navigation = useNavigation<NavigationProp>();
 
   const handleLogin = async () => {
@@ -50,7 +56,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -59,13 +65,19 @@ export default function LoginScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingTop: 16 }]}
           keyboardShouldPersistTaps="handled"
         >
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text testID="login-title" variant="headlineMedium" style={styles.title}>
-              Sign In
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.logoContainer}>
+              <View style={[styles.logoCircle, { backgroundColor: ds.colors.primary }]}>
+                <MaterialCommunityIcons name="food-variant" size={40} color="#FFFFFF" />
+              </View>
+            </View>
+            
+            <Text testID="login-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
+              Welcome Back
             </Text>
-            <Text testID="login-subtitle" variant="bodyMedium" style={styles.subtitle}>
-              Sign in to Smart Pantry
+            <Text testID="login-subtitle" style={[styles.subtitle, { color: ds.colors.textSecondary }]}>
+              Sign in to continue to Smart Pantry
             </Text>
 
             <TextInput
@@ -78,6 +90,7 @@ export default function LoginScreen() {
               autoComplete="email"
               mode="outlined"
               style={styles.input}
+              left={<TextInput.Icon icon="email-outline" />}
             />
 
             <TextInput
@@ -90,9 +103,10 @@ export default function LoginScreen() {
               autoComplete="password"
               mode="outlined"
               style={styles.input}
+              left={<TextInput.Icon icon="lock-outline" />}
             />
 
-            <Button
+            <PremiumButton
               testID="login-button"
               mode="contained"
               onPress={handleLogin}
@@ -101,13 +115,14 @@ export default function LoginScreen() {
               style={styles.button}
             >
               Sign In
-            </Button>
+            </PremiumButton>
 
             <Button
               testID="register-link"
               mode="text"
               onPress={() => navigation.navigate('Register')}
               style={styles.linkButton}
+              labelStyle={styles.linkButtonLabel}
             >
               Don't have an account? Sign up
             </Button>
@@ -130,26 +145,48 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 16,
+    padding: 20,
   },
   card: {
     maxWidth: 400,
     width: '100%',
     alignSelf: 'center',
+    borderRadius: 24,
+  },
+  cardContent: {
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
-    marginBottom: 24,
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 32,
     textAlign: 'center',
-    color: '#666',
   },
   input: {
     marginBottom: 16,
@@ -160,6 +197,10 @@ const styles = StyleSheet.create({
   },
   linkButton: {
     marginTop: 8,
+  },
+  linkButtonLabel: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
 

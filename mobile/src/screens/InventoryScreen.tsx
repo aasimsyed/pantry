@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable } from 'react-native';
 import {
   Card,
   Text,
@@ -12,6 +12,7 @@ import {
   TextInput,
   ActivityIndicator,
   IconButton,
+  Menu,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
+import { PremiumButton } from '../components/PremiumButton';
 import { useTheme } from '../contexts/ThemeContext';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { InventoryItem } from '../types';
@@ -46,6 +48,8 @@ export default function InventoryScreen() {
     purchase_date: '',
     notes: '',
   });
+  const [editUnitMenuVisible, setEditUnitMenuVisible] = useState(false);
+  const [editUnitMenuKey, setEditUnitMenuKey] = useState(0);
   const [manualEntryDialogVisible, setManualEntryDialogVisible] = useState(false);
   const [manualEntryFormData, setManualEntryFormData] = useState({
     product_name: '',
@@ -58,6 +62,32 @@ export default function InventoryScreen() {
     purchase_date: '',
     notes: '',
   });
+  const [manualUnitMenuVisible, setManualUnitMenuVisible] = useState(false);
+  const [manualUnitMenuKey, setManualUnitMenuKey] = useState(0);
+
+  // Common cooking units
+  const cookingUnits = [
+    { label: 'Count (items)', value: 'count' },
+    { label: 'Teaspoon (tsp)', value: 'tsp' },
+    { label: 'Tablespoon (tbsp)', value: 'tbsp' },
+    { label: 'Cup', value: 'cup' },
+    { label: 'Fluid Ounce (fl oz)', value: 'fl oz' },
+    { label: 'Pint (pt)', value: 'pt' },
+    { label: 'Quart (qt)', value: 'qt' },
+    { label: 'Gallon (gal)', value: 'gal' },
+    { label: 'Ounce (oz)', value: 'oz' },
+    { label: 'Pound (lb)', value: 'lb' },
+    { label: 'Milliliter (ml)', value: 'ml' },
+    { label: 'Liter (L)', value: 'L' },
+    { label: 'Gram (g)', value: 'g' },
+    { label: 'Kilogram (kg)', value: 'kg' },
+    { label: 'Package', value: 'package' },
+    { label: 'Can', value: 'can' },
+    { label: 'Bottle', value: 'bottle' },
+    { label: 'Jar', value: 'jar' },
+    { label: 'Bag', value: 'bag' },
+    { label: 'Box', value: 'box' },
+  ];
 
   useEffect(() => {
     if (selectedPantryId !== undefined) {
@@ -376,14 +406,14 @@ export default function InventoryScreen() {
               activeOpacity={0.9}
               onPress={() => handleEditItem(item)}
             >
-              <Card style={styles.modernCard}>
+              <Card style={[styles.modernCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
                 <Card.Content style={styles.modernCardContent}>
                   <View style={styles.modernCardHeader}>
                     <View style={styles.modernCardTitleSection}>
-                      <Text style={styles.modernProductName}>{displayName}</Text>
+                      <Text style={[styles.modernProductName, { color: ds.colors.textPrimary }]}>{displayName}</Text>
                       {item.brand && (
-                        <View style={styles.brandBadge}>
-                          <Text style={styles.brandText}>{item.brand}</Text>
+                        <View style={[styles.brandBadge, { backgroundColor: ds.colors.surfaceHover }]}>
+                          <Text style={[styles.brandText, { color: ds.colors.textSecondary }]}>{item.brand}</Text>
                         </View>
                       )}
                     </View>
@@ -452,72 +482,104 @@ export default function InventoryScreen() {
       />
 
       <Portal>
-        <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)}>
-          <Dialog.Title>Add Item</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={styles.locationLabel}>
-              Storage Location:
+        <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)} style={{ borderRadius: 24 }}>
+          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>Add Item</Dialog.Title>
+          <Dialog.Content style={{ paddingTop: 20 }}>
+            <Text variant="bodyMedium" style={[styles.locationLabel, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
+              Storage Location
             </Text>
             <View style={styles.locationSelector}>
-              <Button
-                mode={photoStorageLocation === 'pantry' ? 'contained' : 'outlined'}
+              <TouchableOpacity
                 onPress={() => setPhotoStorageLocation('pantry')}
-                style={styles.locationButton}
-                compact
+                style={[
+                  styles.modernLocationButton,
+                  { 
+                    backgroundColor: photoStorageLocation === 'pantry' ? ds.colors.primary : ds.colors.surface,
+                    borderColor: photoStorageLocation === 'pantry' ? ds.colors.primary : ds.colors.surfaceHover,
+                  }
+                ]}
               >
-                🥫 Pantry
-              </Button>
-              <Button
-                mode={photoStorageLocation === 'fridge' ? 'contained' : 'outlined'}
+                <Text style={{ fontSize: 20 }}>🥫</Text>
+                <Text style={{ 
+                  color: photoStorageLocation === 'pantry' ? ds.colors.textInverse : ds.colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: '600',
+                }}>
+                  Pantry
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={() => setPhotoStorageLocation('fridge')}
-                style={styles.locationButton}
-                compact
+                style={[
+                  styles.modernLocationButton,
+                  { 
+                    backgroundColor: photoStorageLocation === 'fridge' ? ds.colors.primary : ds.colors.surface,
+                    borderColor: photoStorageLocation === 'fridge' ? ds.colors.primary : ds.colors.surfaceHover,
+                  }
+                ]}
               >
-                🧊 Fridge
-              </Button>
-              <Button
-                mode={photoStorageLocation === 'freezer' ? 'contained' : 'outlined'}
+                <Text style={{ fontSize: 20 }}>🧊</Text>
+                <Text style={{ 
+                  color: photoStorageLocation === 'fridge' ? ds.colors.textInverse : ds.colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: '600',
+                }}>
+                  Fridge
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={() => setPhotoStorageLocation('freezer')}
-                style={styles.locationButton}
-                compact
+                style={[
+                  styles.modernLocationButton,
+                  { 
+                    backgroundColor: photoStorageLocation === 'freezer' ? ds.colors.primary : ds.colors.surface,
+                    borderColor: photoStorageLocation === 'freezer' ? ds.colors.primary : ds.colors.surfaceHover,
+                  }
+                ]}
               >
-                ❄️ Freezer
-              </Button>
+                <Text style={{ fontSize: 20 }}>❄️</Text>
+                <Text style={{ 
+                  color: photoStorageLocation === 'freezer' ? ds.colors.textInverse : ds.colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: '600',
+                }}>
+                  Freezer
+                </Text>
+              </TouchableOpacity>
             </View>
             <View style={[styles.separator, { backgroundColor: ds.colors.surfaceHover }]} />
-            <Button
+            <PremiumButton
               testID="add-item-take-photo"
               mode="contained"
-              icon="camera"
               onPress={handleTakePhoto}
               style={styles.dialogButton}
             >
-              Take Photo
-            </Button>
-            <Button
+              📷 Take Photo
+            </PremiumButton>
+            <PremiumButton
               testID="add-item-choose-photo"
               mode="outlined"
-              icon="image"
               onPress={handlePickImage}
               style={styles.dialogButton}
             >
-              Choose from Library
-            </Button>
-            <Button
+              🖼️ Choose from Library
+            </PremiumButton>
+            <PremiumButton
               testID="add-item-manual-entry"
               mode="outlined"
-              icon="pencil"
               onPress={() => {
                 setDialogVisible(false);
                 setManualEntryDialogVisible(true);
               }}
               style={styles.dialogButton}
             >
-              Manual Entry
-            </Button>
+              ✏️ Manual Entry
+            </PremiumButton>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setDialogVisible(false)}>Cancel</Button>
+            <Button onPress={() => setDialogVisible(false)} labelStyle={{ fontSize: 16, fontWeight: '600' }} uppercase={false}>
+              Cancel
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -538,9 +600,9 @@ export default function InventoryScreen() {
         <Dialog
           visible={manualEntryDialogVisible}
           onDismiss={() => setManualEntryDialogVisible(false)}
-          style={styles.editDialog}
+          style={[styles.editDialog, { borderRadius: 24 }]}
         >
-          <Dialog.Title>Add Item Manually</Dialog.Title>
+          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>Add Item Manually</Dialog.Title>
           <Dialog.ScrollArea style={styles.scrollArea}>
             <ScrollView
               contentContainerStyle={styles.scrollContent}
@@ -581,47 +643,104 @@ export default function InventoryScreen() {
                 style={styles.input}
                 mode="outlined"
               />
-              <TextInput
-                label="Unit"
-                value={manualEntryFormData.unit}
-                onChangeText={(text) =>
-                  setManualEntryFormData({ ...manualEntryFormData, unit: text })
+              <Menu
+                key={manualUnitMenuKey}
+                visible={manualUnitMenuVisible}
+                onDismiss={() => setManualUnitMenuVisible(false)}
+                anchor={
+                  <Pressable onPress={() => setManualUnitMenuVisible(true)}>
+                    <TextInput
+                      label="Unit"
+                      value={cookingUnits.find(u => u.value === manualEntryFormData.unit)?.label || manualEntryFormData.unit}
+                      style={styles.input}
+                      mode="outlined"
+                      right={<TextInput.Icon icon="menu-down" />}
+                      editable={false}
+                      pointerEvents="none"
+                    />
+                  </Pressable>
                 }
-                style={styles.input}
-                mode="outlined"
-                placeholder="e.g., count, oz, lb, g"
-              />
-              <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={styles.label}>Storage Location</Text>
-                <View style={styles.locationButtons}>
-                  {(['pantry', 'fridge', 'freezer'] as const).map((loc) => (
-                    <Chip
-                      key={loc}
-                      selected={manualEntryFormData.storage_location === loc}
-                      onPress={() =>
-                        setManualEntryFormData({ ...manualEntryFormData, storage_location: loc })
-                      }
-                      style={styles.locationChip}
-                    >
-                      {loc.charAt(0).toUpperCase() + loc.slice(1)}
-                    </Chip>
+                contentStyle={{
+                  backgroundColor: ds.colors.surface,
+                  borderRadius: 12,
+                  maxHeight: 400,
+                  width: '100%',
+                }}
+                anchorPosition="bottom"
+              >
+                <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled>
+                  {cookingUnits.map((unit) => (
+                    <Menu.Item
+                      key={unit.value}
+                      onPress={() => {
+                        setManualEntryFormData({ ...manualEntryFormData, unit: unit.value });
+                        setManualUnitMenuVisible(false);
+                        setManualUnitMenuKey(prev => prev + 1);
+                      }}
+                      title={unit.label}
+                      titleStyle={{ fontSize: 15 }}
+                    />
                   ))}
+                </ScrollView>
+              </Menu>
+              <View style={styles.locationContainer}>
+                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
+                  Storage Location
+                </Text>
+                <View style={styles.locationButtons}>
+                  {(['pantry', 'fridge', 'freezer'] as const).map((loc) => {
+                    const emoji = loc === 'pantry' ? '🥫' : loc === 'fridge' ? '🧊' : '❄️';
+                    const label = loc === 'pantry' ? 'Pantry' : loc === 'fridge' ? 'Fridge' : 'Freezer';
+                    return (
+                      <TouchableOpacity
+                        key={loc}
+                        onPress={() => setManualEntryFormData({ ...manualEntryFormData, storage_location: loc })}
+                        style={[
+                          styles.editLocationButton,
+                          { 
+                            backgroundColor: manualEntryFormData.storage_location === loc ? ds.colors.primary : ds.colors.surface,
+                            borderColor: manualEntryFormData.storage_location === loc ? ds.colors.primary : ds.colors.surfaceHover,
+                          }
+                        ]}
+                      >
+                        <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                        <Text style={{ 
+                          color: manualEntryFormData.storage_location === loc ? ds.colors.textInverse : ds.colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: '600',
+                        }}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
               <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={styles.label}>Status</Text>
+                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
+                  Status
+                </Text>
                 <View style={styles.locationButtons}>
                   {(['in_stock', 'low'] as const).map((stat) => (
-                    <Chip
+                    <TouchableOpacity
                       key={stat}
-                      selected={manualEntryFormData.status === stat}
-                      onPress={() =>
-                        setManualEntryFormData({ ...manualEntryFormData, status: stat })
-                      }
-                      style={styles.locationChip}
+                      onPress={() => setManualEntryFormData({ ...manualEntryFormData, status: stat })}
+                      style={[
+                        styles.editLocationButton,
+                        { 
+                          backgroundColor: manualEntryFormData.status === stat ? ds.colors.success : ds.colors.surface,
+                          borderColor: manualEntryFormData.status === stat ? ds.colors.success : ds.colors.surfaceHover,
+                        }
+                      ]}
                     >
-                      {stat === 'in_stock' ? 'In Stock' : 'Low'}
-                    </Chip>
+                      <Text style={{ 
+                        color: manualEntryFormData.status === stat ? ds.colors.textInverse : ds.colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: '600',
+                      }}>
+                        {stat === 'in_stock' ? '✓ In Stock' : '⚠️ Low'}
+                      </Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </View>
@@ -660,15 +779,17 @@ export default function InventoryScreen() {
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button testID="manual-entry-cancel" onPress={() => setManualEntryDialogVisible(false)}>Cancel</Button>
-            <Button
+            <Button testID="manual-entry-cancel" onPress={() => setManualEntryDialogVisible(false)} labelStyle={{ fontSize: 16, fontWeight: '600' }} uppercase={false}>
+              Cancel
+            </Button>
+            <PremiumButton
               testID="manual-entry-submit"
               mode="contained"
               onPress={handleManualEntry}
               disabled={processing || !manualEntryFormData.product_name.trim()}
             >
               Add Item
-            </Button>
+            </PremiumButton>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -678,9 +799,11 @@ export default function InventoryScreen() {
         <Dialog
           visible={editDialogVisible}
           onDismiss={() => setEditDialogVisible(false)}
-          style={styles.editDialog}
+          style={[styles.editDialog, { borderRadius: 24 }]}
         >
-          <Dialog.Title>Edit Item: {editingItem?.product_name}</Dialog.Title>
+          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>
+            Edit Item: {editingItem?.product_name}
+          </Dialog.Title>
           <Dialog.ScrollArea style={styles.scrollArea}>
             <ScrollView
               contentContainerStyle={styles.scrollContent}
@@ -697,50 +820,106 @@ export default function InventoryScreen() {
                 }
                 keyboardType="numeric"
                 style={styles.input}
+                mode="outlined"
               />
-              <TextInput
-                label="Unit"
-                value={editFormData.unit}
-                onChangeText={(text) =>
-                  setEditFormData({ ...editFormData, unit: text })
+              <Menu
+                key={editUnitMenuKey}
+                visible={editUnitMenuVisible}
+                onDismiss={() => setEditUnitMenuVisible(false)}
+                anchor={
+                  <Pressable onPress={() => setEditUnitMenuVisible(true)}>
+                    <TextInput
+                      label="Unit"
+                      value={cookingUnits.find(u => u.value === editFormData.unit)?.label || editFormData.unit}
+                      style={styles.input}
+                      mode="outlined"
+                      right={<TextInput.Icon icon="menu-down" />}
+                      editable={false}
+                      pointerEvents="none"
+                    />
+                  </Pressable>
                 }
-                style={styles.input}
-              />
+                contentStyle={{
+                  backgroundColor: ds.colors.surface,
+                  borderRadius: 12,
+                  maxHeight: 400,
+                  width: '100%',
+                }}
+                anchorPosition="bottom"
+              >
+                <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled>
+                  {cookingUnits.map((unit) => (
+                    <Menu.Item
+                      key={unit.value}
+                      onPress={() => {
+                        setEditFormData({ ...editFormData, unit: unit.value });
+                        setEditUnitMenuVisible(false);
+                        setEditUnitMenuKey(prev => prev + 1);
+                      }}
+                      title={unit.label}
+                      titleStyle={{ fontSize: 15 }}
+                    />
+                  ))}
+                </ScrollView>
+              </Menu>
               <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={styles.label}>
-                  Location *
+                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
+                  Storage Location
                 </Text>
                 <View style={styles.locationButtons}>
-                  {(['pantry', 'fridge', 'freezer'] as const).map((loc) => (
-                    <Chip
-                      key={loc}
-                      selected={editFormData.storage_location === loc}
-                      onPress={() =>
-                        setEditFormData({ ...editFormData, storage_location: loc })
-                      }
-                      style={styles.locationChip}
-                    >
-                      {loc.charAt(0).toUpperCase() + loc.slice(1)}
-                    </Chip>
-                  ))}
+                  {(['pantry', 'fridge', 'freezer'] as const).map((loc) => {
+                    const emoji = loc === 'pantry' ? '🥫' : loc === 'fridge' ? '🧊' : '❄️';
+                    const label = loc === 'pantry' ? 'Pantry' : loc === 'fridge' ? 'Fridge' : 'Freezer';
+                    return (
+                      <TouchableOpacity
+                        key={loc}
+                        onPress={() => setEditFormData({ ...editFormData, storage_location: loc })}
+                        style={[
+                          styles.editLocationButton,
+                          { 
+                            backgroundColor: editFormData.storage_location === loc ? ds.colors.primary : ds.colors.surface,
+                            borderColor: editFormData.storage_location === loc ? ds.colors.primary : ds.colors.surfaceHover,
+                          }
+                        ]}
+                      >
+                        <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                        <Text style={{ 
+                          color: editFormData.storage_location === loc ? ds.colors.textInverse : ds.colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: '600',
+                        }}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
               <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={styles.label}>
+                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
                   Status
                 </Text>
                 <View style={styles.locationButtons}>
                   {(['in_stock', 'low'] as const).map((stat) => (
-                    <Chip
+                    <TouchableOpacity
                       key={stat}
-                      selected={editFormData.status === stat}
-                      onPress={() =>
-                        setEditFormData({ ...editFormData, status: stat })
-                      }
-                      style={styles.locationChip}
+                      onPress={() => setEditFormData({ ...editFormData, status: stat })}
+                      style={[
+                        styles.editLocationButton,
+                        { 
+                          backgroundColor: editFormData.status === stat ? ds.colors.success : ds.colors.surface,
+                          borderColor: editFormData.status === stat ? ds.colors.success : ds.colors.surfaceHover,
+                        }
+                      ]}
                     >
-                      {stat === 'in_stock' ? 'In Stock' : 'Low'}
-                    </Chip>
+                      <Text style={{ 
+                        color: editFormData.status === stat ? ds.colors.textInverse : ds.colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: '600',
+                      }}>
+                        {stat === 'in_stock' ? '✓ In Stock' : '⚠️ Low'}
+                      </Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </View>
@@ -752,6 +931,7 @@ export default function InventoryScreen() {
                 }
                 style={styles.input}
                 placeholder="2024-12-31"
+                mode="outlined"
               />
               <TextInput
                 label="Purchase Date (YYYY-MM-DD)"
@@ -761,6 +941,7 @@ export default function InventoryScreen() {
                 }
                 style={styles.input}
                 placeholder="2024-11-18"
+                mode="outlined"
               />
               <TextInput
                 label="Notes"
@@ -771,14 +952,17 @@ export default function InventoryScreen() {
                 multiline
                 numberOfLines={3}
                 style={styles.input}
+                mode="outlined"
               />
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button testID="edit-item-cancel" onPress={() => setEditDialogVisible(false)}>Cancel</Button>
-            <Button testID="edit-item-save" mode="contained" onPress={handleUpdateItem}>
-              Save
+            <Button testID="edit-item-cancel" onPress={() => setEditDialogVisible(false)} labelStyle={{ fontSize: 16, fontWeight: '600' }} uppercase={false}>
+              Cancel
             </Button>
+            <PremiumButton testID="edit-item-save" mode="contained" onPress={handleUpdateItem}>
+              Save
+            </PremiumButton>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -796,7 +980,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: DesignSystem.spacing.md,
+    padding: 20,
+    paddingTop: 12,
   },
   searchbar: {
     marginBottom: DesignSystem.spacing.md,
@@ -821,44 +1006,50 @@ const styles = StyleSheet.create({
   },
   // Modern Card Styles
   modernCard: {
-    marginBottom: DesignSystem.spacing.md,
-    borderRadius: DesignSystem.borderRadius.lg,
-    ...DesignSystem.shadows.md,
+    marginBottom: 16,
+    borderRadius: 20,
     overflow: 'hidden',
   },
   modernCardContent: {
-    padding: DesignSystem.spacing.md,
+    padding: 20,
   },
   modernCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: DesignSystem.spacing.md,
+    marginBottom: 16,
   },
   modernCardTitleSection: {
     flex: 1,
-    marginRight: DesignSystem.spacing.sm,
+    marginRight: 12,
   },
   modernProductName: {
-    marginBottom: DesignSystem.spacing.xs,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    lineHeight: 24,
+    marginBottom: 6,
   },
   brandBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: DesignSystem.spacing.sm,
-    paddingVertical: DesignSystem.spacing.xs,
-    borderRadius: DesignSystem.borderRadius.sm,
-    marginTop: DesignSystem.spacing.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
   },
   brandText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   modernCardActions: {
     flexDirection: 'row',
     gap: DesignSystem.spacing.xs,
   },
   actionIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: DesignSystem.borderRadius.sm,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -924,7 +1115,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   dialogButton: {
-    marginVertical: DesignSystem.spacing.sm,
+    marginVertical: 6,
   },
   locationLabel: {
     marginBottom: DesignSystem.spacing.sm,
@@ -932,11 +1123,30 @@ const styles = StyleSheet.create({
   locationSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: DesignSystem.spacing.md,
-    gap: DesignSystem.spacing.sm,
+    marginBottom: 20,
+    gap: 10,
   },
   locationButton: {
     flex: 1,
+  },
+  modernLocationButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 2,
+    gap: 6,
+  },
+  editLocationButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 2,
   },
   separator: {
     height: 1,
@@ -1035,6 +1245,7 @@ const styles = StyleSheet.create({
   locationButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 10,
   },
   locationChip: {
     marginRight: 8,

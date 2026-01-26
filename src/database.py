@@ -195,7 +195,9 @@ def init_database():
             assign_null_items_to_default_pantry,
             add_user_settings_table,
             add_ai_model_to_saved_recipes,
-            add_security_events_table
+            add_security_events_table,
+            add_recent_recipes_table,
+            add_performance_indexes
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
@@ -206,6 +208,8 @@ def init_database():
         add_user_settings_table()
         add_ai_model_to_saved_recipes()
         add_security_events_table()  # Critical: ensure security_events table exists
+        add_recent_recipes_table()  # Create recent_recipes table
+        add_performance_indexes()  # Add performance indexes
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)

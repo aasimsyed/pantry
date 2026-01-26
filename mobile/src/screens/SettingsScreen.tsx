@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, Switch } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
@@ -11,9 +11,11 @@ import {
   List,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
-import { getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { getDesignSystem } from '../utils/designSystem';
+import { PremiumButton } from '../components/PremiumButton';
 
 interface UserSettings {
   id: number;
@@ -100,7 +102,7 @@ export default function SettingsScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={ds.colors.primary} />
-          <Text style={[styles.loadingText, getTextStyle('body', ds.colors.textSecondary, isDark)]}>Loading settings...</Text>
+          <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading settings...</Text>
         </View>
       </SafeAreaView>
     );
@@ -110,7 +112,7 @@ export default function SettingsScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
         <View style={styles.center}>
-          <Text style={getTextStyle('body', ds.colors.textPrimary, isDark)}>Failed to load settings</Text>
+          <Text style={{ color: ds.colors.textPrimary }}>Failed to load settings</Text>
         </View>
       </SafeAreaView>
     );
@@ -120,128 +122,262 @@ export default function SettingsScreen() {
     ? AI_MODELS[settings.ai_provider as keyof typeof AI_MODELS] || []
     : [];
 
+  // Get app version and build number
+  // In Expo Go, Constants.manifest2 is typically available
+  // In development builds, Constants.expoConfig is available
+  let appVersion = 'Unknown';
+  let buildNumber: string | number | undefined;
+  
+  // Try expoConfig first (development builds)
+  if (Constants.expoConfig?.version) {
+    appVersion = Constants.expoConfig.version;
+    buildNumber = Constants.expoConfig.ios?.buildNumber || Constants.expoConfig.android?.versionCode;
+  }
+  // Try manifest2 (Expo Go and newer)
+  else if (Constants.manifest2) {
+    const manifest = Constants.manifest2.extra?.expoClient || Constants.manifest2.extra?.eas?.build;
+    if (manifest?.version) {
+      appVersion = manifest.version;
+    }
+    // For Expo Go, build number might not be available
+    buildNumber = manifest?.ios?.buildNumber || manifest?.android?.versionCode;
+  }
+  // Try legacy manifest (older Expo Go)
+  else if (Constants.manifest) {
+    if (Constants.manifest.version) {
+      appVersion = Constants.manifest.version;
+    }
+    buildNumber = Constants.manifest.ios?.buildNumber || Constants.manifest.android?.versionCode;
+  }
+  
+  // Fallback to app.json values if nothing found
+  if (appVersion === 'Unknown') {
+    appVersion = '1.3.0';
+    buildNumber = '33'; // iOS build number from app.json
+  }
+  
+  const versionText = buildNumber 
+    ? `Version ${appVersion} (${buildNumber})` 
+    : `Version ${appVersion}`;
+  
+  // Debug logging for Expo Go
+  if (__DEV__) {
+    console.log('[SettingsScreen] Version info:', {
+      version: appVersion,
+      buildNumber,
+      versionText,
+      hasExpoConfig: !!Constants.expoConfig,
+      hasManifest: !!Constants.manifest,
+      hasManifest2: !!Constants.manifest2,
+      manifest2Keys: Constants.manifest2 ? Object.keys(Constants.manifest2) : [],
+      isExpoGo: Constants.executionEnvironment === 'storeClient', // Expo Go
+    });
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: 16 }]}>
-        <Text testID="settings-title" style={[styles.title, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>
+      <ScrollView 
+        contentContainerStyle={[styles.content, { paddingTop: 16, paddingBottom: 16 }]}
+        showsVerticalScrollIndicator={true}
+      >
+        <Text testID="settings-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Settings
         </Text>
 
         {/* Appearance Settings */}
         <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-          <Card.Content>
-            <Text style={[styles.sectionTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>
-              Appearance
-            </Text>
-            <Text style={[styles.description, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
-              Choose your preferred theme. System will follow your device settings.
-            </Text>
-
-            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
-
-            <List.Item
-              title="Theme"
-              description={
-                themeMode === 'system' 
-                  ? 'Follow system' 
-                  : themeMode === 'dark' 
-                  ? 'Dark mode' 
-                  : 'Light mode'
-              }
-              left={(props) => (
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
                 <MaterialCommunityIcons 
                   name={isDark ? "weather-night" : "weather-sunny"} 
                   size={24} 
                   color={ds.colors.primary} 
-                  style={{ marginTop: 8 }}
                 />
-              )}
-              right={() => (
-                <View style={styles.themeSelector}>
-                  <Button
-                    testID="theme-light"
-                    mode={themeMode === 'light' ? 'contained' : 'outlined'}
-                    onPress={() => setThemeMode('light')}
-                    compact
-                    style={styles.themeButton}
-                    labelStyle={styles.themeButtonLabel}
-                  >
-                    Light
-                  </Button>
-                  <Button
-                    testID="theme-system"
-                    mode={themeMode === 'system' ? 'contained' : 'outlined'}
-                    onPress={() => setThemeMode('system')}
-                    compact
-                    style={styles.themeButton}
-                    labelStyle={styles.themeButtonLabel}
-                  >
-                    System
-                  </Button>
-                  <Button
-                    testID="theme-dark"
-                    mode={themeMode === 'dark' ? 'contained' : 'outlined'}
-                    onPress={() => setThemeMode('dark')}
-                    compact
-                    style={styles.themeButton}
-                    labelStyle={styles.themeButtonLabel}
-                  >
-                    Dark
-                  </Button>
-                </View>
-              )}
-              style={styles.listItem}
-            />
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                  Appearance
+                </Text>
+                <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                  Choose your preferred theme
+                </Text>
+              </View>
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+
+            <View style={styles.themeSelector}>
+              <TouchableOpacity
+                testID="theme-light"
+                onPress={() => setThemeMode('light')}
+                style={[
+                  styles.themeOption,
+                  { 
+                    backgroundColor: themeMode === 'light' ? ds.colors.primary : ds.colors.surfaceHover,
+                    borderColor: themeMode === 'light' ? ds.colors.primary : 'transparent',
+                  }
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name="weather-sunny" 
+                  size={24} 
+                  color={themeMode === 'light' ? '#FFFFFF' : ds.colors.textSecondary} 
+                />
+                <Text style={{ 
+                  color: themeMode === 'light' ? '#FFFFFF' : ds.colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: '600',
+                  marginTop: 8,
+                }}>
+                  Light
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                testID="theme-system"
+                onPress={() => setThemeMode('system')}
+                style={[
+                  styles.themeOption,
+                  { 
+                    backgroundColor: themeMode === 'system' ? ds.colors.primary : ds.colors.surfaceHover,
+                    borderColor: themeMode === 'system' ? ds.colors.primary : 'transparent',
+                  }
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name="cellphone" 
+                  size={24} 
+                  color={themeMode === 'system' ? '#FFFFFF' : ds.colors.textSecondary} 
+                />
+                <Text style={{ 
+                  color: themeMode === 'system' ? '#FFFFFF' : ds.colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: '600',
+                  marginTop: 8,
+                }}>
+                  System
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                testID="theme-dark"
+                onPress={() => setThemeMode('dark')}
+                style={[
+                  styles.themeOption,
+                  { 
+                    backgroundColor: themeMode === 'dark' ? ds.colors.primary : ds.colors.surfaceHover,
+                    borderColor: themeMode === 'dark' ? ds.colors.primary : 'transparent',
+                  }
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name="weather-night" 
+                  size={24} 
+                  color={themeMode === 'dark' ? '#FFFFFF' : ds.colors.textSecondary} 
+                />
+                <Text style={{ 
+                  color: themeMode === 'dark' ? '#FFFFFF' : ds.colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: '600',
+                  marginTop: 8,
+                }}>
+                  Dark
+                </Text>
+              </TouchableOpacity>
+            </View>
           </Card.Content>
         </Card>
 
         <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-          <Card.Content>
-            <Text style={[styles.sectionTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>
-              AI Model Preferences
-            </Text>
-            <Text style={[styles.description, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
-              Choose which AI model to use for recipe generation. GPT-5 offers the best quality and reasoning, GPT-4o provides excellent balance, while Claude models excel at creative recipes.
-            </Text>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
+                <MaterialCommunityIcons 
+                  name="robot" 
+                  size={24} 
+                  color={ds.colors.primary} 
+                />
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                  AI Model Preferences
+                </Text>
+                <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                  Choose your AI for recipe generation
+                </Text>
+              </View>
+            </View>
 
             <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
 
-            <Text style={[styles.label, getTextStyle('body', ds.colors.textPrimary, isDark)]}>
+            <Text style={[styles.label, { color: ds.colors.textPrimary }]}>
               AI Provider
             </Text>
             <RadioButton.Group
               onValueChange={handleProviderChange}
               value={settings.ai_provider || ''}
             >
-              <RadioButton.Item testID="ai-provider-default" label="Use System Default" value="" />
-              <RadioButton.Item testID="ai-provider-openai" label="OpenAI" value="openai" />
-              <RadioButton.Item testID="ai-provider-anthropic" label="Anthropic (Claude)" value="anthropic" />
+              <RadioButton.Item 
+                testID="ai-provider-default" 
+                label="Use System Default" 
+                value="" 
+                labelStyle={[styles.radioLabel, { color: ds.colors.textPrimary }]}
+                color={ds.colors.primary}
+                uncheckedColor={isDark ? '#FFFFFF' : ds.colors.textSecondary}
+              />
+              <RadioButton.Item 
+                testID="ai-provider-openai" 
+                label="OpenAI" 
+                value="openai" 
+                labelStyle={[styles.radioLabel, { color: ds.colors.textPrimary }]}
+                color={ds.colors.primary}
+                uncheckedColor={isDark ? '#FFFFFF' : ds.colors.textSecondary}
+              />
+              <RadioButton.Item 
+                testID="ai-provider-anthropic" 
+                label="Anthropic (Claude)" 
+                value="anthropic" 
+                labelStyle={[styles.radioLabel, { color: ds.colors.textPrimary }]}
+                color={ds.colors.primary}
+                uncheckedColor={isDark ? '#FFFFFF' : ds.colors.textSecondary}
+              />
             </RadioButton.Group>
 
             {settings.ai_provider && (
               <>
                 <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
-                <Text style={[styles.label, getTextStyle('body', ds.colors.textPrimary, isDark)]}>
+                <Text style={[styles.label, { color: ds.colors.textPrimary }]}>
                   AI Model
                 </Text>
                 <RadioButton.Group
                   onValueChange={handleModelChange}
                   value={settings.ai_model || ''}
                 >
-                  <RadioButton.Item testID="ai-model-default" label="Use Provider Default" value="" />
+                  <RadioButton.Item 
+                    testID="ai-model-default" 
+                    label="Use Provider Default" 
+                    value="" 
+                    labelStyle={[styles.radioLabel, { color: ds.colors.textPrimary }]}
+                    color={ds.colors.primary}
+                    uncheckedColor={isDark ? '#FFFFFF' : ds.colors.textSecondary}
+                  />
                   {availableModels.map((model) => (
                     <RadioButton.Item
                       key={model.value}
                       testID={`ai-model-${model.value}`}
                       label={model.label}
                       value={model.value}
+                      labelStyle={[styles.radioLabel, { color: ds.colors.textPrimary }]}
+                      color={ds.colors.primary}
+                      uncheckedColor={isDark ? '#FFFFFF' : ds.colors.textSecondary}
                     />
                   ))}
                 </RadioButton.Group>
               </>
             )}
 
-            <Button
+            <PremiumButton
               testID="save-settings-button"
               mode="contained"
               onPress={handleSave}
@@ -249,9 +385,22 @@ export default function SettingsScreen() {
               style={styles.saveButton}
             >
               {saving ? 'Saving...' : 'Save Settings'}
-            </Button>
+            </PremiumButton>
           </Card.Content>
         </Card>
+
+        {/* App Version Info */}
+        <View style={styles.versionContainer}>
+          <Text 
+            testID="app-version"
+            style={[
+              styles.versionText, 
+              { color: ds.colors.textSecondary }
+            ]}
+          >
+            {versionText}
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -262,33 +411,60 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: 20,
   },
   title: {
-    marginBottom: 24,
+    fontSize: 32,
     fontWeight: '700',
+    letterSpacing: -0.5,
+    marginBottom: 24,
   },
   card: {
     marginBottom: 16,
-    borderRadius: 16,
+    borderRadius: 20,
+  },
+  cardContent: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  sectionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionHeaderText: {
+    flex: 1,
   },
   sectionTitle: {
-    marginBottom: 8,
+    fontSize: 18,
     fontWeight: '600',
+    letterSpacing: -0.2,
+    marginBottom: 4,
   },
   description: {
-    marginBottom: 16,
+    fontSize: 14,
+    lineHeight: 20,
   },
   divider: {
     marginVertical: 16,
   },
   label: {
-    marginBottom: 8,
+    fontSize: 15,
     fontWeight: '600',
+    marginBottom: 8,
+  },
+  radioLabel: {
+    fontSize: 15,
   },
   saveButton: {
     marginTop: 24,
-    borderRadius: 12,
   },
   center: {
     flex: 1,
@@ -304,14 +480,30 @@ const styles = StyleSheet.create({
   },
   themeSelector: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  themeOption: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 2,
   },
-  themeButton: {
-    borderRadius: 8,
+  versionContainer: {
+    paddingVertical: 24,
+    paddingBottom: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 60,
+    marginTop: 8,
   },
-  themeButtonLabel: {
-    fontSize: 12,
+  versionText: {
+    textAlign: 'center',
+    opacity: 0.7,
+    fontSize: 13,
+    fontWeight: '400',
   },
 });
 

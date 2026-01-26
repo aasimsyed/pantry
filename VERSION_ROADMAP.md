@@ -266,6 +266,10 @@ Update this file when releasing new versions:
 - **1.1.0** - 2026-01-25 - Recent recipes feature (backend, mobile, frontend)
 - **1.1.1** - 2026-01-25 - Bug fixes (React Native rendering, migration handling, GitHub Actions)
 - **1.1.2** - 2026-01-25 - Recipe notes & ratings, UI improvements, performance indexes
+- **1.2.0** - 2026-01-26 - Shopping lists & meal planning
+- **1.2.1** - 2026-01-26 - Bug fixes and UI polish
+- **1.2.2** - 2026-01-26 - Dark mode fixes, recipe notes/ratings UI, empty states, confirmation dialogs
+- **1.3.0** - 2026-01-25 - Jony Ive-inspired UI/UX redesign across all screens
 
 ---
 

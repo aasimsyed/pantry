@@ -257,9 +257,9 @@ export default function RecipeDetailScreen() {
       >
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <Text testID="recipe-detail-title" style={styles.heroTitle}>{recipe.name}</Text>
+          <Text testID="recipe-detail-title" style={[styles.heroTitle, { color: ds.colors.textPrimary }]}>{recipe.name}</Text>
           {recipe.description && (
-            <Text testID="recipe-detail-description" style={styles.heroDescription}>{recipe.description}</Text>
+            <Text testID="recipe-detail-description" style={[styles.heroDescription, { color: ds.colors.textSecondary }]}>{recipe.description}</Text>
           )}
         </View>
 
@@ -592,10 +592,16 @@ const styles = StyleSheet.create({
     marginBottom: DesignSystem.spacing.lg,
   },
   heroTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
     marginBottom: DesignSystem.spacing.sm,
+    lineHeight: 34,
   },
   heroDescription: {
+    fontSize: 16,
     lineHeight: 24,
+    opacity: 0.85,
   },
   // Meta Grid
   metaGrid: {

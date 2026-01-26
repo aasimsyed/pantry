@@ -646,24 +646,87 @@ def add_recent_recipes_table():
     
     # Check if recent_recipes table already exists
     if 'recent_recipes' in inspector.get_table_names():
-        logger.info("recent_recipes table already exists")
+        logger.info("✅ recent_recipes table already exists")
         return
     
     logger.info("Creating recent_recipes table...")
     
+    # Use direct SQL to avoid SQLAlchemy index conflicts
+    # This handles the case where indexes might exist from a previous partial migration
     try:
-        from src.database import RecentRecipe
-        RecentRecipe.__table__.create(engine, checkfirst=True)
-        logger.info("✅ recent_recipes table created successfully")
+        with engine.connect() as conn:
+            trans = conn.begin()
+            try:
+                # Create table first
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS recent_recipes (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        name VARCHAR(255) NOT NULL,
+                        description TEXT,
+                        cuisine VARCHAR(100),
+                        difficulty VARCHAR(50),
+                        prep_time INTEGER,
+                        cook_time INTEGER,
+                        servings INTEGER,
+                        ingredients TEXT NOT NULL,
+                        instructions TEXT NOT NULL,
+                        available_ingredients TEXT,
+                        missing_ingredients TEXT,
+                        flavor_pairings TEXT,
+                        ai_model VARCHAR(100),
+                        generated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT fk_recent_recipes_user_id 
+                            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """))
+                
+                # Create indexes with IF NOT EXISTS (handles case where index exists but table didn't)
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_recent_recipes_user_id 
+                    ON recent_recipes(user_id)
+                """))
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_recent_recipes_generated_at 
+                    ON recent_recipes(generated_at)
+                """))
+                
+                trans.commit()
+                logger.info("✅ recent_recipes table created via SQL")
+                
+                # Verify it was created
+                if 'recent_recipes' in inspector.get_table_names():
+                    logger.info("✅ recent_recipes table verified to exist")
+                else:
+                    logger.warning("⚠️ recent_recipes table creation reported success but table not found")
+            except Exception as sql_error:
+                trans.rollback()
+                error_str = str(sql_error).lower()
+                # If table already exists, that's fine
+                if "already exists" in error_str or "duplicate" in error_str:
+                    logger.info(f"recent_recipes table/index already exists (via SQL): {sql_error}")
+                    # Verify table actually exists
+                    if 'recent_recipes' in inspector.get_table_names():
+                        logger.info("✅ recent_recipes table verified to exist")
+                        return
+                # Re-raise if it's a different error
+                raise
     except Exception as e:
-        # If it's just a duplicate index/table error, that's okay - table might already exist
-        if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
-            logger.info(f"recent_recipes table/index already exists (SQLAlchemy): {e}")
-            # Verify table actually exists
-            if 'recent_recipes' in inspector.get_table_names():
-                logger.info("✅ recent_recipes table verified to exist")
-                return
-        logger.error(f"Failed to create recent_recipes table: {e}", exc_info=True)
+        logger.error(f"Failed to create recent_recipes table via SQL: {e}", exc_info=True)
+        # Try SQLAlchemy as fallback (but this might have the same index issue)
+        try:
+            from src.database import RecentRecipe
+            RecentRecipe.__table__.create(engine, checkfirst=True)
+            logger.info("✅ recent_recipes table created via SQLAlchemy fallback")
+        except Exception as sqlalchemy_error:
+            error_str = str(sqlalchemy_error).lower()
+            if "already exists" in error_str or "duplicate" in error_str:
+                logger.info(f"recent_recipes table/index already exists (SQLAlchemy fallback): {sqlalchemy_error}")
+                # Verify table actually exists
+                if 'recent_recipes' in inspector.get_table_names():
+                    logger.info("✅ recent_recipes table verified to exist")
+                    return
+            raise
         # Try SQL directly as fallback
         try:
             with engine.connect() as conn:

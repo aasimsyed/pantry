@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { PremiumButton } from '../components/PremiumButton';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 
 export default function HomeScreen() {
@@ -92,7 +93,7 @@ export default function HomeScreen() {
               <View style={[styles.actionIconContainer, { backgroundColor: action.iconBg }]}>
                 <MaterialCommunityIcons 
                   name={action.icon as any} 
-                  size={28} 
+                  size={32} 
                   color={action.gradient[0]} 
                 />
               </View>
@@ -143,7 +144,8 @@ export default function HomeScreen() {
                 onPress={handleLogout}
                 textColor={ds.colors.error}
                 style={styles.logoutButton}
-                labelStyle={[styles.logoutLabel, getTextStyle('label', ds.colors.error, isDark)]}
+                labelStyle={{ fontSize: 16, fontWeight: '600' }}
+                uppercase={false}
               >
                 Sign Out
               </Button>
@@ -185,18 +187,18 @@ const styles = StyleSheet.create({
   actionCard: {
     width: '48%',
     margin: '1%',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
     overflow: 'hidden',
   },
   actionIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: DesignSystem.borderRadius.md,
+    width: 60,
+    height: 60,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: DesignSystem.spacing.md,
+    marginBottom: 16,
   },
   actionTitle: {
     marginBottom: 4,

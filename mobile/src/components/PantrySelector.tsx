@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { PremiumButton } from './PremiumButton';
 import type { Pantry } from '../types';
 
 interface PantrySelectorProps {
@@ -119,15 +120,14 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
 
   return (
     <View style={styles.container}>
-      <Button
+      <PremiumButton
         testID="pantry-selector-button"
         mode="outlined"
         onPress={() => setSelectorDialogVisible(true)}
         style={styles.button}
-        contentStyle={styles.buttonContent}
       >
         {selectedPantry ? `${selectedPantry.name}${selectedPantry.is_default ? ' (Default)' : ''}` : 'Select Pantry'}
-      </Button>
+      </PremiumButton>
 
       <Portal>
         <Dialog 
@@ -135,7 +135,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
           onDismiss={() => setSelectorDialogVisible(false)}
           style={[styles.modernDialog, { backgroundColor: ds.colors.surface, ...ds.shadows.xl }]}
         >
-          <Dialog.Title style={[styles.modernDialogTitle, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>Select Pantry</Dialog.Title>
+          <Dialog.Title style={[styles.modernDialogTitle, { color: ds.colors.textPrimary, fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }]}>Select Pantry</Dialog.Title>
           <Dialog.Content style={styles.modernDialogContent}>
             <ScrollView 
               style={styles.modernScrollView}
@@ -155,8 +155,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                     onPress={() => handleSelectPantry(pantry.id)}
                     style={[
                       styles.modernPantryItem,
-                      { backgroundColor: ds.colors.surface, ...ds.shadows.sm },
-                      selectedPantryId === pantry.id && { backgroundColor: `${ds.colors.primary}08`, borderColor: ds.colors.primary }
+                      { backgroundColor: ds.colors.surface, ...ds.shadows.md },
+                      selectedPantryId === pantry.id && { backgroundColor: `${ds.colors.primary}10`, borderColor: ds.colors.primary, borderWidth: 2 }
                     ]}
                     activeOpacity={0.7}
                   >
@@ -168,21 +168,21 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                       ]}>
                         <MaterialCommunityIcons 
                           name={pantry.is_default ? "home" : "store"} 
-                          size={24} 
+                          size={28} 
                           color={selectedPantryId === pantry.id ? ds.colors.surface : ds.colors.primary} 
                         />
                       </View>
                       <View style={styles.modernPantryTextContainer}>
                         <View style={styles.modernPantryTitleRow}>
-                          <Text style={[styles.modernPantryName, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{pantry.name}</Text>
+                          <Text style={[styles.modernPantryName, { color: ds.colors.textPrimary, fontSize: 17, fontWeight: '600', letterSpacing: -0.2 }]}>{pantry.name}</Text>
                           {pantry.is_default && (
                             <View style={[styles.defaultBadge, { backgroundColor: ds.colors.primary }]}>
-                              <Text style={[styles.defaultBadgeText, getTextStyle('caption', ds.colors.surface, isDark)]}>Default</Text>
+                              <Text style={[styles.defaultBadgeText, { color: ds.colors.surface, fontSize: 11, fontWeight: '600', letterSpacing: 0.2 }]}>DEFAULT</Text>
                             </View>
                           )}
                         </View>
                         {(pantry.description || pantry.location) && (
-                          <Text style={[styles.modernPantryDescription, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>
+                          <Text style={[styles.modernPantryDescription, { color: ds.colors.textSecondary, fontSize: 14, lineHeight: 20 }]}>
                             {pantry.description || pantry.location}
                           </Text>
                         )}
@@ -191,7 +191,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                         {selectedPantryId === pantry.id && (
                           <MaterialCommunityIcons 
                             name="check-circle" 
-                            size={24} 
+                            size={28} 
                             color={ds.colors.primary} 
                           />
                         )}
@@ -205,7 +205,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                           >
                             <MaterialCommunityIcons 
                               name="delete-outline" 
-                              size={22} 
+                              size={24} 
                               color={ds.colors.error} 
                             />
                           </TouchableOpacity>
@@ -218,32 +218,34 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
             </ScrollView>
           </Dialog.Content>
           <Dialog.Actions style={styles.modernDialogActions}>
-            <Button 
+            <PremiumButton 
               testID="pantry-selector-new"
               onPress={() => {
                 setSelectorDialogVisible(false);
                 setCreateDialogVisible(true);
               }}
-              icon="plus"
               mode="contained"
               style={styles.newPantryButton}
-              labelStyle={styles.newPantryButtonLabel}
             >
               New Pantry
-            </Button>
-            <Button 
+            </PremiumButton>
+            <PremiumButton 
               testID="pantry-selector-close"
               onPress={() => setSelectorDialogVisible(false)}
+              mode="text"
               textColor={ds.colors.textSecondary}
-              labelStyle={[styles.closeButtonLabel, getTextStyle('label', ds.colors.textSecondary, isDark)]}
             >
               Close
-            </Button>
+            </PremiumButton>
           </Dialog.Actions>
         </Dialog>
 
-        <Dialog visible={createDialogVisible} onDismiss={() => setCreateDialogVisible(false)}>
-          <Dialog.Title>Create New Pantry</Dialog.Title>
+        <Dialog 
+          visible={createDialogVisible} 
+          onDismiss={() => setCreateDialogVisible(false)}
+          style={{ borderRadius: 24 }}
+        >
+          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>Create New Pantry</Dialog.Title>
           <Dialog.Content>
             <TextInput
               testID="pantry-create-name"
@@ -273,11 +275,22 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="outlined"
             />
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button testID="pantry-create-cancel" onPress={() => setCreateDialogVisible(false)}>Cancel</Button>
-            <Button testID="pantry-create-submit" onPress={handleCreatePantry} disabled={!newPantryName.trim()}>
+          <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+            <PremiumButton 
+              testID="pantry-create-cancel" 
+              onPress={() => setCreateDialogVisible(false)}
+              mode="text"
+            >
+              Cancel
+            </PremiumButton>
+            <PremiumButton 
+              testID="pantry-create-submit" 
+              onPress={handleCreatePantry} 
+              disabled={!newPantryName.trim()}
+              mode="contained"
+            >
               Create
-            </Button>
+            </PremiumButton>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -291,7 +304,6 @@ const styles = StyleSheet.create({
   },
   button: {
     minWidth: 150,
-    borderRadius: DesignSystem.borderRadius.md,
   },
   buttonContent: {
     paddingVertical: DesignSystem.spacing.xs,
@@ -337,8 +349,8 @@ const styles = StyleSheet.create({
   },
   // Modern Pantry Item
   modernPantryItem: {
-    borderRadius: 16,
-    marginBottom: 8,
+    borderRadius: 20,
+    marginBottom: 12,
     borderWidth: 2,
     borderColor: 'transparent',
   },
@@ -347,13 +359,13 @@ const styles = StyleSheet.create({
   modernPantryItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: DesignSystem.spacing.md,
-    gap: DesignSystem.spacing.md,
+    padding: 18,
+    gap: 16,
   },
   modernPantryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -372,9 +384,9 @@ const styles = StyleSheet.create({
   modernPantryName: {
   },
   defaultBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   defaultBadgeText: {
     fontWeight: '600',
@@ -387,17 +399,17 @@ const styles = StyleSheet.create({
     gap: DesignSystem.spacing.sm,
   },
   deleteButton: {
-    padding: DesignSystem.spacing.xs,
+    padding: 8,
   },
   modernDialogActions: {
-    paddingHorizontal: DesignSystem.spacing.lg,
-    paddingBottom: DesignSystem.spacing.lg,
-    paddingTop: DesignSystem.spacing.md,
-    borderTopWidth: 1,
-    gap: DesignSystem.spacing.sm,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 16,
+    borderTopWidth: 0,
+    gap: 12,
   },
   newPantryButton: {
-    borderRadius: DesignSystem.borderRadius.md,
+    flex: 1,
   },
   newPantryButtonLabel: {
     fontWeight: '600',
