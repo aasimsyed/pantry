@@ -191,6 +191,7 @@ def init_database():
             add_pantries_table_and_pantry_id,
             ensure_inventory_items_columns,
             ensure_processing_log_columns,
+            rename_title_to_name_in_saved_recipes,
             ensure_saved_recipes_columns,
             assign_null_items_to_default_pantry,
             add_user_settings_table,
@@ -204,6 +205,7 @@ def init_database():
         add_pantries_table_and_pantry_id()
         ensure_inventory_items_columns()
         ensure_processing_log_columns()
+        rename_title_to_name_in_saved_recipes()  # Must run before ensure_saved_recipes_columns
         ensure_saved_recipes_columns()
         assign_null_items_to_default_pantry()
         add_user_settings_table()
