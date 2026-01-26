@@ -21,6 +21,9 @@ appId: host.exp.Exponent
       visible: "Smart Pantry"
     commands:
       # Already logged in, need to log out first to test registration
+      # Scroll down to find logout button (it's at the bottom of the screen)
+      - scroll
+      - scroll
       - tapOn:
           id: "logout-button"
       - waitForAnimationToEnd:
