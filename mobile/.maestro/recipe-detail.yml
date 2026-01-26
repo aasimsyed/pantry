@@ -37,7 +37,7 @@ appId: com.aasimsyed.smartpantry
       # Test servings slider (if it's a saved recipe)
       - runFlow:
           when:
-            id: "recipe-servings-slider"
+            visible: "Scale Recipe"
           commands:
             - assertVisible:
                 id: "recipe-servings-slider"
@@ -50,7 +50,7 @@ appId: com.aasimsyed.smartpantry
       # Test edit notes & rating button (if it's a saved recipe)
       - runFlow:
           when:
-            id: "edit-notes-rating-button"
+            visible: "Edit Notes & Rating"
           commands:
             - tapOn:
                 id: "edit-notes-rating-button"

@@ -81,7 +81,7 @@ appId: host.exp.Exponent
 # Verify AI model options appear (if provider selected)
 - runFlow:
     when:
-      id: "ai-model-default"
+      visible: "AI Model"
     commands:
       - assertVisible:
           id: "ai-model-default"
