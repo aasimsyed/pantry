@@ -13,6 +13,8 @@
     "submit:android": "eas submit --platform android",
     "submit:ios": "eas submit --platform ios",
     "test:e2e": "maestro test .maestro/",
+    "test:e2e:expo": "maestro test .maestro/login-expo-go.yml .maestro/register-expo-go.yml .maestro/navigation-expo-go.yml .maestro/home-screen-expo-go.yml .maestro/recipes-expo-go.yml .maestro/recipe-box-expo-go.yml .maestro/recipe-detail-expo-go.yml .maestro/inventory-basic-expo-go.yml .maestro/inventory-advanced-expo-go.yml .maestro/settings-expo-go.yml .maestro/statistics-expo-go.yml .maestro/expiring-expo-go.yml",
+    "test:e2e:dev": "maestro test .maestro/login.yml .maestro/register.yml .maestro/navigation.yml .maestro/home-screen.yml .maestro/recipes.yml .maestro/recipe-box.yml .maestro/recipe-detail.yml .maestro/inventory-basic.yml .maestro/inventory-advanced.yml .maestro/settings.yml .maestro/statistics.yml .maestro/expiring.yml",
     "test:e2e:login": "maestro test .maestro/login.yml",
     "test:e2e:login:expo": "maestro test .maestro/login-expo-go.yml",
     "test:e2e:register": "maestro test .maestro/register.yml",

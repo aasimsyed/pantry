@@ -39,7 +39,16 @@ npm run test:e2e
 ## 📋 All Available Tests
 
 ```bash
+# Run all tests (both dev build and Expo Go)
 npm run test:e2e                 # All tests
+
+# Run all Expo Go tests (single command!)
+npm run test:e2e:expo            # All Expo Go tests
+
+# Run all dev build tests
+npm run test:e2e:dev             # All dev build tests
+
+# Individual tests
 npm run test:e2e:login           # Login
 npm run test:e2e:register        # Registration
 npm run test:e2e:navigation      # Tab navigation
@@ -52,6 +61,11 @@ npm run test:e2e:inventory-advanced # Advanced inventory
 npm run test:e2e:settings       # Settings
 npm run test:e2e:statistics     # Statistics
 npm run test:e2e:expiring       # Expiring items
+
+# Expo Go variants (add :expo suffix)
+npm run test:e2e:login:expo      # Login (Expo Go)
+npm run test:e2e:recipes:expo    # Recipes (Expo Go)
+# ... etc
 ```
 
 ## 💡 Tips

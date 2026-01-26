@@ -61,10 +61,16 @@ Maestro is already installed! ✅
 All tests use npm scripts for convenience:
 
 ```bash
-# Run all tests
+# Run all tests (both dev build and Expo Go)
 npm run test:e2e
 
-# Individual test files
+# Run all Expo Go tests with a single command! 🎉
+npm run test:e2e:expo
+
+# Run all dev build tests
+npm run test:e2e:dev
+
+# Individual test files (dev build)
 npm run test:e2e:login              # Login flow
 npm run test:e2e:register           # Registration flow
 npm run test:e2e:navigation         # Tab navigation
@@ -77,6 +83,11 @@ npm run test:e2e:inventory-advanced # Advanced inventory (add/edit)
 npm run test:e2e:settings          # Settings screen
 npm run test:e2e:statistics        # Statistics screen
 npm run test:e2e:expiring          # Expiring items
+
+# Expo Go variants (add :expo suffix)
+npm run test:e2e:login:expo         # Login (Expo Go)
+npm run test:e2e:recipes:expo        # Recipes (Expo Go)
+# ... and 10 more Expo Go variants
 ```
 
 ## Running Tests Directly with Maestro
