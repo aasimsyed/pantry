@@ -516,6 +516,57 @@ def ensure_processing_log_columns():
             raise
 
 
+def rename_title_to_name_in_saved_recipes():
+    """
+    Rename 'title' column to 'name' in saved_recipes table.
+    
+    Older schemas used 'title', but the current model uses 'name'.
+    This migration handles the rename for production databases.
+    """
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+    is_sqlite = db_url.startswith("sqlite")
+    
+    if "saved_recipes" not in inspector.get_table_names():
+        logger.info("saved_recipes table doesn't exist yet, skipping rename_title_to_name")
+        return
+    
+    existing = [c["name"] for c in inspector.get_columns("saved_recipes")]
+    
+    # Only rename if 'title' exists and 'name' doesn't
+    if "title" not in existing:
+        logger.info("No 'title' column in saved_recipes, skipping rename")
+        return
+    
+    if "name" in existing:
+        logger.info("'name' column already exists in saved_recipes, skipping rename")
+        return
+    
+    logger.info("Renaming 'title' column to 'name' in saved_recipes...")
+    
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            if is_sqlite:
+                # SQLite doesn't support RENAME COLUMN in older versions
+                # For newer SQLite (3.25+), we can use ALTER TABLE RENAME COLUMN
+                conn.execute(text("""
+                    ALTER TABLE saved_recipes RENAME COLUMN title TO name
+                """))
+            else:
+                # PostgreSQL supports RENAME COLUMN
+                conn.execute(text("""
+                    ALTER TABLE saved_recipes RENAME COLUMN title TO name
+                """))
+            trans.commit()
+            logger.info("✅ Renamed 'title' to 'name' in saved_recipes")
+        except Exception as e:
+            trans.rollback()
+            logger.error("Migration failed: %s", e, exc_info=True)
+            raise
+
+
 # Canonical list of saved_recipes columns (model) that may be missing in older DBs.
 # id is assumed present from initial CREATE TABLE.
 _SAVED_RECIPES_COLUMNS = [
@@ -863,6 +914,7 @@ def run_migrations():
     add_pantries_table_and_pantry_id()
     ensure_inventory_items_columns()
     ensure_processing_log_columns()
+    rename_title_to_name_in_saved_recipes()  # Rename title->name before adding columns
     ensure_saved_recipes_columns()
     assign_null_items_to_default_pantry()
     add_user_settings_table()
