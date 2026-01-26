@@ -15,19 +15,15 @@ appId: host.exp.Exponent
       - tapOn: "Smart Pantry AI"
       - waitForAnimationToEnd:
           timeout: 5000
-# Wait for app to load - check if we're on login or home screen
-- extendedWaitUntil:
-    visible: "Sign In"
-    timeout: 10000
-    # If login screen doesn't appear, check for home screen
+# Wait for app to load - check if already logged in or need to log in
 - runFlow:
     when:
       visible: "Smart Pantry"
     commands:
-      # Already logged in, skip to home screen
+      # Already logged in, continue to home screen assertions below
       - assertVisible:
           id: "home-title"
-# When on login screen, log in first (admin test user)
+# If not already logged in, do login flow
 - runFlow:
     when:
       visible: "Sign In"
