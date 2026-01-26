@@ -123,6 +123,16 @@ export default function RecipesScreen() {
     }, [loadAvailableIngredients, selectedPantryId, loadRecentRecipes])
   );
 
+  // Reload recent recipes when authentication state changes (e.g., after login)
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadRecentRecipes();
+    } else {
+      // Clear recipes when logged out
+      setRecentRecipes([]);
+    }
+  }, [isAuthenticated, loadRecentRecipes]);
+
   const handleGenerateRecipes = async () => {
     try {
       setGenerating(true);
