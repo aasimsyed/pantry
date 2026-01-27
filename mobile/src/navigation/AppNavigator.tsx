@@ -20,6 +20,7 @@ import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
 import ProductConfirmScreen from '../screens/ProductConfirmScreen';
+import LegalScreen from '../screens/LegalScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -229,6 +230,18 @@ export default function AppNavigator() {
                   headerStyle: { backgroundColor: ds.colors.surface },
                   headerTintColor: ds.colors.textPrimary,
                 }}
+              />
+              <Stack.Screen
+                name="Legal"
+                component={LegalScreen}
+                options={({ route }) => ({
+                  // @ts-ignore
+                  title: route.params?.type === 'terms' ? 'Terms of Service' : 'Privacy Policy',
+                  headerShown: true,
+                  headerStyle: { backgroundColor: ds.colors.surface },
+                  headerTintColor: ds.colors.textPrimary,
+                  headerBackTitle: 'Back',
+                })}
               />
             </>
           )}

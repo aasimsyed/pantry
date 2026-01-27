@@ -12,6 +12,7 @@ import {
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
 import { getDesignSystem } from '../utils/designSystem';
@@ -41,6 +42,7 @@ const AI_MODELS = {
 };
 
 export default function SettingsScreen() {
+  const navigation = useNavigation();
   const { themeMode, isDark, setThemeMode } = useTheme();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +97,62 @@ export default function SettingsScreen() {
       ...settings,
       ai_model: model || undefined,
     });
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      '⚠️ Delete Account',
+      'Are you sure you want to delete your account?\n\nThis will permanently delete:\n• All your pantries\n• All inventory items\n• All saved recipes\n• All your data\n\nThis action cannot be undone!',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation
+            Alert.alert(
+              '🚨 Final Confirmation',
+              'This is your last chance!\n\nYour account and all data will be permanently deleted. There is no way to recover it.\n\nAre you absolutely sure?',
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Yes, Delete My Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await apiClient.deleteAccount();
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been permanently deleted. You will now be logged out.',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: async () => {
+                              await apiClient.logout();
+                            },
+                          },
+                        ]
+                      );
+                    } catch (err: any) {
+                      Alert.alert(
+                        'Error',
+                        err.response?.data?.detail || err.message || 'Failed to delete account. Please try again or contact support.'
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -389,6 +447,119 @@ export default function SettingsScreen() {
           </Card.Content>
         </Card>
 
+        {/* Account Management Section */}
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconContainer, { backgroundColor: isDark ? '#4a1a1a' : '#fee' }]}>
+                <MaterialCommunityIcons 
+                  name="account-remove" 
+                  size={24} 
+                  color={isDark ? '#ff6b6b' : '#dc2626'} 
+                />
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                  Account Management
+                </Text>
+                <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                  Manage or delete your account
+                </Text>
+              </View>
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+
+            <View style={styles.dangerZone}>
+              <MaterialCommunityIcons 
+                name="alert-circle" 
+                size={20} 
+                color={isDark ? '#ff6b6b' : '#dc2626'} 
+                style={styles.dangerIcon}
+              />
+              <View style={styles.dangerTextContainer}>
+                <Text style={[styles.dangerTitle, { color: isDark ? '#ff6b6b' : '#dc2626' }]}>
+                  Danger Zone
+                </Text>
+                <Text style={[styles.dangerDescription, { color: ds.colors.textSecondary }]}>
+                  Once you delete your account, there is no going back. This will permanently delete all your pantries, inventory, and recipes.
+                </Text>
+              </View>
+            </View>
+
+            <Button
+              mode="outlined"
+              onPress={handleDeleteAccount}
+              textColor={isDark ? '#ff6b6b' : '#dc2626'}
+              style={[
+                styles.deleteButton,
+                { 
+                  borderColor: isDark ? '#ff6b6b' : '#dc2626',
+                  borderWidth: 1.5,
+                }
+              ]}
+              icon="delete-forever"
+            >
+              Delete My Account
+            </Button>
+          </Card.Content>
+        </Card>
+
+        {/* Legal & About Section */}
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
+                <MaterialCommunityIcons 
+                  name="shield-check" 
+                  size={24} 
+                  color={ds.colors.primary} 
+                />
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                  Legal & About
+                </Text>
+                <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                  Privacy, terms, and app information
+                </Text>
+              </View>
+            </View>
+
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+
+            <List.Item
+              title="Privacy Policy"
+              description="How we handle your data"
+              left={(props) => <List.Icon {...props} icon="shield-lock" color={ds.colors.primary} />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" color={ds.colors.textTertiary} />}
+              onPress={() => navigation.navigate('Legal' as never, { type: 'privacy' } as never)}
+              titleStyle={{ color: ds.colors.textPrimary, fontSize: 15, fontWeight: '500' }}
+              descriptionStyle={{ color: ds.colors.textSecondary, fontSize: 13 }}
+              style={styles.listItem}
+            />
+
+            <List.Item
+              title="Terms of Service"
+              description="Usage terms and conditions"
+              left={(props) => <List.Icon {...props} icon="file-document" color={ds.colors.primary} />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" color={ds.colors.textTertiary} />}
+              onPress={() => navigation.navigate('Legal' as never, { type: 'terms' } as never)}
+              titleStyle={{ color: ds.colors.textPrimary, fontSize: 15, fontWeight: '500' }}
+              descriptionStyle={{ color: ds.colors.textSecondary, fontSize: 13 }}
+              style={styles.listItem}
+            />
+
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+
+            <View style={styles.copyrightContainer}>
+              <Text style={[styles.copyrightText, { color: ds.colors.textTertiary }]}>
+                © 2026 Smart Pantry AI{'\n'}All rights reserved
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+
         {/* App Version Info */}
         <View style={styles.versionContainer}>
           <Text 
@@ -504,6 +675,42 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     fontSize: 13,
     fontWeight: '400',
+  },
+  copyrightContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  copyrightText: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  dangerZone: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(220, 38, 38, 0.05)',
+    marginBottom: 16,
+  },
+  dangerIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  dangerTextContainer: {
+    flex: 1,
+  },
+  dangerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  dangerDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  deleteButton: {
+    marginTop: 8,
   },
 });
 

@@ -26,7 +26,7 @@
         "autoIncrement": true
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://pantry-api-apqja3ye2q-vp.a.run.app"
+        "EXPO_PUBLIC_API_URL": "https://pantry-api-154407938924.us-south1.run.app"
       },
       "ios": {
         "autoIncrement": true

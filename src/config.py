@@ -60,7 +60,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:5173",
         "https://smartpantryai.vercel.app",
-        "https://pantry-api-apqja3ye2q-vp.a.run.app",
+        "https://pantry-api-154407938924.us-south1.run.app",
     ]
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 100

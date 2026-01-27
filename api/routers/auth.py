@@ -34,6 +34,81 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
+@router.delete("/account", response_model=MessageResponse)
+@limiter.limit("5/hour")
+def delete_account(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Delete user account and all associated data.
+    
+    This action is irreversible. Deletes:
+    - User account
+    - All pantries
+    - All inventory items
+    - All saved and recent recipes
+    - User settings
+    - Refresh tokens
+    
+    Rate limited to prevent abuse.
+    """
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    user_email = current_user.email
+    user_id = current_user.id
+    
+    try:
+        # Log security event
+        log_security_event(
+            "account_deletion",
+            user_id=user_id,
+            email=user_email,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            success=True,
+            details={"reason": "user_requested"},
+        )
+        
+        # Delete user (CASCADE will automatically delete all related records:
+        # pantries, inventory items, recipes, refresh tokens, settings, etc.)
+        db.delete(current_user)
+        db.commit()
+        
+        logger.info(
+            "Account deleted successfully: user_id=%s email=%s ip=%s",
+            user_id,
+            user_email,
+            client_ip,
+        )
+        
+        return MessageResponse(
+            message="Account deleted successfully. All your data has been permanently removed."
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            "Account deletion failed: user_id=%s email=%s error=%s",
+            user_id,
+            user_email,
+            str(e),
+        )
+        log_security_event(
+            "account_deletion",
+            user_id=user_id,
+            email=user_email,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            success=False,
+            details={"error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete account. Please try again or contact support.",
+        ) from e
+
+
 @router.post(
     "/register",
     response_model=MessageResponse,

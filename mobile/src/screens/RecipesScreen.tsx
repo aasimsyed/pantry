@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput } from 'react-native';
 import {
   Card,
   Text,
@@ -16,6 +16,7 @@ import {
   Dialog,
   Searchbar,
 } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
@@ -37,6 +38,7 @@ export default function RecipesScreen() {
   const [ingredientsError, setIngredientsError] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [cancelRequested, setCancelRequested] = useState(false);
   const [progress, setProgress] = useState(0);
   const [numRecipes, setNumRecipes] = useState(5);
   const [numRecipesText, setNumRecipesText] = useState('5');
@@ -53,6 +55,9 @@ export default function RecipesScreen() {
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
   const [recentRecipes, setRecentRecipes] = useState<RecentRecipe[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
+  
+  // Use ref for cancel flag so it's immediately accessible in the generation loop
+  const cancelRequestedRef = useRef(false);
 
   // Load available ingredients from API
   const loadAvailableIngredients = useCallback(async () => {
@@ -155,6 +160,8 @@ export default function RecipesScreen() {
   const handleGenerateRecipes = async () => {
     try {
       setGenerating(true);
+      setCancelRequested(false);
+      cancelRequestedRef.current = false;
       setProgress(0);
       setRecipes([]);
 
@@ -162,6 +169,12 @@ export default function RecipesScreen() {
       const avoidNames: string[] = [];
 
       for (let i = 0; i < numRecipes; i++) {
+        // Check if cancel was requested using ref
+        if (cancelRequestedRef.current) {
+          console.log('Recipe generation cancelled by user');
+          break;
+        }
+
         setProgress(((i + 1) / numRecipes) * 100);
 
         const recipe = await apiClient.generateSingleRecipe({
@@ -191,8 +204,15 @@ export default function RecipesScreen() {
       await loadRecentRecipes();
     } finally {
       setGenerating(false);
+      setCancelRequested(false);
+      cancelRequestedRef.current = false;
       setProgress(0);
     }
+  };
+
+  const handleCancelGeneration = () => {
+    setCancelRequested(true);
+    cancelRequestedRef.current = true;
   };
 
   const handleSaveRecipe = async (recipe: Recipe) => {
@@ -388,418 +408,376 @@ export default function RecipesScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-      <Text testID="recipes-title" variant="titleLarge" style={[styles.title, { color: ds.colors.textPrimary, fontSize: 32, fontWeight: '700', letterSpacing: -0.5 }]}>
-        Recipe Suggestions
-      </Text>
+      <View style={styles.header}>
+        <Text testID="recipes-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
+          Recipes
+        </Text>
+      </View>
 
       <PantrySelector
         selectedPantryId={selectedPantryId}
         onPantryChange={setSelectedPantryId}
       />
 
-      <Card style={[styles.card, { backgroundColor: ds.colors.surface, borderRadius: 20, ...ds.shadows.md }]}>
-        <Card.Content style={{ paddingVertical: 20, paddingHorizontal: 20 }}>
-          <Text variant="titleLarge" style={[styles.sectionTitle, { color: ds.colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: 20 }]}>
-            Options
-          </Text>
+      {/* Recipe Generation Form - Minimal */}
+      <View style={styles.formSection}>
+        <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
+        <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+          GENERATION OPTIONS
+        </Text>
 
-          <TextInput
-            testID="num-recipes-input"
-            label="Number of Recipes"
-            value={numRecipesText}
-            onChangeText={(text) => {
-              // Allow empty text for clearing
-              setNumRecipesText(text);
-              if (text === '' || text === null || text === undefined) {
-                // Keep text empty, but don't update numRecipes yet
-                return;
-              }
-              const num = parseInt(text, 10);
-              if (!isNaN(num) && num > 0) {
-                setNumRecipes(num);
-              }
-            }}
-            onBlur={() => {
-              // When field loses focus, ensure we have a valid number
-              if (numRecipesText === '' || isNaN(parseInt(numRecipesText, 10)) || parseInt(numRecipesText, 10) <= 0) {
-                setNumRecipesText(numRecipes.toString());
-              }
-            }}
-            keyboardType="numeric"
-            style={styles.input}
-            mode="outlined"
-            placeholder="5"
-          />
+          <View style={styles.formRow}>
+            <View style={styles.formField}>
+              <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>
+                NUMBER OF RECIPES
+              </Text>
+              <RNTextInput
+                testID="num-recipes-input"
+                value={numRecipesText}
+                onChangeText={(text) => {
+                  setNumRecipesText(text);
+                  if (text === '' || text === null || text === undefined) {
+                    return;
+                  }
+                  const num = parseInt(text, 10);
+                  if (!isNaN(num) && num > 0) {
+                    setNumRecipes(num);
+                  }
+                }}
+                onBlur={() => {
+                  if (numRecipesText === '' || isNaN(parseInt(numRecipesText, 10)) || parseInt(numRecipesText, 10) <= 0) {
+                    setNumRecipesText(numRecipes.toString());
+                  }
+                }}
+                keyboardType="numeric"
+                style={[styles.textInput, { color: ds.colors.textPrimary, borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
+                placeholder="5"
+                placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
+                underlineColorAndroid="transparent"
+              />
+            </View>
+          </View>
 
-          <View style={styles.checkboxContainer}>
+          <TouchableOpacity
+            style={styles.switchRow}
+            onPress={() => setAllowMissing(!allowMissing)}
+            activeOpacity={0.6}
+          >
+            <Text testID="allow-missing-label" style={[styles.switchLabel, { color: ds.colors.textPrimary }]}>
+              Allow Missing Ingredients
+            </Text>
             <Switch
               testID="allow-missing-checkbox"
               value={allowMissing}
               onValueChange={setAllowMissing}
-              color={ds.colors.primary}
+              thumbColor={allowMissing ? ds.colors.textPrimary : '#f4f3f4'}
+              trackColor={{ false: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)', true: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)' }}
+              ios_backgroundColor={isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'}
             />
-            <Text 
-              testID="allow-missing-label"
-              variant="bodyMedium" 
-              onPress={() => setAllowMissing(!allowMissing)}
-              style={[styles.checkboxLabel, { color: ds.colors.textPrimary }]}
-            >
-              Allow Missing Ingredients
-            </Text>
-          </View>
+          </TouchableOpacity>
 
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Cuisine Type (Optional)
-          </Text>
+          <View style={styles.formField}>
             <Menu
               visible={cuisineMenuVisible}
               onDismiss={() => setCuisineMenuVisible(false)}
               anchor={
-                <Button
+                <TouchableOpacity
                   testID="cuisine-selector"
-                  mode="outlined"
                   onPress={() => setCuisineMenuVisible(true)}
-                  style={styles.selectButton}
+                  style={[styles.selectField, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
+                  activeOpacity={0.6}
                 >
-                  {cuisine || 'Any Cuisine'}
-                </Button>
+                  <Text style={[styles.selectFieldText, { color: cuisine ? ds.colors.textPrimary : ds.colors.textSecondary }]}>
+                    {cuisine || 'Any Cuisine'}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+                </TouchableOpacity>
               }
+              contentStyle={{ backgroundColor: ds.colors.surface, borderRadius: 12 }}
             >
-            <Menu.Item onPress={() => { setCuisine(''); setCuisineMenuVisible(false); }} title="Any" />
-            <Menu.Item onPress={() => { setCuisine('Italian'); setCuisineMenuVisible(false); }} title="Italian" />
-            <Menu.Item onPress={() => { setCuisine('Mexican'); setCuisineMenuVisible(false); }} title="Mexican" />
-            <Menu.Item onPress={() => { setCuisine('Asian'); setCuisineMenuVisible(false); }} title="Asian" />
-            <Menu.Item onPress={() => { setCuisine('American'); setCuisineMenuVisible(false); }} title="American" />
-            <Menu.Item onPress={() => { setCuisine('Mediterranean'); setCuisineMenuVisible(false); }} title="Mediterranean" />
-            <Menu.Item onPress={() => { setCuisine('Indian'); setCuisineMenuVisible(false); }} title="Indian" />
-            <Menu.Item onPress={() => { setCuisine('French'); setCuisineMenuVisible(false); }} title="French" />
-            <Menu.Item onPress={() => { setCuisine('Thai'); setCuisineMenuVisible(false); }} title="Thai" />
-            <Menu.Item onPress={() => { setCuisine('Japanese'); setCuisineMenuVisible(false); }} title="Japanese" />
-            <Menu.Item onPress={() => { setCuisine('Chinese'); setCuisineMenuVisible(false); }} title="Chinese" />
+            <Menu.Item onPress={() => { setCuisine(''); setCuisineMenuVisible(false); }} title="Any" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Italian'); setCuisineMenuVisible(false); }} title="Italian" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Mexican'); setCuisineMenuVisible(false); }} title="Mexican" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Asian'); setCuisineMenuVisible(false); }} title="Asian" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('American'); setCuisineMenuVisible(false); }} title="American" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Mediterranean'); setCuisineMenuVisible(false); }} title="Mediterranean" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Indian'); setCuisineMenuVisible(false); }} title="Indian" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('French'); setCuisineMenuVisible(false); }} title="French" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Thai'); setCuisineMenuVisible(false); }} title="Thai" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Japanese'); setCuisineMenuVisible(false); }} title="Japanese" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setCuisine('Chinese'); setCuisineMenuVisible(false); }} title="Chinese" titleStyle={{ fontSize: 15 }} />
           </Menu>
+          </View>
 
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Difficulty (Optional)
-          </Text>
+          <View style={styles.formField}>
             <Menu
               visible={difficultyMenuVisible}
               onDismiss={() => setDifficultyMenuVisible(false)}
               anchor={
-                <Button
+                <TouchableOpacity
                   testID="difficulty-selector"
-                  mode="outlined"
                   onPress={() => setDifficultyMenuVisible(true)}
-                  style={styles.selectButton}
+                  style={[styles.selectField, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
+                  activeOpacity={0.6}
                 >
-                  {difficulty || 'Any Difficulty'}
-                </Button>
+                  <Text style={[styles.selectFieldText, { color: difficulty ? ds.colors.textPrimary : ds.colors.textSecondary }]}>
+                    {difficulty || 'Any Difficulty'}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+                </TouchableOpacity>
               }
+              contentStyle={{ backgroundColor: ds.colors.surface, borderRadius: 12 }}
             >
-            <Menu.Item onPress={() => { setDifficulty(''); setDifficultyMenuVisible(false); }} title="Any" />
-            <Menu.Item onPress={() => { setDifficulty('Easy'); setDifficultyMenuVisible(false); }} title="Easy" />
-            <Menu.Item onPress={() => { setDifficulty('Medium'); setDifficultyMenuVisible(false); }} title="Medium" />
-            <Menu.Item onPress={() => { setDifficulty('Hard'); setDifficultyMenuVisible(false); }} title="Hard" />
+            <Menu.Item onPress={() => { setDifficulty(''); setDifficultyMenuVisible(false); }} title="Any" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setDifficulty('Easy'); setDifficultyMenuVisible(false); }} title="Easy" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setDifficulty('Medium'); setDifficultyMenuVisible(false); }} title="Medium" titleStyle={{ fontSize: 15 }} />
+            <Menu.Item onPress={() => { setDifficulty('Hard'); setDifficultyMenuVisible(false); }} title="Hard" titleStyle={{ fontSize: 15 }} />
           </Menu>
-
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Dietary Restrictions (Optional)
-          </Text>
-          <View style={styles.chipContainer}>
-            {['Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Nut-Free', 'Keto', 'Paleo'].map((diet) => (
-              <Chip
-                key={diet}
-                testID={`dietary-restriction-${diet.toLowerCase().replace('-', '')}`}
-                selected={dietaryRestrictions.includes(diet)}
-                onPress={() => {
-                  if (dietaryRestrictions.includes(diet)) {
-                    setDietaryRestrictions(dietaryRestrictions.filter((d) => d !== diet));
-                  } else {
-                    setDietaryRestrictions([...dietaryRestrictions, diet]);
-                  }
-                }}
-                style={styles.chip}
-              >
-                {diet}
-              </Chip>
-            ))}
           </View>
 
-          <Divider style={styles.divider} />
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>
+              DIETARY RESTRICTIONS
+            </Text>
+            <View style={styles.optionPills}>
+              {['Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Nut-Free', 'Keto', 'Paleo'].map((diet) => (
+                <TouchableOpacity
+                  key={diet}
+                  testID={`dietary-restriction-${diet.toLowerCase().replace('-', '')}`}
+                  onPress={() => {
+                    if (dietaryRestrictions.includes(diet)) {
+                      setDietaryRestrictions(dietaryRestrictions.filter((d) => d !== diet));
+                    } else {
+                      setDietaryRestrictions([...dietaryRestrictions, diet]);
+                    }
+                  }}
+                  style={[
+                    styles.optionPill,
+                    { 
+                      borderColor: dietaryRestrictions.includes(diet) 
+                        ? ds.colors.textPrimary 
+                        : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.optionPillText,
+                    { color: dietaryRestrictions.includes(diet) ? ds.colors.textPrimary : ds.colors.textSecondary },
+                    dietaryRestrictions.includes(diet) && { fontWeight: '500' }
+                  ]}>
+                    {diet}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Required Ingredients
-          </Text>
-          <Button
+          <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
+
+          <TouchableOpacity
             testID="required-ingredients-button"
-            mode="outlined"
             onPress={async () => {
               setRequiredSearchQuery('');
-              // Reload ingredients if empty or if there was an error
               if (availableIngredients.length === 0 || ingredientsError) {
                 await loadAvailableIngredients();
               }
               setRequiredIngredientsDialogVisible(true);
             }}
-            style={styles.selectButton}
+            style={[styles.selectRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
+            activeOpacity={0.6}
           >
-            {requiredIngredients.length > 0
-              ? `${requiredIngredients.length} selected`
-              : 'Select required ingredients'}
-          </Button>
-          {requiredIngredients.length > 0 && (
-            <View style={styles.selectedChips}>
-              {requiredIngredients.slice(0, 3).map((ing) => (
-                <Chip key={ing} style={styles.selectedChip} onClose={() => toggleIngredient(ing, requiredIngredients, setRequiredIngredients)}>
-                  {ing}
-                </Chip>
-              ))}
-              {requiredIngredients.length > 3 && (
-                <Chip style={styles.selectedChip}>+{requiredIngredients.length - 3} more</Chip>
-              )}
+            <View style={styles.selectContent}>
+              <Text style={[styles.selectLabel, { color: ds.colors.textTertiary }]}>
+                REQUIRED INGREDIENTS
+              </Text>
+              <Text style={[styles.selectValue, { color: ds.colors.textPrimary }]}>
+                {requiredIngredients.length > 0
+                  ? `${requiredIngredients.length} selected`
+                  : 'None'}
+              </Text>
             </View>
-          )}
+            <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+          </TouchableOpacity>
 
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Excluded Ingredients
-          </Text>
-          <Button
+          <TouchableOpacity
             testID="excluded-ingredients-button"
-            mode="outlined"
             onPress={async () => {
               setExcludedSearchQuery('');
-              // Reload ingredients if empty or if there was an error
               if (availableIngredients.length === 0 || ingredientsError) {
                 await loadAvailableIngredients();
               }
               setExcludedIngredientsDialogVisible(true);
             }}
-            style={styles.selectButton}
+            style={[styles.selectRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
+            activeOpacity={0.6}
           >
-            {excludedIngredients.length > 0
-              ? `${excludedIngredients.length} selected`
-              : 'Select excluded ingredients'}
-          </Button>
-          {excludedIngredients.length > 0 && (
-            <View style={styles.selectedChips}>
-              {excludedIngredients.slice(0, 3).map((ing) => (
-                <Chip key={ing} style={styles.selectedChip} onClose={() => toggleIngredient(ing, excludedIngredients, setExcludedIngredients)}>
-                  {ing}
-                </Chip>
-              ))}
-              {excludedIngredients.length > 3 && (
-                <Chip style={styles.selectedChip}>+{excludedIngredients.length - 3} more</Chip>
-              )}
+            <View style={styles.selectContent}>
+              <Text style={[styles.selectLabel, { color: ds.colors.textTertiary }]}>
+                EXCLUDED INGREDIENTS
+              </Text>
+              <Text style={[styles.selectValue, { color: ds.colors.textPrimary }]}>
+                {excludedIngredients.length > 0
+                  ? `${excludedIngredients.length} selected`
+                  : 'None'}
+              </Text>
             </View>
-          )}
+            <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+          </TouchableOpacity>
+
+          <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
 
           <PremiumButton
             testID="generate-recipes-button"
             mode="contained"
             onPress={handleGenerateRecipes}
             disabled={generating}
-            style={[styles.generateButton, { height: 52 }]}
+            style={[styles.generateButton, { elevation: 0 }]}
           >
             {generating ? 'Generating...' : 'Generate Recipes'}
           </PremiumButton>
 
           {generating && (
             <View style={styles.progressContainer}>
-              <ProgressBar progress={progress / 100} color="#0284c7" />
-              <Text variant="bodySmall" style={styles.progressText}>
-                Generating recipe {recipes.length + 1} of {numRecipes}...
-              </Text>
+              <View style={[styles.progressBar, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }]}>
+                <View style={[styles.progressFill, { backgroundColor: ds.colors.textPrimary, width: `${progress}%` }]} />
+              </View>
+              <View style={styles.progressInfo}>
+                <Text style={[styles.progressText, { color: ds.colors.textSecondary }]}>
+                  Recipe {recipes.length + 1} of {numRecipes}
+                </Text>
+                <TouchableOpacity 
+                  onPress={handleCancelGeneration}
+                  style={styles.cancelButton}
+                  disabled={cancelRequested}
+                >
+                  <Text style={[styles.cancelText, { color: cancelRequested ? ds.colors.textTertiary : ds.colors.textPrimary }]}>
+                    {cancelRequested ? 'Cancelling...' : 'Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
-        </Card.Content>
-      </Card>
+      </View>
 
       {/* Recent Recipes Section */}
       {(loadingRecent || recentRecipes.length > 0) && (
-        <Card style={[styles.card, { backgroundColor: ds.colors.surface }]}>
-          <Card.Content>
-            <View style={styles.recentHeader}>
-              <Text variant="titleMedium" style={[styles.sectionTitle, { color: ds.colors.textPrimary, flex: 1 }]}>
-                📋 Recent Recipes
-              </Text>
-              {!loadingRecent && recentRecipes.length > 0 && (
-                <Button
-                  mode="text"
-                  onPress={handleClearAllRecentRecipes}
-                  textColor={isDark ? '#f87171' : '#ef4444'}
-                  labelStyle={{ fontSize: 14, fontWeight: '600' }}
-                  compact
-                >
+        <View style={styles.recipeSection}>
+          <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+              RECENT RECIPES
+            </Text>
+            {!loadingRecent && recentRecipes.length > 0 && (
+              <TouchableOpacity onPress={handleClearAllRecentRecipes}>
+                <Text style={[styles.clearAllText, { color: isDark ? '#f87171' : '#ef4444' }]}>
                   Clear All
-                </Button>
-              )}
-            </View>
-            {!loadingRecent && (
-              <Text variant="bodySmall" style={{ color: ds.colors.textSecondary, marginBottom: 12 }}>
-                Recipes you generated recently. Save them to your Recipe Box to keep them forever.
-              </Text>
+                </Text>
+              </TouchableOpacity>
             )}
-            {loadingRecent ? (
-              <>
-                <SkeletonRecipeCard />
-                <SkeletonRecipeCard />
-              </>
-            ) : (
-              recentRecipes.map((recentRecipe) => (
-              <Card key={recentRecipe.id} style={[styles.recipeCard, { marginBottom: 16, backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-                <Card.Content style={{ paddingVertical: 20, paddingHorizontal: 20 }}>
-                  <Text variant="titleLarge" style={[styles.recipeTitle, { color: ds.colors.textPrimary }]}>
+          </View>
+          {!loadingRecent && recentRecipes.length > 0 && (
+            <Text style={[styles.sectionSubtext, { color: ds.colors.textSecondary }]}>
+              Save to Recipe Box to keep forever
+            </Text>
+          )}
+          {loadingRecent ? (
+            <>
+              <SkeletonRecipeCard />
+              <SkeletonRecipeCard />
+            </>
+          ) : (
+            recentRecipes.map((recentRecipe) => (
+              <TouchableOpacity
+                key={recentRecipe.id}
+                onPress={() => navigation.navigate('RecipeDetail', { recipe: recentRecipe } as never)}
+                style={[styles.recipeItem, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
+                activeOpacity={0.6}
+              >
+                <View style={styles.recipeContent}>
+                  <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>
                     {recentRecipe.name}
                   </Text>
                   {recentRecipe.description && (
-                    <Text variant="bodyMedium" style={[styles.description, { color: ds.colors.textSecondary }]}>
+                    <Text style={[styles.recipeDescription, { color: ds.colors.textSecondary }]} numberOfLines={2}>
                       {recentRecipe.description}
                     </Text>
                   )}
-                  <View style={styles.metaDivider} />
-                  <View style={styles.statsSection}>
+                  <View style={styles.recipeMeta}>
                     {recentRecipe.prep_time != null && (
-                      <View style={styles.statItem}>
-                        <Text style={[styles.statValue, { color: ds.colors.textPrimary }]}>{recentRecipe.prep_time}</Text>
-                        <Text style={[styles.statLabel, { color: ds.colors.textTertiary }]}>PREP</Text>
-                      </View>
+                      <Text style={[styles.recipeMetaText, { color: ds.colors.textSecondary }]}>
+                        {recentRecipe.prep_time} prep
+                      </Text>
                     )}
                     {recentRecipe.cook_time != null && (
-                      <View style={styles.statItem}>
-                        <Text style={[styles.statValue, { color: ds.colors.textPrimary }]}>{recentRecipe.cook_time}</Text>
-                        <Text style={[styles.statLabel, { color: ds.colors.textTertiary }]}>COOK</Text>
-                      </View>
+                      <Text style={[styles.recipeMetaText, { color: ds.colors.textSecondary }]}>
+                        · {recentRecipe.cook_time} cook
+                      </Text>
                     )}
                     {recentRecipe.servings != null && (
-                      <View style={styles.statItem}>
-                        <Text style={[styles.statValue, { color: ds.colors.textPrimary }]}>{recentRecipe.servings}</Text>
-                        <Text style={[styles.statLabel, { color: ds.colors.textTertiary }]}>SERVINGS</Text>
-                      </View>
+                      <Text style={[styles.recipeMetaText, { color: ds.colors.textSecondary }]}>
+                        · {recentRecipe.servings} servings
+                      </Text>
                     )}
                   </View>
-                  {recentRecipe.cuisine && (
-                    <Text variant="bodySmall" style={[styles.cuisine, { color: ds.colors.textSecondary }]}>
-                      🌍 {recentRecipe.cuisine} Cuisine
-                    </Text>
-                  )}
-                  {recentRecipe.generated_at && (
-                    <Text variant="bodySmall" style={{ color: ds.colors.textTertiary, fontSize: 11, marginTop: 4 }}>
-                      Generated {new Date(recentRecipe.generated_at).toLocaleDateString()}
-                    </Text>
-                  )}
-                  <View style={styles.buttonRow}>
-                    <PremiumButton
-                      testID={`recent-recipe-view-${recentRecipe.id}`}
-                      mode="contained"
-                      onPress={() => navigation.navigate('RecipeDetail', { recipe: recentRecipe } as never)}
-                      style={[styles.viewButton, { marginRight: 8 }]}
-                    >
-                      View
-                    </PremiumButton>
-                    <PremiumButton
-                      testID={`recent-recipe-save-${recentRecipe.id}`}
-                      mode="outlined"
-                      onPress={() => handleSaveRecentRecipe(recentRecipe)}
-                      style={[styles.saveButton, { marginRight: 8 }]}
-                    >
-                      Save
-                    </PremiumButton>
-                    <Button
-                      testID={`recent-recipe-delete-${recentRecipe.id}`}
-                      mode="text"
-                      onPress={() => handleDeleteRecentRecipe(recentRecipe.id)}
-                      textColor={isDark ? '#f87171' : '#ef4444'}
-                      labelStyle={{ fontSize: 16, fontWeight: '600' }}
-                    >
-                      Delete
-                    </Button>
-                  </View>
-                </Card.Content>
-              </Card>
-            )))}
-          </Card.Content>
-        </Card>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
       )}
 
       {/* Generated Recipes Section */}
       {recipes.length > 0 && (
-        <Card style={[styles.card, { backgroundColor: ds.colors.surface }]}>
-          <Card.Content>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
-              🍳 Generated Recipes
-            </Text>
-          </Card.Content>
-        </Card>
+        <View style={styles.recipeSection}>
+          <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            GENERATED RECIPES
+          </Text>
+        </View>
       )}
 
       {recipes.map((recipe, idx) => (
-        <Card
+        <TouchableOpacity
           key={idx}
-          style={[styles.recipeCard, { marginBottom: 16, backgroundColor: ds.colors.surface, ...ds.shadows.md }]}
+          onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
+          style={[styles.recipeItem, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
+          activeOpacity={0.6}
         >
-          <Card.Content style={{ paddingVertical: 20, paddingHorizontal: 20 }}>
-            <Text variant="titleLarge" style={[styles.recipeTitle, { color: ds.colors.textPrimary }]}>{recipe.name}</Text>
+          <View style={styles.recipeContent}>
+            <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>
+              {recipe.name}
+            </Text>
             {recipe.description && (
-              <Text variant="bodyMedium" style={[styles.description, { color: ds.colors.textSecondary }]}>
+              <Text style={[styles.recipeDescription, { color: ds.colors.textSecondary }]} numberOfLines={2}>
                 {recipe.description}
               </Text>
             )}
-            <View style={styles.metaDivider} />
-            <View style={styles.statsSection}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: ds.colors.textPrimary }]}>{recipe.prep_time}</Text>
-                <Text style={[styles.statLabel, { color: ds.colors.textTertiary }]}>PREP</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: ds.colors.textPrimary }]}>{recipe.cook_time}</Text>
-                <Text style={[styles.statLabel, { color: ds.colors.textTertiary }]}>COOK</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: ds.colors.textPrimary }]}>{recipe.servings}</Text>
-                <Text style={[styles.statLabel, { color: ds.colors.textTertiary }]}>SERVINGS</Text>
-              </View>
-            </View>
-            {recipe.cuisine && (
-              <Text variant="bodySmall" style={[styles.cuisine, { color: ds.colors.textSecondary }]}>
-                🌍 {recipe.cuisine} Cuisine
-              </Text>
-            )}
-            {recipe.ai_model && (
-              <Text variant="bodySmall" style={{ color: ds.colors.textTertiary, fontSize: 11, marginTop: 4 }}>
-                🤖 Generated by {recipe.ai_model}
-              </Text>
-            )}
-            {recipe.difficulty && (
-              <Text variant="bodySmall" style={[styles.difficulty, { color: ds.colors.textSecondary }]}>
-                {recipe.difficulty === 'easy' ? '🟢' : recipe.difficulty === 'medium' ? '🟡' : '🔴'} {recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1)}
-              </Text>
-            )}
-            {recipe.missing_ingredients && recipe.missing_ingredients.length > 0 && (
-              <View style={[styles.missingContainer, { backgroundColor: isDark ? '#4a1f0a' : '#fff7ed' }]}>
-                <Text variant="bodySmall" style={[styles.missingTitle, { color: isDark ? '#fca5a5' : '#ea580c' }]}>
-                  Missing: {recipe.missing_ingredients.join(', ')}
+            <View style={styles.recipeMeta}>
+              {recipe.prep_time != null && (
+                <Text style={[styles.recipeMetaText, { color: ds.colors.textSecondary }]}>
+                  {recipe.prep_time} prep
                 </Text>
-              </View>
-            )}
-            <View style={styles.buttonRow}>
-              <PremiumButton
-                testID={`recipe-view-${idx}`}
-                mode="contained"
-                onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
-                style={[styles.viewButton, { marginRight: 8 }]}
-              >
-                View Details
-              </PremiumButton>
-              <PremiumButton
-                testID={`recipe-save-${idx}`}
-                mode="outlined"
-                onPress={() => handleSaveRecipe(recipe)}
-                style={styles.saveButton}
-              >
-                Save Recipe
-              </PremiumButton>
+              )}
+              {recipe.cook_time != null && (
+                <Text style={[styles.recipeMetaText, { color: ds.colors.textSecondary }]}>
+                  · {recipe.cook_time} cook
+                </Text>
+              )}
+              {recipe.servings != null && (
+                <Text style={[styles.recipeMetaText, { color: ds.colors.textSecondary }]}>
+                  · {recipe.servings} servings
+                </Text>
+              )}
             </View>
-          </Card.Content>
-        </Card>
+            {recipe.missing_ingredients && recipe.missing_ingredients.length > 0 && (
+              <Text style={[styles.missingText, { color: ds.colors.warning }]}>
+                Missing: {recipe.missing_ingredients.slice(0, 2).join(', ')}{recipe.missing_ingredients.length > 2 ? '...' : ''}
+              </Text>
+            )}
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+        </TouchableOpacity>
       ))}
 
       {/* Required Ingredients Dialog */}
@@ -809,19 +787,26 @@ export default function RecipesScreen() {
           onDismiss={() => setRequiredIngredientsDialogVisible(false)}
           style={styles.dialog}
         >
-          <Dialog.Title>Select Required Ingredients</Dialog.Title>
+          <Dialog.Title style={[styles.dialogTitle, { color: ds.colors.textPrimary }]}>
+            Required Ingredients
+          </Dialog.Title>
           <Dialog.Content style={styles.dialogContent}>
             <ScrollView
               style={styles.dialogScrollView}
               contentContainerStyle={styles.dialogScrollContent}
               showsVerticalScrollIndicator={true}
             >
-              <Searchbar
-                placeholder="Search ingredients..."
-                onChangeText={setRequiredSearchQuery}
-                value={requiredSearchQuery}
-                style={styles.searchbar}
-              />
+              <View style={[styles.dialogSearchContainer, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+                <MaterialCommunityIcons name="magnify" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
+                <RNTextInput
+                  placeholder="Search..."
+                  onChangeText={setRequiredSearchQuery}
+                  value={requiredSearchQuery}
+                  style={[styles.dialogSearchInput, { color: ds.colors.textPrimary, backgroundColor: 'transparent' }]}
+                  placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
+                  underlineColorAndroid="transparent"
+                />
+              </View>
               {loadingIngredients ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={ds.colors.primary} />
@@ -874,7 +859,9 @@ export default function RecipesScreen() {
             </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setRequiredIngredientsDialogVisible(false)}>Done</Button>
+            <Button onPress={() => setRequiredIngredientsDialogVisible(false)} labelStyle={styles.dialogButtonLabel} uppercase={false}>
+              Done
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -886,19 +873,26 @@ export default function RecipesScreen() {
           onDismiss={() => setExcludedIngredientsDialogVisible(false)}
           style={styles.dialog}
         >
-          <Dialog.Title>Select Excluded Ingredients</Dialog.Title>
+          <Dialog.Title style={[styles.dialogTitle, { color: ds.colors.textPrimary }]}>
+            Excluded Ingredients
+          </Dialog.Title>
           <Dialog.Content style={styles.dialogContent}>
             <ScrollView
               style={styles.dialogScrollView}
               contentContainerStyle={styles.dialogScrollContent}
               showsVerticalScrollIndicator={true}
             >
-              <Searchbar
-                placeholder="Search ingredients..."
-                onChangeText={setExcludedSearchQuery}
-                value={excludedSearchQuery}
-                style={styles.searchbar}
-              />
+              <View style={[styles.dialogSearchContainer, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+                <MaterialCommunityIcons name="magnify" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
+                <RNTextInput
+                  placeholder="Search..."
+                  onChangeText={setExcludedSearchQuery}
+                  value={excludedSearchQuery}
+                  style={[styles.dialogSearchInput, { color: ds.colors.textPrimary, backgroundColor: 'transparent' }]}
+                  placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
+                  underlineColorAndroid="transparent"
+                />
+              </View>
               {loadingIngredients ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={ds.colors.primary} />
@@ -951,7 +945,9 @@ export default function RecipesScreen() {
             </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setExcludedIngredientsDialogVisible(false)}>Done</Button>
+            <Button onPress={() => setExcludedIngredientsDialogVisible(false)} labelStyle={styles.dialogButtonLabel} uppercase={false}>
+              Done
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -968,161 +964,309 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 24,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 24,
   },
   title: {
+    fontSize: 40,
     fontWeight: '700',
-    marginBottom: 20,
-    lineHeight: 40,
+    letterSpacing: -1.2,
+    lineHeight: 44,
   },
-  card: {
-    marginBottom: 16,
+  // Form Section - Minimal
+  formSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
-  recipeCard: {
-    borderRadius: 20,
+  formDivider: {
+    height: 1,
+    marginVertical: 24,
   },
-  recipeTitle: {
-    fontWeight: '700',
-    fontSize: 22,
-    letterSpacing: -0.3,
-    lineHeight: 30,
-  },
-  description: {
-    marginTop: 10,
-    marginBottom: 0,
-    lineHeight: 22,
-    fontSize: 15,
-    opacity: 0.85,
-  },
-  metaDivider: {
-    height: 20,
-  },
-  statsSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.06)',
-    marginBottom: 16,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontWeight: '700',
-    fontSize: 28,
-    letterSpacing: -0.5,
-    lineHeight: 32,
-  },
-  statLabel: {
+  sectionLabel: {
     fontSize: 11,
-    marginTop: 4,
+    letterSpacing: 1.2,
     fontWeight: '600',
-    letterSpacing: 0.8,
-    opacity: 0.7,
+    marginBottom: 16,
+    opacity: 0.55,
   },
-  sectionTitle: {
+  formRow: {
+    marginBottom: 20,
+  },
+  formField: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
     fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 12,
+    opacity: 0.55,
   },
-  recentHeader: {
+  textInput: {
+    fontSize: 17,
+    fontWeight: '400',
+    letterSpacing: -0.2,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    marginBottom: 20,
+  },
+  switchLabel: {
+    fontSize: 17,
+    fontWeight: '400',
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+  selectField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  selectFieldText: {
+    fontSize: 15,
+    letterSpacing: -0.1,
+  },
+  optionPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  optionPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  optionPillText: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+  },
+  selectContent: {
+    flex: 1,
+  },
+  selectLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 4,
+    opacity: 0.55,
+  },
+  selectValue: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+  },
+  formRow: {
+    marginBottom: 20,
+  },
+  formField: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 12,
+    opacity: 0.55,
+  },
+  textInput: {
+    fontSize: 17,
+    fontWeight: '400',
+    letterSpacing: -0.2,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.15)',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    marginBottom: 20,
+  },
+  switchLabel: {
+    fontSize: 17,
+    fontWeight: '400',
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+  selectField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  selectFieldText: {
+    fontSize: 15,
+    letterSpacing: -0.1,
+  },
+  optionPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  optionPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  optionPillText: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+  },
+  selectContent: {
+    flex: 1,
+  },
+  selectLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 4,
+    opacity: 0.55,
+  },
+  selectValue: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+  },
+  generateButton: {
+    marginTop: 24,
+    elevation: 0,
+  },
+  progressContainer: {
+    marginTop: 20,
+  },
+  progressBar: {
+    height: 3,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 12,
-    marginBottom: 8,
-  },
-  input: {
-    marginBottom: 12,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  checkboxLabel: {
-    marginLeft: 8,
-    flex: 1,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
-  chip: {
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  generateButton: {
-    marginTop: 16,
-  },
-  progressContainer: {
-    marginTop: 16,
   },
   progressText: {
-    marginTop: 8,
-    textAlign: 'center',
+    fontSize: 14,
+    opacity: 0.6,
   },
-  description: {
-    marginTop: 8,
+  cancelButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.1,
+  },
+  // Recipe Sections
+  recipeSection: {
+    paddingHorizontal: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  clearAllText: {
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.1,
+  },
+  sectionSubtext: {
+    fontSize: 14,
+    marginBottom: 16,
+    opacity: 0.6,
+    letterSpacing: -0.1,
+  },
+  // Recipe Items - Clean list
+  recipeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+  },
+  recipeContent: {
+    flex: 1,
+  },
+  recipeName: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+    marginBottom: 6,
+  },
+  recipeDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.6,
+    letterSpacing: -0.1,
+    marginBottom: 6,
   },
   recipeMeta: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  missingContainer: {
-    padding: 8,
-    borderRadius: 4,
-    marginTop: 8,
-  },
-  missingTitle: {
-    // Color set inline based on theme
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: 20,
-    gap: 12,
-  },
-  viewButton: {
-    flex: 1,
-  },
-  saveButton: {
-    flex: 1,
-  },
-  selectButton: {
-    marginBottom: 12,
-  },
-  divider: {
-    marginVertical: 12,
-  },
-  cuisine: {
-    marginTop: 4,
-  },
-  difficulty: {
-    marginTop: 4,
-  },
-  selectedChips: {
-    flexDirection: 'row',
+    alignItems: 'center',
     flexWrap: 'wrap',
-    marginTop: 8,
-    marginBottom: 12,
   },
-  selectedChip: {
-    marginRight: 8,
-    marginBottom: 8,
+  recipeMetaText: {
+    fontSize: 14,
+    opacity: 0.6,
+    letterSpacing: -0.1,
   },
+  missingText: {
+    fontSize: 13,
+    marginTop: 6,
+    opacity: 0.9,
+  },
+  // Dialogs
   dialog: {
-    maxHeight: '80%',
+    borderRadius: 20,
   },
   dialogContent: {
     maxHeight: 400,
@@ -1132,45 +1276,76 @@ const styles = StyleSheet.create({
     maxHeight: 400,
   },
   dialogScrollContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 24,
     paddingVertical: 8,
   },
   searchbar: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   checkboxText: {
-    marginLeft: 8,
+    marginLeft: 12,
     flex: 1,
+    fontSize: 15,
   },
   noResults: {
     textAlign: 'center',
-    padding: 16,
+    padding: 24,
+    fontSize: 15,
+    opacity: 0.6,
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 24,
   },
   loadingText: {
-    marginLeft: 8,
+    marginLeft: 12,
+    fontSize: 15,
   },
   errorContainer: {
-    padding: 16,
+    padding: 24,
     alignItems: 'center',
   },
   errorText: {
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: 'center',
-    // Color set inline based on theme
+    fontSize: 15,
   },
   retryButton: {
     marginTop: 8,
+    elevation: 0,
+  },
+  dialogTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+  },
+  dialogSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+  },
+  dialogSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    marginLeft: 12,
+    padding: 0,
+    letterSpacing: -0.1,
+    backgroundColor: 'transparent',
+  },
+  dialogButtonLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
 });
 

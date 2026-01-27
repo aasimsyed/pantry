@@ -1,8 +1,8 @@
 #!/bin/bash
-# Smoke test production API (https://pantry-api-apqja3ye2q-vp.a.run.app)
+# Smoke test production API (https://pantry-api-154407938924.us-south1.run.app)
 
 set -e
-API="${SMOKE_API_URL:-https://pantry-api-apqja3ye2q-vp.a.run.app}"
+API="${SMOKE_API_URL:-https://pantry-api-154407938924.us-south1.run.app}"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

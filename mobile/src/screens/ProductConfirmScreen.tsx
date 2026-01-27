@@ -120,7 +120,7 @@ export default function ProductConfirmScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Product Image */}
+          {/* Product Image - Minimal */}
           {product?.image_url && (
             <View style={styles.imageContainer}>
               <Image
@@ -131,32 +131,25 @@ export default function ProductConfirmScreen() {
             </View>
           )}
 
-          {/* Status Banner */}
-          <View style={[
-            styles.statusBanner, 
-            { backgroundColor: isNotFound ? ds.colors.warning + '20' : ds.colors.success + '20' }
-          ]}>
-            <MaterialCommunityIcons
-              name={isNotFound ? 'alert-circle-outline' : 'check-circle-outline'}
-              size={20}
-              color={isNotFound ? ds.colors.warning : ds.colors.success}
-            />
-            <Text style={[
-              styles.statusText,
-              { color: isNotFound ? ds.colors.warning : ds.colors.success }
-            ]}>
+          {/* Status - Minimal text */}
+          <View style={styles.statusContainer}>
+            <Text style={[styles.statusText, { color: ds.colors.textSecondary }]}>
               {isNotFound 
-                ? 'Product not found - enter details manually'
+                ? 'Product not found in database'
                 : product?.found_in_database 
                   ? 'Found in your database'
-                  : 'Found in Open Food Facts'}
+                  : 'Found via Open Food Facts'}
             </Text>
           </View>
 
-          {/* Barcode Display */}
-          <View style={[styles.barcodeContainer, { backgroundColor: ds.colors.surface }]}>
-            <MaterialCommunityIcons name="barcode" size={24} color={ds.colors.textSecondary} />
-            <Text style={[styles.barcodeText, { color: ds.colors.textPrimary }]}>{barcode}</Text>
+          {/* Barcode - Clean display */}
+          <View style={[styles.barcodeContainer, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+            <Text style={[styles.barcodeLabel, { color: ds.colors.textTertiary }]}>
+              BARCODE
+            </Text>
+            <Text style={[styles.barcodeValue, { color: ds.colors.textPrimary }]}>
+              {barcode}
+            </Text>
           </View>
 
           {/* Form Fields */}
@@ -208,73 +201,71 @@ export default function ProductConfirmScreen() {
                 textColor={ds.colors.textPrimary}
               />
               
-              <View style={[styles.unitContainer, { borderColor: ds.colors.textTertiary }]}>
+              <View style={styles.unitContainer}>
+                <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>UNIT</Text>
                 <ScrollView 
                   horizontal 
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.unitScroll}
                 >
                   {UNITS.map((u) => (
-                    <Chip
+                    <TouchableOpacity
                       key={u}
-                      selected={unit === u}
                       onPress={() => setUnit(u)}
                       style={[
-                        styles.unitChip,
-                        unit === u && { backgroundColor: ds.colors.primary + '20' }
+                        styles.unitOption,
+                        { 
+                          borderColor: unit === u 
+                            ? ds.colors.textPrimary 
+                            : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
+                        }
                       ]}
-                      textStyle={{ 
-                        color: unit === u ? ds.colors.primary : ds.colors.textSecondary,
-                        fontSize: 13,
-                      }}
                     >
-                      {u}
-                    </Chip>
+                      <Text style={[
+                        styles.unitText,
+                        { color: unit === u ? ds.colors.textPrimary : ds.colors.textSecondary },
+                        unit === u && { fontWeight: '500' }
+                      ]}>
+                        {u}
+                      </Text>
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
             </View>
 
-            <Divider style={[styles.divider, { backgroundColor: ds.colors.textTertiary + '30' }]} />
+            {/* Divider */}
+            <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
 
-            {/* Storage Location */}
-            <Text style={[styles.label, { color: ds.colors.textSecondary }]}>Storage Location</Text>
-            <View style={styles.storageRow}>
-              {STORAGE_LOCATIONS.map((loc) => (
-                <View 
-                  key={loc.key} 
-                  style={[
-                    styles.storageOption,
-                    storageLocation === loc.key && { 
-                      backgroundColor: ds.colors[loc.key as keyof typeof ds.colors] + '20',
-                      borderColor: ds.colors[loc.key as keyof typeof ds.colors],
-                    },
-                    { borderColor: ds.colors.textTertiary + '50' }
-                  ]}
-                >
-                  <Chip
-                    selected={storageLocation === loc.key}
+            {/* Storage Location - Minimal */}
+            <View style={styles.formSection}>
+              <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>
+                STORAGE LOCATION
+              </Text>
+              <View style={styles.optionButtons}>
+                {STORAGE_LOCATIONS.map((loc) => (
+                  <TouchableOpacity
+                    key={loc.key}
                     onPress={() => setStorageLocation(loc.key)}
-                    style={styles.storageChip}
-                    textStyle={{ 
-                      color: storageLocation === loc.key 
-                        ? ds.colors[loc.key as keyof typeof ds.colors]
-                        : ds.colors.textSecondary,
-                    }}
-                    icon={({ size, color }) => (
-                      <MaterialCommunityIcons
-                        name={loc.icon as any}
-                        size={size}
-                        color={storageLocation === loc.key 
-                          ? ds.colors[loc.key as keyof typeof ds.colors]
-                          : ds.colors.textSecondary}
-                      />
-                    )}
+                    style={[
+                      styles.optionButton,
+                      { 
+                        borderColor: storageLocation === loc.key 
+                          ? ds.colors.textPrimary 
+                          : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
+                      }
+                    ]}
                   >
-                    {loc.label}
-                  </Chip>
-                </View>
-              ))}
+                    <Text style={[
+                      styles.optionButtonText,
+                      { color: storageLocation === loc.key ? ds.colors.textPrimary : ds.colors.textSecondary },
+                      storageLocation === loc.key && { fontWeight: '500' }
+                    ]}>
+                      {loc.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             {/* Nutrition Grade (if available) */}
@@ -337,90 +328,103 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     paddingBottom: 100,
   },
   imageContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   productImage: {
-    width: 150,
-    height: 150,
-    borderRadius: 12,
+    width: 120,
+    height: 120,
+    borderRadius: 8,
   },
-  statusBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
-    gap: 8,
+  statusContainer: {
+    marginBottom: 20,
   },
   statusText: {
     fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
+    textAlign: 'center',
+    opacity: 0.6,
+    letterSpacing: -0.1,
   },
   barcodeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    paddingBottom: 20,
     marginBottom: 20,
-    gap: 8,
+    borderBottomWidth: 1,
   },
-  barcodeText: {
-    fontSize: 16,
+  barcodeLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
     fontWeight: '600',
+    marginBottom: 6,
+    opacity: 0.55,
+  },
+  barcodeValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: 0.5,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   form: {
-    gap: 12,
+    gap: 20,
   },
   input: {
     backgroundColor: 'transparent',
   },
   row: {
-    gap: 12,
+    gap: 20,
   },
   quantityInput: {
-    marginBottom: 8,
+    flex: 1,
   },
   unitContainer: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    flex: 2,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 12,
+    opacity: 0.55,
   },
   unitScroll: {
-    paddingHorizontal: 8,
     gap: 8,
   },
-  unitChip: {
-    marginHorizontal: 2,
+  unitOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  unitText: {
+    fontSize: 13,
+    letterSpacing: -0.1,
   },
   divider: {
-    marginVertical: 8,
+    height: 1,
+    marginVertical: 20,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    marginTop: 4,
+  formSection: {
+    // Clean section spacing
   },
-  storageRow: {
+  optionButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
-  storageOption: {
+  optionButton: {
     flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     borderWidth: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
+    alignItems: 'center',
   },
-  storageChip: {
-    backgroundColor: 'transparent',
+  optionButtonText: {
+    fontSize: 14,
+    letterSpacing: -0.1,
   },
   nutritionContainer: {
     marginTop: 8,
@@ -446,16 +450,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    padding: 16,
+    padding: 20,
+    paddingHorizontal: 24,
     gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   actionButton: {
     flex: 1,
     borderRadius: 12,
+    elevation: 0,
   },
   saveButton: {
     flex: 2,
+    elevation: 0,
   },
 });

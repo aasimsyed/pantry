@@ -120,104 +120,111 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
 
   return (
     <View style={styles.container}>
-      <PremiumButton
+      <TouchableOpacity
         testID="pantry-selector-button"
-        mode="outlined"
         onPress={() => setSelectorDialogVisible(true)}
-        style={styles.button}
+        style={[
+          styles.selectorButton,
+          { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }
+        ]}
+        activeOpacity={0.6}
       >
-        {selectedPantry ? `${selectedPantry.name}${selectedPantry.is_default ? ' (Default)' : ''}` : 'Select Pantry'}
-      </PremiumButton>
+        <View style={styles.selectorContent}>
+          <View style={styles.selectorText}>
+            <Text style={[styles.selectorLabel, { color: ds.colors.textTertiary }]}>
+              PANTRY
+            </Text>
+            <Text style={[styles.selectorValue, { color: ds.colors.textPrimary }]}>
+              {selectedPantry ? selectedPantry.name : 'Select Pantry'}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-down" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+        </View>
+      </TouchableOpacity>
 
       <Portal>
         <Dialog 
           visible={selectorDialogVisible} 
           onDismiss={() => setSelectorDialogVisible(false)}
-          style={[styles.modernDialog, { backgroundColor: ds.colors.surface, ...ds.shadows.xl }]}
+          style={styles.dialog}
         >
-          <Dialog.Title style={[styles.modernDialogTitle, { color: ds.colors.textPrimary, fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }]}>Select Pantry</Dialog.Title>
-          <Dialog.Content style={styles.modernDialogContent}>
+          <Dialog.Title style={styles.dialogTitle}>Select Pantry</Dialog.Title>
+          <Dialog.Content style={styles.dialogContent}>
             <ScrollView 
-              style={styles.modernScrollView}
-              contentContainerStyle={styles.modernScrollContent}
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={true}
             >
               {pantries.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <MaterialCommunityIcons name="store-outline" size={48} color={ds.colors.textTertiary} />
-                  <Text style={[styles.emptyStateText, getTextStyle('title', ds.colors.textPrimary, isDark)]}>No pantries yet</Text>
-                  <Text style={[styles.emptyStateSubtext, getTextStyle('body', ds.colors.textSecondary, isDark)]}>Create your first pantry to get started</Text>
+                  <Text style={[styles.emptyStateText, { color: ds.colors.textPrimary }]}>No pantries yet</Text>
+                  <Text style={[styles.emptyStateSubtext, { color: ds.colors.textSecondary }]}>Create your first pantry to get started</Text>
                 </View>
               ) : (
-                pantries.map((pantry) => (
+                pantries.map((pantry, index) => (
                   <TouchableOpacity
                     key={pantry.id}
                     onPress={() => handleSelectPantry(pantry.id)}
                     style={[
-                      styles.modernPantryItem,
-                      { backgroundColor: ds.colors.surface, ...ds.shadows.md },
-                      selectedPantryId === pantry.id && { backgroundColor: `${ds.colors.primary}10`, borderColor: ds.colors.primary, borderWidth: 2 }
+                      styles.pantryItem,
+                      { 
+                        borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+                        borderBottomWidth: index < pantries.length - 1 ? 1 : 0,
+                      }
                     ]}
-                    activeOpacity={0.7}
+                    activeOpacity={0.6}
                   >
-                    <View style={styles.modernPantryItemContent}>
-                      <View style={[
-                        styles.modernPantryIcon,
-                        { backgroundColor: ds.colors.surfaceHover },
-                        selectedPantryId === pantry.id && { backgroundColor: ds.colors.primary }
-                      ]}>
+                    <View style={styles.pantryContent}>
+                      <Text style={[styles.pantryName, { color: ds.colors.textPrimary }]}>
+                        {pantry.name}
+                      </Text>
+                      {(pantry.description || pantry.location) && (
+                        <Text style={[styles.pantryDescription, { color: ds.colors.textSecondary }]}>
+                          {pantry.description || pantry.location}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.pantryActions}>
+                      {selectedPantryId === pantry.id && (
                         <MaterialCommunityIcons 
-                          name={pantry.is_default ? "home" : "store"} 
-                          size={28} 
-                          color={selectedPantryId === pantry.id ? ds.colors.surface : ds.colors.primary} 
+                          name="check" 
+                          size={22} 
+                          color={ds.colors.textPrimary}
+                          style={{ marginRight: 8 }}
                         />
-                      </View>
-                      <View style={styles.modernPantryTextContainer}>
-                        <View style={styles.modernPantryTitleRow}>
-                          <Text style={[styles.modernPantryName, { color: ds.colors.textPrimary, fontSize: 17, fontWeight: '600', letterSpacing: -0.2 }]}>{pantry.name}</Text>
-                          {pantry.is_default && (
-                            <View style={[styles.defaultBadge, { backgroundColor: ds.colors.primary }]}>
-                              <Text style={[styles.defaultBadgeText, { color: ds.colors.surface, fontSize: 11, fontWeight: '600', letterSpacing: 0.2 }]}>DEFAULT</Text>
-                            </View>
-                          )}
-                        </View>
-                        {(pantry.description || pantry.location) && (
-                          <Text style={[styles.modernPantryDescription, { color: ds.colors.textSecondary, fontSize: 14, lineHeight: 20 }]}>
-                            {pantry.description || pantry.location}
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.modernPantryActions}>
-                        {selectedPantryId === pantry.id && (
+                      )}
+                      {!pantry.is_default && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeletePantry(pantry);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
                           <MaterialCommunityIcons 
-                            name="check-circle" 
-                            size={28} 
-                            color={ds.colors.primary} 
+                            name="delete-outline" 
+                            size={22} 
+                            color={ds.colors.textTertiary}
+                            style={{ opacity: 0.6 }}
                           />
-                        )}
-                        {!pantry.is_default && (
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              handleDeletePantry(pantry);
-                            }}
-                            style={styles.deleteButton}
-                          >
-                            <MaterialCommunityIcons 
-                              name="delete-outline" 
-                              size={24} 
-                              color={ds.colors.error} 
-                            />
-                          </TouchableOpacity>
-                        )}
-                      </View>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </TouchableOpacity>
                 ))
               )}
             </ScrollView>
           </Dialog.Content>
-          <Dialog.Actions style={styles.modernDialogActions}>
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button 
+              testID="pantry-selector-close"
+              onPress={() => setSelectorDialogVisible(false)}
+              mode="text"
+              labelStyle={styles.dialogActionLabel}
+              uppercase={false}
+            >
+              Close
+            </Button>
             <PremiumButton 
               testID="pantry-selector-new"
               onPress={() => {
@@ -225,17 +232,9 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                 setCreateDialogVisible(true);
               }}
               mode="contained"
-              style={styles.newPantryButton}
+              style={{ elevation: 0 }}
             >
               New Pantry
-            </PremiumButton>
-            <PremiumButton 
-              testID="pantry-selector-close"
-              onPress={() => setSelectorDialogVisible(false)}
-              mode="text"
-              textColor={ds.colors.textSecondary}
-            >
-              Close
             </PremiumButton>
           </Dialog.Actions>
         </Dialog>
@@ -243,9 +242,9 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
         <Dialog 
           visible={createDialogVisible} 
           onDismiss={() => setCreateDialogVisible(false)}
-          style={{ borderRadius: 24 }}
+          style={styles.dialog}
         >
-          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>Create New Pantry</Dialog.Title>
+          <Dialog.Title style={styles.dialogTitle}>Create New Pantry</Dialog.Title>
           <Dialog.Content>
             <TextInput
               testID="pantry-create-name"
@@ -275,19 +274,22 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="outlined"
             />
           </Dialog.Content>
-          <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-            <PremiumButton 
+          <Dialog.Actions style={styles.dialogActions}>
+            <Button 
               testID="pantry-create-cancel" 
               onPress={() => setCreateDialogVisible(false)}
               mode="text"
+              labelStyle={styles.dialogActionLabel}
+              uppercase={false}
             >
               Cancel
-            </PremiumButton>
+            </Button>
             <PremiumButton 
               testID="pantry-create-submit" 
               onPress={handleCreatePantry} 
               disabled={!newPantryName.trim()}
               mode="contained"
+              style={{ elevation: 0 }}
             >
               Create
             </PremiumButton>
@@ -300,137 +302,111 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: DesignSystem.spacing.sm,
+    // No margin - integrated into page flow
   },
-  button: {
-    minWidth: 150,
-  },
-  buttonContent: {
-    paddingVertical: DesignSystem.spacing.xs,
-  },
-  // Modern Dialog Styles
-  modernDialog: {
-    maxHeight: '90%',
-    height: '85%',
-    marginHorizontal: 16,
-    borderRadius: 24,
-  },
-  modernDialogTitle: {
-    paddingBottom: 8,
+  // Selector Button - Minimal
+  selectorButton: {
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
   },
-  modernDialogContent: {
+  selectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectorText: {
     flex: 1,
+  },
+  selectorLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 4,
+    opacity: 0.55,
+  },
+  selectorValue: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+  },
+  // Dialog - Minimal
+  dialog: {
+    borderRadius: 20,
+  },
+  dialogTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+  },
+  dialogContent: {
     paddingHorizontal: 0,
-    paddingTop: DesignSystem.spacing.md,
-    paddingBottom: 0,
+    paddingTop: 12,
+    paddingBottom: 12,
+    maxHeight: 400,
   },
-  modernScrollView: {
-    flex: 1,
+  scrollView: {
+    maxHeight: 400,
   },
-  modernScrollContent: {
-    paddingHorizontal: DesignSystem.spacing.md,
-    paddingBottom: DesignSystem.spacing.md,
+  scrollContent: {
+    paddingBottom: 12,
   },
-  // Empty State
+  // Empty State - Minimal
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: DesignSystem.spacing.xxl,
-    paddingHorizontal: DesignSystem.spacing.lg,
+    paddingVertical: 60,
+    paddingHorizontal: 24,
   },
   emptyStateText: {
-    marginTop: 16,
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+    marginBottom: 6,
   },
   emptyStateSubtext: {
+    fontSize: 14,
     textAlign: 'center',
+    opacity: 0.6,
   },
-  // Modern Pantry Item
-  modernPantryItem: {
-    borderRadius: 20,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  modernSelectedPantryItem: {
-  },
-  modernPantryItemContent: {
+  // Pantry Items - Clean list
+  pantryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 18,
-    gap: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
   },
-  modernPantryIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modernPantryIconSelected: {
-  },
-  modernPantryTextContainer: {
+  pantryContent: {
     flex: 1,
-    gap: DesignSystem.spacing.xs / 2,
   },
-  modernPantryTitleRow: {
+  pantryName: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  pantryDescription: {
+    fontSize: 14,
+    opacity: 0.6,
+    letterSpacing: -0.1,
+  },
+  pantryActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: DesignSystem.spacing.sm,
-    flexWrap: 'wrap',
+    marginLeft: 12,
   },
-  modernPantryName: {
-  },
-  defaultBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  defaultBadgeText: {
-    fontWeight: '600',
-  },
-  modernPantryDescription: {
-  },
-  modernPantryActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignSystem.spacing.sm,
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  modernDialogActions: {
+  dialogActions: {
     paddingHorizontal: 20,
     paddingBottom: 20,
     paddingTop: 16,
-    borderTopWidth: 0,
-    gap: 12,
   },
-  newPantryButton: {
-    flex: 1,
-  },
-  newPantryButtonLabel: {
-    fontWeight: '600',
-  },
-  closeButtonLabel: {
-  },
-  // Legacy styles
-  dialog: {
-    maxHeight: '90%',
-  },
-  scrollArea: {
-    maxHeight: 500,
-    paddingHorizontal: 0,
-  },
-  pantryItem: {
-    borderBottomWidth: 1,
-  },
-  selectedPantryItem: {
+  dialogActionLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   input: {
-    marginBottom: DesignSystem.spacing.sm,
+    marginBottom: 12,
   },
 });
 

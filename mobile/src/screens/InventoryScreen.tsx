@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput } from 'react-native';
 import {
   Card,
   Text,
@@ -333,33 +333,62 @@ export default function InventoryScreen() {
           </View>
         )}
         
-        <Searchbar
-          testID="inventory-search"
-          placeholder="Search inventory..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchbar}
-        />
+        {/* Search - Minimal, no background */}
+        <View style={[styles.searchContainer, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+          <MaterialCommunityIcons name="magnify" size={22} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
+          <RNTextInput
+            testID="inventory-search"
+            placeholder="Search inventory..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={[styles.searchInput, { color: ds.colors.textPrimary, backgroundColor: 'transparent' }]}
+            placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
+            autoCapitalize="none"
+            autoCorrect={false}
+            underlineColorAndroid="transparent"
+          />
+          {searchQuery !== '' && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <MaterialCommunityIcons name="close-circle" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
+            </TouchableOpacity>
+          )}
+        </View>
 
-        <View style={styles.chipContainer}>
+        {/* Location Filters - Minimal */}
+        <View style={styles.filterContainer}>
           {['All', 'pantry', 'fridge', 'freezer'].map((loc) => (
-            <Chip
+            <TouchableOpacity
               key={loc}
               testID={`location-filter-${loc.toLowerCase()}`}
-              selected={locationFilter === loc}
               onPress={() => setLocationFilter(loc)}
-              style={styles.chip}
+              style={[
+                styles.filterButton,
+                locationFilter === loc && styles.filterButtonActive,
+                { 
+                  borderColor: locationFilter === loc 
+                    ? ds.colors.textPrimary 
+                    : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
+                }
+              ]}
             >
-              {loc.charAt(0).toUpperCase() + loc.slice(1)}
-            </Chip>
+              <Text style={[
+                styles.filterText,
+                { color: locationFilter === loc ? ds.colors.textPrimary : ds.colors.textSecondary },
+                locationFilter === loc && { fontWeight: '500' }
+              ]}>
+                {loc.charAt(0).toUpperCase() + loc.slice(1)}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
 
-        <Text variant="titleMedium" style={styles.count}>
-          {filteredItems.length} items
+        {/* Count - Minimal label */}
+        <Text style={[styles.countLabel, { color: ds.colors.textTertiary }]}>
+          {filteredItems.length} ITEMS
         </Text>
 
-        {filteredItems.map((item) => {
+        {/* Inventory List - Minimal, clean list items */}
+        {filteredItems.map((item, index) => {
           // Clean up product name to remove duplicate brand names
           let displayName = item.product_name || 'Unknown';
           if (item.brand && item.product_name) {
@@ -394,101 +423,87 @@ export default function InventoryScreen() {
             displayName = name;
           }
 
-          const locationColor = item.storage_location === 'pantry' 
-            ? ds.colors.pantry 
-            : item.storage_location === 'fridge'
-            ? ds.colors.fridge
-            : ds.colors.freezer;
-
           return (
             <TouchableOpacity
               key={item.id}
               testID={`inventory-item-${item.id}`}
-              activeOpacity={0.9}
+              style={[
+                styles.inventoryItem,
+                { 
+                  borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+                  borderBottomWidth: index < filteredItems.length - 1 ? 1 : 0,
+                }
+              ]}
               onPress={() => handleEditItem(item)}
+              activeOpacity={0.6}
             >
-              <Card style={[styles.modernCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-                <Card.Content style={styles.modernCardContent}>
-                  <View style={styles.modernCardHeader}>
-                    <View style={styles.modernCardTitleSection}>
-                      <Text style={[styles.modernProductName, { color: ds.colors.textPrimary }]}>{displayName}</Text>
-                      {item.brand && (
-                        <View style={[styles.brandBadge, { backgroundColor: ds.colors.surfaceHover }]}>
-                          <Text style={[styles.brandText, { color: ds.colors.textSecondary }]}>{item.brand}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.modernCardActions}>
-                      <TouchableOpacity
-                        style={[styles.actionIconButton, { backgroundColor: ds.colors.surfaceHover }]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleEditItem(item);
-                        }}
-                      >
-                        <MaterialCommunityIcons name="pencil" size={20} color={ds.colors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionIconButton, { backgroundColor: ds.colors.surfaceHover }]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleDeleteItem(item);
-                        }}
-                      >
-                        <MaterialCommunityIcons name="delete" size={20} color={ds.colors.error} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.modernDetailsRow}>
-                    <View style={[styles.quantityBadge, { backgroundColor: ds.colors.surfaceHover }]}>
-                      <MaterialCommunityIcons name="scale" size={16} color={ds.colors.textSecondary} />
-                      <Text style={[styles.quantityText, getTextStyle('label', ds.colors.textPrimary, isDark)]}>
-                        {item.quantity} {item.unit}
+              <View style={styles.itemMain}>
+                <View style={styles.itemContent}>
+                  <Text style={[styles.itemName, { color: ds.colors.textPrimary }]}>
+                    {displayName}
+                  </Text>
+                  <View style={styles.itemMeta}>
+                    {item.brand && (
+                      <Text style={[styles.itemBrand, { color: ds.colors.textSecondary }]}>
+                        {item.brand}
                       </Text>
-                    </View>
-                    <View style={[styles.locationBadge, { backgroundColor: `${locationColor}15` }]}>
-                      <MaterialCommunityIcons 
-                        name={item.storage_location === 'pantry' ? 'archive' : item.storage_location === 'fridge' ? 'fridge' : 'snowflake'} 
-                        size={16} 
-                        color={locationColor} 
-                      />
-                      <Text style={[styles.locationText, { color: locationColor }]}>
-                        {item.storage_location?.charAt(0).toUpperCase()}{item.storage_location?.slice(1)}
-                      </Text>
-                    </View>
+                    )}
+                    <Text style={[styles.itemQuantity, { color: ds.colors.textSecondary }]}>
+                      {item.quantity} {item.unit}
+                    </Text>
+                    <Text style={[styles.itemLocation, { color: ds.colors.textTertiary }]}>
+                      · {item.storage_location}
+                    </Text>
                   </View>
-                  
                   {item.expiration_date && (
-                    <View style={styles.expirationRow}>
-                      <MaterialCommunityIcons name="calendar-clock" size={16} color={ds.colors.warning} />
-                      <Text style={[styles.expirationText, getTextStyle('caption', ds.colors.warning, isDark)]}>
-                        Expires: {new Date(item.expiration_date).toLocaleDateString()}
-                      </Text>
-                    </View>
+                    <Text style={[styles.itemExpiration, { color: ds.colors.warning }]}>
+                      Expires {new Date(item.expiration_date).toLocaleDateString()}
+                    </Text>
                   )}
-                </Card.Content>
-              </Card>
+                </View>
+                <View style={styles.itemActions}>
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteItem(item);
+                    }}
+                    style={styles.itemActionButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <MaterialCommunityIcons name="delete-outline" size={22} color={ds.colors.textTertiary} style={{ opacity: 0.6 }} />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
+      {/* Add Button - Minimal FAB */}
       <FAB.Group
         open={fabOpen}
         visible
         icon={fabOpen ? 'close' : 'plus'}
-        fabStyle={[styles.fab, { backgroundColor: ds.colors.accent }]}
+        fabStyle={[
+          styles.fab, 
+          { 
+            backgroundColor: ds.colors.textPrimary,
+            elevation: 0,
+          }
+        ]}
         style={styles.fabGroup}
-        color={ds.colors.surface}
+        color={ds.colors.background}
         actions={[
           {
-            icon: 'pencil',
+            icon: 'pencil-outline',
             label: 'Add Manually',
             onPress: () => setManualEntryDialogVisible(true),
-            style: { backgroundColor: ds.colors.primary },
-            color: ds.colors.surface,
-            labelStyle: { fontWeight: '600' },
+            style: { 
+              backgroundColor: ds.colors.textPrimary,
+              elevation: 0,
+            },
+            color: ds.colors.background,
+            labelStyle: { fontWeight: '500', letterSpacing: -0.2 },
           },
           {
             icon: 'barcode-scan',
@@ -497,119 +512,134 @@ export default function InventoryScreen() {
               pantryId: selectedPantryId,
               storageLocation: 'pantry'
             } as never),
-            style: { backgroundColor: ds.colors.info },
-            color: ds.colors.surface,
-            labelStyle: { fontWeight: '600' },
+            style: { 
+              backgroundColor: ds.colors.textPrimary,
+              elevation: 0,
+            },
+            color: ds.colors.background,
+            labelStyle: { fontWeight: '500', letterSpacing: -0.2 },
           },
           {
-            icon: 'camera',
+            icon: 'camera-outline',
             label: 'Scan Label',
             onPress: () => setDialogVisible(true),
-            style: { backgroundColor: ds.colors.accent },
-            color: ds.colors.surface,
-            labelStyle: { fontWeight: '600' },
+            style: { 
+              backgroundColor: ds.colors.textPrimary,
+              elevation: 0,
+            },
+            color: ds.colors.background,
+            labelStyle: { fontWeight: '500', letterSpacing: -0.2 },
           },
         ]}
         onStateChange={({ open }) => setFabOpen(open)}
       />
 
       <Portal>
-        <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)} style={{ borderRadius: 24 }}>
-          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>Add Item</Dialog.Title>
+        <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)} style={styles.dialog}>
+          <Dialog.Title style={styles.dialogTitle}>Add Item</Dialog.Title>
           <Dialog.Content style={{ paddingTop: 20 }}>
-            <Text variant="bodyMedium" style={[styles.locationLabel, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
-              Storage Location
+            <Text style={[styles.dialogLabel, { color: ds.colors.textTertiary }]}>
+              STORAGE LOCATION
             </Text>
             <View style={styles.locationSelector}>
               <TouchableOpacity
                 onPress={() => setPhotoStorageLocation('pantry')}
                 style={[
-                  styles.modernLocationButton,
+                  styles.locationOption,
                   { 
-                    backgroundColor: photoStorageLocation === 'pantry' ? ds.colors.primary : ds.colors.surface,
-                    borderColor: photoStorageLocation === 'pantry' ? ds.colors.primary : ds.colors.surfaceHover,
+                    borderColor: photoStorageLocation === 'pantry' 
+                      ? ds.colors.textPrimary 
+                      : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                   }
                 ]}
               >
-                <Text style={{ fontSize: 20 }}>🥫</Text>
-                <Text style={{ 
-                  color: photoStorageLocation === 'pantry' ? ds.colors.textInverse : ds.colors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: '600',
-                }}>
+                <Text style={[
+                  styles.locationOptionText,
+                  { color: photoStorageLocation === 'pantry' ? ds.colors.textPrimary : ds.colors.textSecondary },
+                  photoStorageLocation === 'pantry' && { fontWeight: '500' }
+                ]}>
                   Pantry
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setPhotoStorageLocation('fridge')}
                 style={[
-                  styles.modernLocationButton,
+                  styles.locationOption,
                   { 
-                    backgroundColor: photoStorageLocation === 'fridge' ? ds.colors.primary : ds.colors.surface,
-                    borderColor: photoStorageLocation === 'fridge' ? ds.colors.primary : ds.colors.surfaceHover,
+                    borderColor: photoStorageLocation === 'fridge' 
+                      ? ds.colors.textPrimary 
+                      : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                   }
                 ]}
               >
-                <Text style={{ fontSize: 20 }}>🧊</Text>
-                <Text style={{ 
-                  color: photoStorageLocation === 'fridge' ? ds.colors.textInverse : ds.colors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: '600',
-                }}>
+                <Text style={[
+                  styles.locationOptionText,
+                  { color: photoStorageLocation === 'fridge' ? ds.colors.textPrimary : ds.colors.textSecondary },
+                  photoStorageLocation === 'fridge' && { fontWeight: '500' }
+                ]}>
                   Fridge
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setPhotoStorageLocation('freezer')}
                 style={[
-                  styles.modernLocationButton,
+                  styles.locationOption,
                   { 
-                    backgroundColor: photoStorageLocation === 'freezer' ? ds.colors.primary : ds.colors.surface,
-                    borderColor: photoStorageLocation === 'freezer' ? ds.colors.primary : ds.colors.surfaceHover,
+                    borderColor: photoStorageLocation === 'freezer' 
+                      ? ds.colors.textPrimary 
+                      : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                   }
                 ]}
               >
-                <Text style={{ fontSize: 20 }}>❄️</Text>
-                <Text style={{ 
-                  color: photoStorageLocation === 'freezer' ? ds.colors.textInverse : ds.colors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: '600',
-                }}>
+                <Text style={[
+                  styles.locationOptionText,
+                  { color: photoStorageLocation === 'freezer' ? ds.colors.textPrimary : ds.colors.textSecondary },
+                  photoStorageLocation === 'freezer' && { fontWeight: '500' }
+                ]}>
                   Freezer
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={[styles.separator, { backgroundColor: ds.colors.surfaceHover }]} />
-            <PremiumButton
+            <View style={[styles.separator, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
+            <Button
               testID="add-item-take-photo"
-              mode="contained"
+              mode="text"
               onPress={handleTakePhoto}
-              style={styles.dialogButton}
+              style={styles.dialogAction}
+              labelStyle={styles.dialogActionLabel}
+              contentStyle={styles.dialogActionContent}
+              uppercase={false}
             >
-              📷 Take Photo
-            </PremiumButton>
-            <PremiumButton
+              Take Photo
+            </Button>
+            <Button
               testID="add-item-choose-photo"
-              mode="outlined"
+              mode="text"
               onPress={handlePickImage}
-              style={styles.dialogButton}
+              style={styles.dialogAction}
+              labelStyle={styles.dialogActionLabel}
+              contentStyle={styles.dialogActionContent}
+              uppercase={false}
             >
-              🖼️ Choose from Library
-            </PremiumButton>
-            <PremiumButton
+              Choose from Library
+            </Button>
+            <Button
               testID="add-item-manual-entry"
-              mode="outlined"
+              mode="text"
               onPress={() => {
                 setDialogVisible(false);
                 setManualEntryDialogVisible(true);
               }}
-              style={styles.dialogButton}
+              style={styles.dialogAction}
+              labelStyle={styles.dialogActionLabel}
+              contentStyle={styles.dialogActionContent}
+              uppercase={false}
             >
-              ✏️ Manual Entry
-            </PremiumButton>
+              Manual Entry
+            </Button>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setDialogVisible(false)} labelStyle={{ fontSize: 16, fontWeight: '600' }} uppercase={false}>
+            <Button onPress={() => setDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false}>
               Cancel
             </Button>
           </Dialog.Actions>
@@ -632,9 +662,9 @@ export default function InventoryScreen() {
         <Dialog
           visible={manualEntryDialogVisible}
           onDismiss={() => setManualEntryDialogVisible(false)}
-          style={[styles.editDialog, { borderRadius: 24 }]}
+          style={styles.dialog}
         >
-          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>Add Item Manually</Dialog.Title>
+          <Dialog.Title style={styles.dialogTitle}>Add Item Manually</Dialog.Title>
           <Dialog.ScrollArea style={styles.scrollArea}>
             <ScrollView
               contentContainerStyle={styles.scrollContent}
@@ -715,32 +745,31 @@ export default function InventoryScreen() {
                   ))}
                 </ScrollView>
               </Menu>
-              <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
-                  Storage Location
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  STORAGE LOCATION
                 </Text>
-                <View style={styles.locationButtons}>
+                <View style={styles.optionButtons}>
                   {(['pantry', 'fridge', 'freezer'] as const).map((loc) => {
-                    const emoji = loc === 'pantry' ? '🥫' : loc === 'fridge' ? '🧊' : '❄️';
                     const label = loc === 'pantry' ? 'Pantry' : loc === 'fridge' ? 'Fridge' : 'Freezer';
                     return (
                       <TouchableOpacity
                         key={loc}
                         onPress={() => setManualEntryFormData({ ...manualEntryFormData, storage_location: loc })}
                         style={[
-                          styles.editLocationButton,
+                          styles.optionButton,
                           { 
-                            backgroundColor: manualEntryFormData.storage_location === loc ? ds.colors.primary : ds.colors.surface,
-                            borderColor: manualEntryFormData.storage_location === loc ? ds.colors.primary : ds.colors.surfaceHover,
+                            borderColor: manualEntryFormData.storage_location === loc 
+                              ? ds.colors.textPrimary 
+                              : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                           }
                         ]}
                       >
-                        <Text style={{ fontSize: 20 }}>{emoji}</Text>
-                        <Text style={{ 
-                          color: manualEntryFormData.storage_location === loc ? ds.colors.textInverse : ds.colors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: '600',
-                        }}>
+                        <Text style={[
+                          styles.optionButtonText,
+                          { color: manualEntryFormData.storage_location === loc ? ds.colors.textPrimary : ds.colors.textSecondary },
+                          manualEntryFormData.storage_location === loc && { fontWeight: '500' }
+                        ]}>
                           {label}
                         </Text>
                       </TouchableOpacity>
@@ -748,29 +777,30 @@ export default function InventoryScreen() {
                   })}
                 </View>
               </View>
-              <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
-                  Status
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  STATUS
                 </Text>
-                <View style={styles.locationButtons}>
+                <View style={styles.optionButtons}>
                   {(['in_stock', 'low'] as const).map((stat) => (
                     <TouchableOpacity
                       key={stat}
                       onPress={() => setManualEntryFormData({ ...manualEntryFormData, status: stat })}
                       style={[
-                        styles.editLocationButton,
+                        styles.optionButton,
                         { 
-                          backgroundColor: manualEntryFormData.status === stat ? ds.colors.success : ds.colors.surface,
-                          borderColor: manualEntryFormData.status === stat ? ds.colors.success : ds.colors.surfaceHover,
+                          borderColor: manualEntryFormData.status === stat 
+                            ? ds.colors.textPrimary 
+                            : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                         }
                       ]}
                     >
-                      <Text style={{ 
-                        color: manualEntryFormData.status === stat ? ds.colors.textInverse : ds.colors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: '600',
-                      }}>
-                        {stat === 'in_stock' ? '✓ In Stock' : '⚠️ Low'}
+                      <Text style={[
+                        styles.optionButtonText,
+                        { color: manualEntryFormData.status === stat ? ds.colors.textPrimary : ds.colors.textSecondary },
+                        manualEntryFormData.status === stat && { fontWeight: '500' }
+                      ]}>
+                        {stat === 'in_stock' ? 'In Stock' : 'Low Stock'}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -811,7 +841,7 @@ export default function InventoryScreen() {
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button testID="manual-entry-cancel" onPress={() => setManualEntryDialogVisible(false)} labelStyle={{ fontSize: 16, fontWeight: '600' }} uppercase={false}>
+            <Button testID="manual-entry-cancel" onPress={() => setManualEntryDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false}>
               Cancel
             </Button>
             <PremiumButton
@@ -819,6 +849,7 @@ export default function InventoryScreen() {
               mode="contained"
               onPress={handleManualEntry}
               disabled={processing || !manualEntryFormData.product_name.trim()}
+              style={{ elevation: 0 }}
             >
               Add Item
             </PremiumButton>
@@ -831,95 +862,121 @@ export default function InventoryScreen() {
         <Dialog
           visible={editDialogVisible}
           onDismiss={() => setEditDialogVisible(false)}
-          style={[styles.editDialog, { borderRadius: 24 }]}
+          style={[styles.dialog, { backgroundColor: ds.colors.surface }]}
         >
-          <Dialog.Title style={{ fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>
-            Edit Item: {editingItem?.product_name}
+          <Dialog.Title style={[styles.dialogTitle, { color: ds.colors.textPrimary }]}>
+            Edit Item
           </Dialog.Title>
           <Dialog.ScrollArea style={styles.scrollArea}>
             <ScrollView
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={true}
             >
-              <TextInput
-                label="Quantity"
-                value={editFormData.quantity.toString()}
-                onChangeText={(text) =>
-                  setEditFormData({
-                    ...editFormData,
-                    quantity: parseFloat(text) || 0,
-                  })
-                }
-                keyboardType="numeric"
-                style={styles.input}
-                mode="outlined"
-              />
-              <Menu
-                key={editUnitMenuKey}
-                visible={editUnitMenuVisible}
-                onDismiss={() => setEditUnitMenuVisible(false)}
-                anchor={
-                  <Pressable onPress={() => setEditUnitMenuVisible(true)}>
-                    <TextInput
-                      label="Unit"
-                      value={cookingUnits.find(u => u.value === editFormData.unit)?.label || editFormData.unit}
-                      style={styles.input}
-                      mode="outlined"
-                      right={<TextInput.Icon icon="menu-down" />}
-                      editable={false}
-                      pointerEvents="none"
-                    />
-                  </Pressable>
-                }
-                contentStyle={{
-                  backgroundColor: ds.colors.surface,
-                  borderRadius: 12,
-                  maxHeight: 400,
-                  width: '100%',
-                }}
-                anchorPosition="bottom"
-              >
-                <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled>
-                  {cookingUnits.map((unit) => (
-                    <Menu.Item
-                      key={unit.value}
-                      onPress={() => {
-                        setEditFormData({ ...editFormData, unit: unit.value });
-                        setEditUnitMenuVisible(false);
-                        setEditUnitMenuKey(prev => prev + 1);
-                      }}
-                      title={unit.label}
-                      titleStyle={{ fontSize: 15 }}
-                    />
-                  ))}
-                </ScrollView>
-              </Menu>
-              <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
-                  Storage Location
+              {/* Product Name - Read Only */}
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  PRODUCT
                 </Text>
-                <View style={styles.locationButtons}>
+                <Text style={[styles.formValue, { color: ds.colors.textPrimary }]}>
+                  {editingItem?.product_name}
+                </Text>
+              </View>
+
+              {/* Quantity & Unit */}
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  QUANTITY
+                </Text>
+                <View style={styles.quantityRow}>
+                  <RNTextInput
+                    value={editFormData.quantity.toString()}
+                    onChangeText={(text) =>
+                      setEditFormData({
+                        ...editFormData,
+                        quantity: parseFloat(text) || 0,
+                      })
+                    }
+                    keyboardType="numeric"
+                    style={[
+                      styles.quantityInput,
+                      { 
+                        color: ds.colors.textPrimary,
+                        borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                      }
+                    ]}
+                    placeholderTextColor={ds.colors.textTertiary}
+                    underlineColorAndroid="transparent"
+                  />
+                  <Menu
+                    key={editUnitMenuKey}
+                    visible={editUnitMenuVisible}
+                    onDismiss={() => setEditUnitMenuVisible(false)}
+                    anchor={
+                      <TouchableOpacity 
+                        onPress={() => setEditUnitMenuVisible(true)}
+                        style={[
+                          styles.unitSelector,
+                          { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }
+                        ]}
+                      >
+                        <Text style={[styles.unitSelectorText, { color: ds.colors.textPrimary }]}>
+                          {cookingUnits.find(u => u.value === editFormData.unit)?.label || editFormData.unit}
+                        </Text>
+                        <MaterialCommunityIcons name="chevron-down" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+                      </TouchableOpacity>
+                    }
+                    contentStyle={{
+                      backgroundColor: ds.colors.surface,
+                      borderRadius: 12,
+                      maxHeight: 400,
+                      width: '100%',
+                    }}
+                    anchorPosition="bottom"
+                  >
+                    <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled>
+                      {cookingUnits.map((unit) => (
+                        <Menu.Item
+                          key={unit.value}
+                          onPress={() => {
+                            setEditFormData({ ...editFormData, unit: unit.value });
+                            setEditUnitMenuVisible(false);
+                            setEditUnitMenuKey(prev => prev + 1);
+                          }}
+                          title={unit.label}
+                          titleStyle={{ fontSize: 15 }}
+                        />
+                      ))}
+                    </ScrollView>
+                  </Menu>
+                </View>
+              </View>
+
+              {/* Storage Location */}
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  STORAGE LOCATION
+                </Text>
+                <View style={styles.optionButtons}>
                   {(['pantry', 'fridge', 'freezer'] as const).map((loc) => {
-                    const emoji = loc === 'pantry' ? '🥫' : loc === 'fridge' ? '🧊' : '❄️';
                     const label = loc === 'pantry' ? 'Pantry' : loc === 'fridge' ? 'Fridge' : 'Freezer';
                     return (
                       <TouchableOpacity
                         key={loc}
                         onPress={() => setEditFormData({ ...editFormData, storage_location: loc })}
                         style={[
-                          styles.editLocationButton,
+                          styles.optionButton,
                           { 
-                            backgroundColor: editFormData.storage_location === loc ? ds.colors.primary : ds.colors.surface,
-                            borderColor: editFormData.storage_location === loc ? ds.colors.primary : ds.colors.surfaceHover,
+                            borderColor: editFormData.storage_location === loc 
+                              ? ds.colors.textPrimary 
+                              : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                           }
                         ]}
                       >
-                        <Text style={{ fontSize: 20 }}>{emoji}</Text>
-                        <Text style={{ 
-                          color: editFormData.storage_location === loc ? ds.colors.textInverse : ds.colors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: '600',
-                        }}>
+                        <Text style={[
+                          styles.optionButtonText,
+                          { color: editFormData.storage_location === loc ? ds.colors.textPrimary : ds.colors.textSecondary },
+                          editFormData.storage_location === loc && { fontWeight: '500' }
+                        ]}>
                           {label}
                         </Text>
                       </TouchableOpacity>
@@ -927,74 +984,117 @@ export default function InventoryScreen() {
                   })}
                 </View>
               </View>
-              <View style={styles.locationContainer}>
-                <Text variant="bodyMedium" style={[styles.label, { color: ds.colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 12 }]}>
-                  Status
+
+              {/* Status */}
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  STATUS
                 </Text>
-                <View style={styles.locationButtons}>
+                <View style={styles.optionButtons}>
                   {(['in_stock', 'low'] as const).map((stat) => (
                     <TouchableOpacity
                       key={stat}
                       onPress={() => setEditFormData({ ...editFormData, status: stat })}
                       style={[
-                        styles.editLocationButton,
+                        styles.optionButton,
                         { 
-                          backgroundColor: editFormData.status === stat ? ds.colors.success : ds.colors.surface,
-                          borderColor: editFormData.status === stat ? ds.colors.success : ds.colors.surfaceHover,
+                          borderColor: editFormData.status === stat 
+                            ? ds.colors.textPrimary 
+                            : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                         }
                       ]}
                     >
-                      <Text style={{ 
-                        color: editFormData.status === stat ? ds.colors.textInverse : ds.colors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: '600',
-                      }}>
-                        {stat === 'in_stock' ? '✓ In Stock' : '⚠️ Low'}
+                      <Text style={[
+                        styles.optionButtonText,
+                        { color: editFormData.status === stat ? ds.colors.textPrimary : ds.colors.textSecondary },
+                        editFormData.status === stat && { fontWeight: '500' }
+                      ]}>
+                        {stat === 'in_stock' ? 'In Stock' : 'Low Stock'}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
-              <TextInput
-                label="Expiration Date (YYYY-MM-DD)"
-                value={editFormData.expiration_date}
-                onChangeText={(text) =>
-                  setEditFormData({ ...editFormData, expiration_date: text })
-                }
-                style={styles.input}
-                placeholder="2024-12-31"
-                mode="outlined"
-              />
-              <TextInput
-                label="Purchase Date (YYYY-MM-DD)"
-                value={editFormData.purchase_date}
-                onChangeText={(text) =>
-                  setEditFormData({ ...editFormData, purchase_date: text })
-                }
-                style={styles.input}
-                placeholder="2024-11-18"
-                mode="outlined"
-              />
-              <TextInput
-                label="Notes"
-                value={editFormData.notes}
-                onChangeText={(text) =>
-                  setEditFormData({ ...editFormData, notes: text })
-                }
-                multiline
-                numberOfLines={3}
-                style={styles.input}
-                mode="outlined"
-              />
+
+              {/* Dates */}
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  EXPIRATION DATE
+                </Text>
+                <RNTextInput
+                  value={editFormData.expiration_date}
+                  onChangeText={(text) =>
+                    setEditFormData({ ...editFormData, expiration_date: text })
+                  }
+                  placeholder="YYYY-MM-DD"
+                  style={[
+                    styles.textInputMinimal,
+                    { 
+                      color: ds.colors.textPrimary,
+                      borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                    }
+                  ]}
+                  placeholderTextColor={ds.colors.textTertiary}
+                  underlineColorAndroid="transparent"
+                />
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  PURCHASE DATE
+                </Text>
+                <RNTextInput
+                  value={editFormData.purchase_date}
+                  onChangeText={(text) =>
+                    setEditFormData({ ...editFormData, purchase_date: text })
+                  }
+                  placeholder="YYYY-MM-DD"
+                  style={[
+                    styles.textInputMinimal,
+                    { 
+                      color: ds.colors.textPrimary,
+                      borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                    }
+                  ]}
+                  placeholderTextColor={ds.colors.textTertiary}
+                  underlineColorAndroid="transparent"
+                />
+              </View>
+
+              {/* Notes */}
+              <View style={styles.formSection}>
+                <Text style={[styles.formLabel, { color: ds.colors.textTertiary }]}>
+                  NOTES
+                </Text>
+                <RNTextInput
+                  value={editFormData.notes}
+                  onChangeText={(text) =>
+                    setEditFormData({ ...editFormData, notes: text })
+                  }
+                  multiline
+                  numberOfLines={3}
+                  placeholder="Add notes..."
+                  style={[
+                    styles.textInputMinimal,
+                    styles.textInputMultiline,
+                    { 
+                      color: ds.colors.textPrimary,
+                      borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                    }
+                  ]}
+                  placeholderTextColor={ds.colors.textTertiary}
+                  underlineColorAndroid="transparent"
+                />
+              </View>
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button testID="edit-item-cancel" onPress={() => setEditDialogVisible(false)} labelStyle={{ fontSize: 16, fontWeight: '600' }} uppercase={false}>
+            <Button testID="edit-item-cancel" onPress={() => setEditDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false}>
               Cancel
             </Button>
-            <PremiumButton testID="edit-item-save" mode="contained" onPress={handleUpdateItem}>
+            <Button testID="edit-item-save" mode="text" onPress={handleUpdateItem} labelStyle={[styles.cancelLabel, { fontWeight: '600' }]} uppercase={false}>
               Save
-            </PremiumButton>
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -1012,253 +1112,183 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: 20,
-    paddingTop: 12,
+    paddingBottom: 100, // Space for FAB
   },
-  searchbar: {
-    marginBottom: DesignSystem.spacing.md,
-    borderRadius: DesignSystem.borderRadius.md,
-    ...DesignSystem.shadows.sm,
-  },
-  chipContainer: {
+  // Search - Minimal, no background, pure text
+  searchContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: DesignSystem.spacing.md,
-    marginHorizontal: -DesignSystem.spacing.xs,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    backgroundColor: 'transparent',
   },
-  chip: {
-    marginRight: DesignSystem.spacing.sm,
-    marginBottom: DesignSystem.spacing.sm,
-    marginHorizontal: DesignSystem.spacing.xs,
-    borderRadius: DesignSystem.borderRadius.full,
-  },
-  count: {
-    marginBottom: DesignSystem.spacing.md,
-    paddingHorizontal: DesignSystem.spacing.sm,
-  },
-  // Modern Card Styles
-  modernCard: {
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  modernCardContent: {
-    padding: 20,
-  },
-  modernCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  modernCardTitleSection: {
+  searchInput: {
     flex: 1,
-    marginRight: 12,
+    fontSize: 17,
+    marginLeft: 14,
+    marginRight: 8,
+    padding: 0,
+    margin: 0,
+    letterSpacing: -0.2,
+    fontWeight: '400',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
-  modernProductName: {
-    fontSize: 18,
-    fontWeight: '700',
+  // Filters - Minimal pills
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    gap: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterButtonActive: {
+    // Border color applied inline
+  },
+  filterText: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
+  countLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    paddingHorizontal: 24,
+    marginBottom: 12,
+    opacity: 0.55,
+  },
+  // Inventory Items - Clean list
+  inventoryItem: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+  },
+  itemMain: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 17,
+    fontWeight: '500',
     letterSpacing: -0.3,
-    lineHeight: 24,
     marginBottom: 6,
   },
-  brandBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  brandText: {
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  modernCardActions: {
+  itemMeta: {
     flexDirection: 'row',
-    gap: DesignSystem.spacing.xs,
-  },
-  actionIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
     alignItems: 'center',
-  },
-  modernDetailsRow: {
-    flexDirection: 'row',
-    gap: DesignSystem.spacing.sm,
-    marginBottom: DesignSystem.spacing.sm,
+    gap: 6,
     flexWrap: 'wrap',
   },
-  quantityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: DesignSystem.spacing.sm,
-    paddingVertical: DesignSystem.spacing.xs,
-    borderRadius: DesignSystem.borderRadius.md,
-    gap: DesignSystem.spacing.xs,
+  itemBrand: {
+    fontSize: 14,
+    letterSpacing: -0.1,
+    opacity: 0.6,
   },
-  quantityText: {
+  itemQuantity: {
+    fontSize: 14,
+    letterSpacing: -0.1,
+    opacity: 0.6,
   },
-  locationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: DesignSystem.spacing.sm,
-    paddingVertical: DesignSystem.spacing.xs,
-    borderRadius: DesignSystem.borderRadius.md,
-    gap: DesignSystem.spacing.xs,
+  itemLocation: {
+    fontSize: 14,
+    letterSpacing: -0.1,
+    opacity: 0.55,
+    textTransform: 'capitalize',
   },
-  locationText: {
-    ...getTextStyle('label'),
-    fontWeight: '600',
+  itemExpiration: {
+    fontSize: 13,
+    marginTop: 6,
+    opacity: 0.9,
   },
-  expirationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignSystem.spacing.xs,
-    marginTop: DesignSystem.spacing.xs,
+  itemActions: {
+    marginLeft: 12,
+    paddingTop: 2,
   },
-  expirationText: {
+  itemActionButton: {
+    // Minimal - just icon with hit slop
   },
-  // Legacy styles (keeping for compatibility)
-  card: {
-    marginBottom: DesignSystem.spacing.md,
-    ...DesignSystem.shadows.md,
-  },
-  brand: {
-    marginTop: DesignSystem.spacing.xs,
-  },
-  details: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: DesignSystem.spacing.sm,
-  },
-  location: {
-  },
-  expiration: {
-    marginTop: DesignSystem.spacing.xs,
-  },
+  // FAB - Minimal, no elevation
   fab: {
-    borderRadius: 9999,
-    elevation: 8,
+    borderRadius: 16, // Less rounded, more refined
+    elevation: 0,
   },
   fabGroup: {
     position: 'absolute',
     right: 0,
     bottom: 0,
     paddingBottom: 24,
-    paddingRight: 16,
+    paddingRight: 24,
   },
-  dialogButton: {
-    marginVertical: 6,
+  // Dialogs - Minimal
+  dialog: {
+    borderRadius: 20,
   },
-  locationLabel: {
-    marginBottom: DesignSystem.spacing.sm,
+  dialogTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+  },
+  dialogLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 12,
+    opacity: 0.55,
+  },
+  dialogAction: {
+    marginBottom: 4,
+    justifyContent: 'flex-start',
+  },
+  dialogActionLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  dialogActionContent: {
+    justifyContent: 'flex-start',
+  },
+  cancelLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   locationSelector: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 20,
-    gap: 10,
+    gap: 8,
   },
-  locationButton: {
+  locationOption: {
     flex: 1,
-  },
-  modernLocationButton: {
-    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 2,
-    gap: 6,
   },
-  editLocationButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderWidth: 2,
+  locationOptionText: {
+    fontSize: 14,
+    letterSpacing: -0.1,
   },
   separator: {
     height: 1,
-    marginVertical: DesignSystem.spacing.md,
-  },
-  // Modern Dialog Styles
-  modernDialog: {
-    borderRadius: DesignSystem.borderRadius.xl,
-  },
-  modernDialogTitle: {
-    paddingBottom: DesignSystem.spacing.sm,
-  },
-  modernDialogContent: {
-    paddingTop: DesignSystem.spacing.md,
-  },
-  modernLocationButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: DesignSystem.spacing.md,
-    paddingHorizontal: DesignSystem.spacing.sm,
-    borderRadius: DesignSystem.borderRadius.md,
-    borderWidth: 2,
-    gap: DesignSystem.spacing.xs,
-  },
-  modernLocationButtonActive: {
-    // Colors applied inline
-  },
-  modernLocationButtonText: {
-  },
-  modernLocationButtonTextActive: {
-    fontWeight: '600',
-  },
-  modernDialogActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: DesignSystem.spacing.md,
-    paddingHorizontal: DesignSystem.spacing.md,
-    borderRadius: DesignSystem.borderRadius.md,
-    marginBottom: DesignSystem.spacing.sm,
-    gap: DesignSystem.spacing.sm,
-    ...DesignSystem.shadows.sm,
-  },
-  modernDialogActionButtonOutlined: {
-    borderWidth: 2,
-  },
-  modernDialogActionText: {
-    fontWeight: '600',
-  },
-  modernDialogActionTextOutlined: {
-  },
-  modernDialogActions: {
-    paddingHorizontal: DesignSystem.spacing.md,
-    paddingBottom: DesignSystem.spacing.md,
-  },
-  modernDialogCancelLabel: {
+    marginVertical: 20,
   },
   processingText: {
     marginTop: 16,
     textAlign: 'center',
+    fontSize: 15,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  cardActions: {
-    flexDirection: 'row',
-  },
-  cardTitle: {
-    flex: 1,
-  },
+  // Edit Dialog
   editDialog: {
     maxHeight: '90%',
+    borderRadius: 20,
   },
   scrollArea: {
     maxHeight: 400,
@@ -1271,21 +1301,80 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 12,
   },
-  locationContainer: {
-    marginBottom: 16,
+  formSection: {
+    marginBottom: 20,
   },
-  label: {
-    marginBottom: 8,
+  formLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
     fontWeight: '600',
+    marginBottom: 12,
+    opacity: 0.55,
   },
-  locationButtons: {
+  formValue: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quantityInput: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  unitSelector: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+  },
+  unitSelectorText: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+  },
+  textInputMinimal: {
+    fontSize: 17,
+    fontWeight: '400',
+    letterSpacing: -0.3,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  textInputMultiline: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+    paddingTop: 8,
+  },
+  optionButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
-  locationChip: {
-    marginRight: 8,
-    marginBottom: 8,
+  optionButton: {
+    flex: 1,
+    minWidth: 90,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  optionButtonText: {
+    fontSize: 14,
+    letterSpacing: -0.1,
   },
 });
 

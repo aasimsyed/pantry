@@ -27,7 +27,7 @@ const getApiBaseUrl = () => {
   if (!__DEV__) {
     // In production, use environment variable or your deployed backend URL
     // Set this via EAS Secrets or app.json extra config
-    return process.env.EXPO_PUBLIC_API_URL || 'https://pantry-api-apqja3ye2q-vp.a.run.app';
+    return process.env.EXPO_PUBLIC_API_URL || 'https://pantry-api-154407938924.us-south1.run.app';
   }
   
   // Development: Use EXPO_PUBLIC_API_URL (set by run-local.sh) or fall back to production
@@ -35,7 +35,7 @@ const getApiBaseUrl = () => {
   if (devUrl) {
     return devUrl;
   }
-  return 'https://pantry-api-apqja3ye2q-vp.a.run.app';
+  return 'https://pantry-api-154407938924.us-south1.run.app';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -624,6 +624,11 @@ class APIClient {
 
   async updateUserSettings(data: { ai_provider?: string; ai_model?: string }): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
     return this.request('PUT', '/api/user/settings', { data });
+  }
+
+  // Account Management
+  async deleteAccount(): Promise<{ message: string }> {
+    return this.request<{ message: string }>('DELETE', '/api/auth/account');
   }
 
   // Offline request queue management

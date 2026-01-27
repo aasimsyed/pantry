@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -279,147 +279,149 @@ export default function RecipeDetailScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Section */}
+        {/* Hero Section - Minimal */}
         <View style={styles.heroSection}>
-          <Text testID="recipe-detail-title" style={[styles.heroTitle, { color: ds.colors.textPrimary }]}>{recipe.name}</Text>
+          <Text testID="recipe-detail-title" style={[styles.heroTitle, { color: ds.colors.textPrimary }]}>
+            {recipe.name}
+          </Text>
           {recipe.description && (
-            <Text testID="recipe-detail-description" style={[styles.heroDescription, { color: ds.colors.textSecondary }]}>{recipe.description}</Text>
+            <Text testID="recipe-detail-description" style={[styles.heroDescription, { color: ds.colors.textSecondary }]}>
+              {recipe.description}
+            </Text>
           )}
         </View>
 
-        {/* Meta Information Cards */}
-        <View style={styles.metaGrid}>
-          <View style={[styles.metaCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
-            <MaterialCommunityIcons name="timer-outline" size={24} color={ds.colors.primary} />
-            <Text style={[styles.metaValue, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{recipe.prep_time || 0}</Text>
-            <Text style={[styles.metaLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>Prep (min)</Text>
-          </View>
-          <View style={[styles.metaCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
-            <MaterialCommunityIcons name="fire" size={24} color={ds.colors.accent} />
-            <Text style={[styles.metaValue, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{recipe.cook_time || 0}</Text>
-            <Text style={[styles.metaLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>Cook (min)</Text>
-          </View>
-          <View style={[styles.metaCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
-            <MaterialCommunityIcons name="account-group" size={24} color={ds.colors.success} />
-            <Text style={[styles.metaValue, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{scaledServings}</Text>
-            <Text style={[styles.metaLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>Serves</Text>
+        {/* Meta Information - Clean inline */}
+        <View style={[styles.metaSection, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <Text style={[styles.metaLabel, { color: ds.colors.textTertiary }]}>
+                PREP
+              </Text>
+              <Text style={[styles.metaValue, { color: ds.colors.textPrimary }]}>
+                {recipe.prep_time || 0} min
+              </Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={[styles.metaLabel, { color: ds.colors.textTertiary }]}>
+                COOK
+              </Text>
+              <Text style={[styles.metaValue, { color: ds.colors.textPrimary }]}>
+                {recipe.cook_time || 0} min
+              </Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={[styles.metaLabel, { color: ds.colors.textTertiary }]}>
+                SERVINGS
+              </Text>
+              <Text style={[styles.metaValue, { color: ds.colors.textPrimary }]}>
+                {scaledServings}
+              </Text>
+            </View>
           </View>
         </View>
 
-      {/* Servings Scale Control - only for saved recipes */}
+      {/* Servings Scale - Minimal (only for saved recipes) */}
       {isSavedRecipe && (
-        <Card style={[styles.modernScaleCard, { backgroundColor: `${ds.colors.primary}08`, borderLeftColor: ds.colors.primary, ...ds.shadows.sm }]}>
-          <Card.Content>
-            <View style={styles.scaleHeader}>
-              <MaterialCommunityIcons name="scale" size={24} color={ds.colors.primary} />
-              <View style={styles.scaleHeaderText}>
-                <Text style={[styles.scaleTitle, getTextStyle('title', ds.colors.primary, isDark)]}>Scale Recipe</Text>
-                <Text style={[styles.scaleSubtitle, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>
-                  {scaledServings} {scaledServings === 1 ? 'serving' : 'servings'}
-                  {scaleFactor !== 1 && (
-                    <Text style={[styles.scalePercentage, getTextStyle('caption', ds.colors.primary, isDark)]}>
-                      {' '}({scaleFactor > 1 ? '+' : ''}{((scaleFactor - 1) * 100).toFixed(0)}%)
-                    </Text>
-                  )}
-                </Text>
-              </View>
+        <View style={styles.scaleSection}>
+          <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            SCALE RECIPE
+          </Text>
+          <View style={styles.scaleControls}>
+            <TouchableOpacity
+              testID="servings-decrease"
+              onPress={() => setScaledServings(Math.max(1, scaledServings - 1))}
+              style={[styles.scaleButton, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.scaleButtonText, { color: ds.colors.textPrimary }]}>−</Text>
+            </TouchableOpacity>
+            <View style={styles.scaleValue}>
+              <Text style={[styles.scaleValueNumber, { color: ds.colors.textPrimary }]}>
+                {scaledServings}
+              </Text>
+              <Text style={[styles.scaleValueLabel, { color: ds.colors.textSecondary }]}>
+                servings
+              </Text>
             </View>
-            <View style={styles.sliderContainer}>
-              <Text style={[styles.sliderLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>1</Text>
-              <Slider
-                testID="recipe-servings-slider"
-                value={scaledServings}
-                onValueChange={(value) => setScaledServings(Math.round(value))}
-                minimumValue={1}
-                maximumValue={20}
-                step={1}
-                minimumTrackTintColor={ds.colors.primary}
-                maximumTrackTintColor={ds.colors.surfaceHover}
-                thumbTintColor={ds.colors.primary}
-                style={styles.servingsSlider}
-              />
-              <Text style={[styles.sliderLabel, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>20</Text>
-            </View>
-            <View style={styles.scaleButtons}>
-              <Button
-                testID="servings-decrease"
-                mode="outlined"
-                compact
-                onPress={() => setScaledServings(Math.max(1, scaledServings - 1))}
-                style={[styles.modernScaleButton, { borderColor: ds.colors.primary }]}
-                labelStyle={[styles.modernScaleButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
-              >
-                -1
-              </Button>
-              <Button
-                testID="servings-reset"
-                mode="outlined"
-                compact
-                onPress={() => setScaledServings(originalServings)}
-                style={[styles.modernScaleButton, { borderColor: ds.colors.primary }]}
-                labelStyle={[styles.modernScaleButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
-              >
-                Reset
-              </Button>
-              <Button
-                testID="servings-increase"
-                mode="outlined"
-                compact
-                onPress={() => setScaledServings(Math.min(20, scaledServings + 1))}
-                style={[styles.modernScaleButton, { borderColor: ds.colors.primary }]}
-                labelStyle={[styles.modernScaleButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
-              >
-                +1
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* Cuisine Badge */}
-      {'cuisine' in recipe && recipe.cuisine && (
-        <View style={[styles.cuisineBadge, { backgroundColor: ds.colors.surfaceHover }]}>
-          <MaterialCommunityIcons name="earth" size={18} color={ds.colors.accent} />
-          <Text style={[styles.cuisineText, getTextStyle('label', ds.colors.textPrimary, isDark)]}>{recipe.cuisine} Cuisine</Text>
+            <TouchableOpacity
+              testID="servings-increase"
+              onPress={() => setScaledServings(Math.min(20, scaledServings + 1))}
+              style={[styles.scaleButton, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.scaleButtonText, { color: ds.colors.textPrimary }]}>+</Text>
+            </TouchableOpacity>
+          </View>
+          {scaleFactor !== 1 && (
+            <TouchableOpacity
+              testID="servings-reset"
+              onPress={() => setScaledServings(originalServings)}
+              style={styles.resetButton}
+            >
+              <Text style={[styles.resetButtonText, { color: ds.colors.textSecondary }]}>
+                Reset to {originalServings}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
-      {/* Rating & Notes Section */}
+      {/* Recipe Metadata - Inline */}
+      <View style={styles.infoSection}>
+        {recipe.cuisine && (
+          <Text style={[styles.infoText, { color: ds.colors.textSecondary }]}>
+            {recipe.cuisine}
+          </Text>
+        )}
+        {recipe.difficulty && (
+          <Text style={[styles.infoText, { color: ds.colors.textSecondary }]}>
+            {recipe.cuisine ? ' · ' : ''}{recipe.difficulty}
+          </Text>
+        )}
+      </View>
+
+      {/* Rating & Notes - Minimal */}
       {isSavedRecipe && (
         <>
           {'rating' in recipe && recipe.rating != null && recipe.rating > 0 && (
-            <View style={[styles.ratingBadge, { backgroundColor: `${ds.colors.warning}15` }]}>
-              <MaterialCommunityIcons name="star" size={20} color={ds.colors.warning} />
-              <Text style={[styles.ratingText, getTextStyle('label', ds.colors.warning, isDark)]}>Rating: {recipe.rating}/5</Text>
+            <View style={[styles.ratingSection, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+              <Text style={[styles.ratingLabel, { color: ds.colors.textTertiary }]}>
+                RATING
+              </Text>
+              <Text style={[styles.ratingValue, { color: ds.colors.textPrimary }]}>
+                {recipe.rating}/5
+              </Text>
             </View>
           )}
           {'notes' in recipe && recipe.notes && (
-            <Card style={[styles.modernNotesCard, { backgroundColor: ds.colors.surfaceHover, ...ds.shadows.sm }]}>
-              <Card.Content>
-                <View style={styles.notesHeader}>
-                  <MaterialCommunityIcons name="note-text" size={20} color={ds.colors.primary} />
-                  <Text style={[styles.notesTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>Notes</Text>
-                </View>
-                <Text style={[styles.notesText, getTextStyle('body', ds.colors.textSecondary, isDark)]}>{recipe.notes}</Text>
-              </Card.Content>
-            </Card>
+            <View style={[styles.notesSection, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+              <Text style={[styles.notesLabel, { color: ds.colors.textTertiary }]}>
+                NOTES
+              </Text>
+              <Text style={[styles.notesText, { color: ds.colors.textSecondary }]}>
+                {recipe.notes}
+              </Text>
+            </View>
           )}
-          <Button
+          <TouchableOpacity
             testID="edit-notes-rating-button"
-            mode="outlined"
-            icon="pencil"
             onPress={() => {
               setNotes('notes' in recipe ? (recipe.notes || '') : '');
               setRating('rating' in recipe ? (recipe.rating || 0) : 0);
               setEditDialogVisible(true);
             }}
-            style={[styles.modernEditButton, { borderColor: ds.colors.primary }]}
-            labelStyle={[styles.modernEditButtonLabel, getTextStyle('label', ds.colors.primary, isDark)]}
+            style={[styles.editRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
+            activeOpacity={0.6}
           >
-            {('notes' in recipe && recipe.notes) || ('rating' in recipe && recipe.rating) 
-              ? 'Edit Notes & Rating' 
-              : 'Add Notes & Rating'}
-          </Button>
+            <Text style={[styles.editText, { color: ds.colors.textPrimary }]}>
+              {('notes' in recipe && recipe.notes) || ('rating' in recipe && recipe.rating) 
+                ? 'Edit Notes & Rating' 
+                : 'Add Notes & Rating'}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
+          </TouchableOpacity>
         </>
       )}
 
@@ -644,69 +646,172 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: DesignSystem.spacing.md,
-    paddingBottom: DesignSystem.spacing.xxl,
+    paddingBottom: 40,
   },
-  // Hero Section
+  // Hero Section - Minimal
   heroSection: {
-    marginBottom: DesignSystem.spacing.lg,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 24,
   },
   heroTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    letterSpacing: -0.5,
-    marginBottom: DesignSystem.spacing.sm,
-    lineHeight: 34,
+    letterSpacing: -0.8,
+    marginBottom: 12,
+    lineHeight: 38,
   },
   heroDescription: {
     fontSize: 16,
     lineHeight: 24,
-    opacity: 0.85,
+    opacity: 0.6,
+    letterSpacing: -0.2,
   },
-  // Meta Grid
-  metaGrid: {
+  // Meta Section - Minimal inline
+  metaSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+  },
+  metaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: DesignSystem.spacing.lg,
-    gap: DesignSystem.spacing.sm,
+    justifyContent: 'space-around',
   },
-  metaCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 16,
+  metaItem: {
     alignItems: 'center',
-  },
-  metaValue: {
-    marginTop: 4,
-    marginBottom: 2,
   },
   metaLabel: {
-  },
-  // Badges
-  cuisineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 9999,
-    marginBottom: 16,
-    gap: 4,
-  },
-  cuisineText: {
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 9999,
-    marginBottom: 16,
-    gap: 4,
-  },
-  ratingText: {
+    fontSize: 11,
+    letterSpacing: 1.2,
     fontWeight: '600',
+    marginBottom: 6,
+    opacity: 0.55,
+  },
+  metaValue: {
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  // Scale Section - Minimal
+  scaleSection: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+  },
+  formDivider: {
+    height: 1,
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 16,
+    opacity: 0.55,
+  },
+  scaleControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  scaleButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scaleButtonText: {
+    fontSize: 24,
+    fontWeight: '300',
+  },
+  scaleValue: {
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  scaleValueNumber: {
+    fontSize: 32,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  scaleValueLabel: {
+    fontSize: 13,
+    opacity: 0.6,
+  },
+  resetButton: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  resetButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.1,
+  },
+  // Info Section
+  infoSection: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  infoText: {
+    fontSize: 14,
+    opacity: 0.6,
+    letterSpacing: -0.1,
+    textTransform: 'capitalize',
+  },
+  // Rating Section
+  ratingSection: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+  },
+  ratingLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 6,
+    opacity: 0.55,
+  },
+  ratingValue: {
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  // Notes Section
+  notesSection: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+  },
+  notesLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+    marginBottom: 8,
+    opacity: 0.55,
+  },
+  notesText: {
+    fontSize: 15,
+    lineHeight: 22,
+    opacity: 0.7,
+    letterSpacing: -0.1,
+  },
+  // Edit Row
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+  },
+  editText: {
+    fontSize: 17,
+    fontWeight: '400',
+    letterSpacing: -0.2,
   },
   // Section Headers
   sectionHeader: {

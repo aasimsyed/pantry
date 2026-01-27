@@ -20,46 +20,36 @@ export default function HomeScreen() {
     await logout();
   };
 
-  const quickActions = [
+  const actions = [
     { 
-      title: 'View Inventory', 
-      subtitle: 'Manage your pantry',
+      title: 'Inventory', 
+      subtitle: 'View and manage items',
       icon: 'package-variant', 
       screen: 'Inventory',
-      gradient: ['#3B82F6', '#2563EB'],
-      iconBg: 'rgba(59, 130, 246, 0.1)',
     },
     { 
-      title: 'Generate Recipes', 
+      title: 'Recipes', 
       subtitle: 'AI-powered suggestions',
       icon: 'chef-hat', 
       screen: 'Recipes',
-      gradient: ['#10B981', '#059669'],
-      iconBg: 'rgba(16, 185, 129, 0.1)',
     },
     { 
-      title: 'View Statistics', 
-      subtitle: 'Insights & analytics',
-      icon: 'chart-bar', 
-      screen: 'Statistics',
-      gradient: ['#8B5CF6', '#7C3AED'],
-      iconBg: 'rgba(139, 92, 246, 0.1)',
-    },
-    {
-      title: 'Recipe Box',
-      subtitle: 'Your saved recipes',
+      title: 'Recipe Box', 
+      subtitle: 'Your saved favorites',
       icon: 'book-open-variant',
       screen: 'RecipeBox',
-      gradient: ['#EC4899', '#DB2777'],
-      iconBg: 'rgba(236, 72, 153, 0.1)',
+    },
+    { 
+      title: 'Statistics', 
+      subtitle: 'Insights and trends',
+      icon: 'chart-bar', 
+      screen: 'Statistics',
     },
     {
       title: 'Settings',
-      subtitle: 'Preferences & account',
+      subtitle: 'Preferences and account',
       icon: 'cog',
       screen: 'Settings',
-      gradient: ['#6B7280', '#4B5563'],
-      iconBg: 'rgba(107, 114, 128, 0.1)',
     },
   ];
 
@@ -72,85 +62,122 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           style={{ backgroundColor: ds.colors.background }}
         >
-        {/* Hero Section */}
+        {/* Hero Section - Refined, minimal */}
         <View style={styles.heroSection}>
-          <Text testID="home-title" style={[styles.heroTitle, getTextStyle('display', ds.colors.primary, isDark)]}>Smart Pantry</Text>
-          <Text testID="home-subtitle" style={[styles.heroSubtitle, getTextStyle('body', ds.colors.textSecondary, isDark)]}>
-            Manage your pantry with AI-powered intelligence
+          <Text testID="home-title" style={[styles.heroTitle, { color: ds.colors.textPrimary }]}>
+            Smart Pantry
+          </Text>
+          <Text testID="home-subtitle" style={[styles.heroSubtitle, { color: ds.colors.textSecondary }]}>
+            Manage your food. Reduce waste.
           </Text>
         </View>
 
-        {/* Quick Actions Grid */}
-        <View style={styles.quickActionsGrid}>
-          {quickActions.map((action, index) => (
+        {/* Actions - Clean list, Rams/Ive style */}
+        <View style={styles.actionsSection}>
+          {actions.map((action, index) => (
             <TouchableOpacity
               key={index}
-              testID={`quick-action-${action.screen.toLowerCase()}`}
-              style={[styles.actionCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}
+              testID={`action-${action.screen.toLowerCase()}`}
+              style={[
+                styles.actionItem,
+                { 
+                  borderBottomColor: isDark 
+                    ? 'rgba(255, 255, 255, 0.08)' 
+                    : 'rgba(0, 0, 0, 0.08)',
+                  borderBottomWidth: index < actions.length - 1 ? 1 : 0,
+                }
+              ]}
               onPress={() => navigation.navigate(action.screen as never)}
-              activeOpacity={0.8}
+              activeOpacity={0.6}
             >
-              <View style={[styles.actionIconContainer, { backgroundColor: action.iconBg }]}>
+              <View style={styles.actionIcon}>
                 <MaterialCommunityIcons 
                   name={action.icon as any} 
-                  size={32} 
-                  color={action.gradient[0]} 
+                  size={22} 
+                  color={ds.colors.textPrimary}
+                  style={{ opacity: 0.8 }}
                 />
               </View>
-              <Text style={[styles.actionTitle, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{action.title}</Text>
-              <Text style={[styles.actionSubtitle, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>{action.subtitle}</Text>
-              <View style={[styles.actionGradient, { backgroundColor: ds.colors.primary }]} />
+              <View style={styles.actionContent}>
+                <Text style={[styles.actionTitle, { color: ds.colors.textPrimary }]}>
+                  {action.title}
+                </Text>
+                <Text style={[styles.actionSubtitle, { color: ds.colors.textSecondary }]}>
+                  {action.subtitle}
+                </Text>
+              </View>
+              <MaterialCommunityIcons 
+                name="chevron-right" 
+                size={20} 
+                color={ds.colors.textTertiary}
+                style={{ opacity: 0.4 }}
+              />
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Features Section */}
-        <View style={styles.featuresSection}>
-          <Text style={[styles.sectionTitle, getTextStyle('headline', ds.colors.textPrimary, isDark)]}>Features</Text>
-          <View style={styles.featuresGrid}>
+        {/* Technology Section - Informational, Minimal */}
+        <View style={styles.technologySection}>
+          <View 
+            style={[
+              styles.sectionDivider,
+              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }
+            ]} 
+          />
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            CAPABILITIES
+          </Text>
+          
+          {/* Technology Stack - Clean, minimal presentation */}
+          <View style={styles.technologyList}>
             {[
-              { icon: '📸', title: 'Image Processing', desc: 'Automatic product extraction from photos' },
-              { icon: '🤖', title: 'AI Analysis', desc: 'Intelligent recognition and categorization' },
-              { icon: '🍳', title: 'Recipe Generation', desc: 'Flavor chemistry-based recipe suggestions' },
-              { icon: '📊', title: 'Analytics', desc: 'Track inventory and consumption patterns' },
+              { title: 'Image Processing', desc: 'Automatic product extraction from photos' },
+              { title: 'AI Analysis', desc: 'Intelligent recognition and categorization' },
+              { title: 'Recipe Generation', desc: 'Flavor chemistry-based suggestions' },
+              { title: 'Analytics', desc: 'Track inventory and consumption patterns' },
             ].map((feature, index) => (
-              <Card key={index} style={[styles.featureCard, { backgroundColor: ds.colors.surface, ...ds.shadows.sm }]}>
-                <Card.Content style={styles.featureContent}>
-                  <Text style={styles.featureIcon}>{feature.icon}</Text>
-                  <Text style={[styles.featureTitle, getTextStyle('label', ds.colors.textPrimary, isDark)]}>{feature.title}</Text>
-                  <Text style={[styles.featureDesc, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>{feature.desc}</Text>
-                </Card.Content>
-              </Card>
+              <View key={index} style={styles.technologyItem}>
+                <Text style={[styles.technologyTitle, { color: ds.colors.textPrimary }]}>
+                  {feature.title}
+                </Text>
+                <Text style={[styles.technologyDesc, { color: ds.colors.textSecondary }]}>
+                  {feature.desc}
+                </Text>
+              </View>
             ))}
           </View>
         </View>
 
-        {/* User Section */}
+        {/* User Section - Minimal */}
         {user && (
-          <Card style={[styles.userCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-            <Card.Content style={styles.userContent}>
-              <View style={styles.userInfo}>
-                <View style={[styles.userAvatar, { backgroundColor: ds.colors.surfaceHover }]}>
-                  <MaterialCommunityIcons name="account" size={24} color={ds.colors.primary} />
-                </View>
-                <View style={styles.userDetails}>
-                  <Text style={[styles.userName, getTextStyle('title', ds.colors.textPrimary, isDark)]}>{user.full_name || 'User'}</Text>
-                  <Text style={[styles.userEmail, getTextStyle('caption', ds.colors.textSecondary, isDark)]}>{user.email}</Text>
-                </View>
+          <View style={styles.userSection}>
+            <View 
+              style={[
+                styles.userDivider,
+                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }
+              ]} 
+            />
+            <View style={styles.userInfo}>
+              <View style={styles.userDetails}>
+                <Text style={[styles.userLabel, { color: ds.colors.textTertiary }]}>
+                  Signed in as
+                </Text>
+                <Text style={[styles.userName, { color: ds.colors.textPrimary }]}>
+                  {user.full_name || user.email}
+                </Text>
               </View>
-              <Button
+              <TouchableOpacity
                 testID="logout-button"
-                mode="outlined"
                 onPress={handleLogout}
-                textColor={ds.colors.error}
                 style={styles.logoutButton}
-                labelStyle={{ fontSize: 16, fontWeight: '600' }}
-                uppercase={false}
+                activeOpacity={0.6}
               >
-                Sign Out
-              </Button>
-            </Card.Content>
-          </Card>
+                <Text style={[styles.logoutText, { color: ds.colors.textSecondary }]}>
+                  Sign Out
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -163,124 +190,132 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: DesignSystem.spacing.md,
-    paddingBottom: DesignSystem.spacing.xxl,
+    paddingTop: 32,
+    paddingBottom: 40,
   },
-  // Hero Section
+  // Hero Section - Rams/Ive: Clarity through typography
   heroSection: {
-    marginBottom: DesignSystem.spacing.xl,
-    paddingTop: 24,
+    paddingHorizontal: 24,
+    marginBottom: 48,
   },
   heroTitle: {
+    fontSize: 40,
+    fontWeight: '700',
+    letterSpacing: -1.2,
     marginBottom: 8,
+    lineHeight: 44,
   },
   heroSubtitle: {
+    fontSize: 17,
     lineHeight: 24,
+    letterSpacing: -0.2,
+    opacity: 0.6,
   },
-  // Quick Actions
-  quickActionsGrid: {
+  // Actions - Rams: "Weniger, aber besser" (Less, but better)
+  actionsSection: {
+    marginBottom: 40,
+    paddingHorizontal: 24,
+  },
+  actionItem: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -DesignSystem.spacing.sm,
-    marginBottom: DesignSystem.spacing.xl,
-  },
-  actionCard: {
-    width: '48%',
-    margin: '1%',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  actionIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingVertical: 20,
+    // No background, no shadow - pure function
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  actionContent: {
+    flex: 1,
   },
   actionTitle: {
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+    marginBottom: 2,
   },
   actionSubtitle: {
-    marginBottom: 8,
+    fontSize: 14,
+    letterSpacing: -0.1,
+    opacity: 0.6,
   },
-  actionGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    opacity: 0.1,
+  // Technology Section - Rams: Pure information, no decoration
+  technologySection: {
+    paddingHorizontal: 24,
+    marginBottom: 40,
   },
-  // Features
-  featuresSection: {
-    marginBottom: DesignSystem.spacing.xl,
+  sectionDivider: {
+    height: 1,
+    marginBottom: 24,
   },
-  sectionTitle: {
-    marginBottom: 16,
+  sectionLabel: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 20,
+    fontWeight: '600',
+    opacity: 0.55,
   },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -DesignSystem.spacing.sm,
+  technologyList: {
+    gap: 20,
   },
-  featureCard: {
-    width: '48%',
-    margin: '1%',
-    marginBottom: 16,
-    borderRadius: 16,
+  technologyItem: {
+    // Pure typography - no containers, no decoration
   },
-  featureContent: {
-    padding: DesignSystem.spacing.md,
-    alignItems: 'center',
-  },
-  featureIcon: {
-    fontSize: 40,
-    marginBottom: DesignSystem.spacing.sm,
-  },
-  featureTitle: {
+  technologyTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: -0.2,
     marginBottom: 4,
-    textAlign: 'center',
   },
-  featureDesc: {
-    textAlign: 'center',
-    lineHeight: 18,
+  technologyDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.6,
+    letterSpacing: -0.1,
   },
-  // User Card
-  userCard: {
-    borderRadius: 16,
-    marginTop: 16,
+  // User Section - Ive: Subtle, purposeful
+  userSection: {
+    paddingHorizontal: 24,
+    marginTop: 20,
   },
-  userContent: {
-    padding: DesignSystem.spacing.md,
+  userDivider: {
+    height: 1,
+    marginBottom: 24,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: DesignSystem.spacing.md,
-  },
-  userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 9999,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'space-between',
   },
   userDetails: {
     flex: 1,
   },
-  userName: {
-    marginBottom: 2,
+  userLabel: {
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    fontWeight: '500',
+    opacity: 0.65,
   },
-  userEmail: {
+  userName: {
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   logoutButton: {
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
-  logoutLabel: {
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
 });
 

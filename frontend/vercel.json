@@ -1,5 +1,5 @@
 {
-  "buildCommand": "VITE_API_URL=https://pantry-api-apqja3ye2q-vp.a.run.app npm run build",
+  "buildCommand": "VITE_API_URL=https://pantry-api-154407938924.us-south1.run.app npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [

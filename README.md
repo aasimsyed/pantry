@@ -11,7 +11,7 @@ Pantry inventory app with OCR (Google Vision / Tesseract), AI-powered product ex
 | **Mobile** | EAS / Expo (TestFlight, etc.) |
 | **Database** | Cloud SQL (PostgreSQL); local: Postgres via Docker or SQLite |
 
-- **API URL:** `https://pantry-api-apqja3ye2q-vp.a.run.app`
+- **API URL:** `https://pantry-api-154407938924.us-south1.run.app`
 - **Frontend:** `https://smartpantryai.vercel.app`
 
 ## Project Structure

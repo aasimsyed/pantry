@@ -2,11 +2,14 @@
   "expo": {
     "name": "Smart Pantry AI",
     "slug": "smart-pantry",
-    "version": "1.4.1",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "privacy": "public",
+    "description": "Smart Pantry AI helps you track your food inventory, reduce waste, and discover recipes based on what you have at home. Scan product labels, track expiration dates, and get AI-powered recipe suggestions.",
+    "primaryColor": "#4CAF50",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -21,7 +24,11 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "NSCameraUsageDescription": "Smart Pantry needs camera access to scan barcodes and product labels"
+        "NSCameraUsageDescription": "Smart Pantry needs camera access to scan barcodes and product labels",
+        "NSPhotoLibraryUsageDescription": "Smart Pantry needs access to your photo library to upload product photos and receipts"
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {

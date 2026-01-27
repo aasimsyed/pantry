@@ -18,7 +18,7 @@ cd mobile
 - ✅ Auto-increments build number (configured in `eas.json`)
 - ✅ Builds iOS app with production profile
 - ✅ Automatically submits to TestFlight
-- ✅ Uses Cloud Run API URL (`https://pantry-api-apqja3ye2q-vp.a.run.app`)
+- ✅ Uses Cloud Run API URL (`https://pantry-api-154407938924.us-south1.run.app`)
 
 **What it does:**
 1. Checks for EAS CLI (uses global or npx)
@@ -165,7 +165,7 @@ If you get "You've already submitted this build", the build number is already in
 ## Environment Variables
 
 The production build automatically uses:
-- `EXPO_PUBLIC_API_URL`: `https://pantry-api-apqja3ye2q-vp.a.run.app`
+- `EXPO_PUBLIC_API_URL`: `https://pantry-api-154407938924.us-south1.run.app`
 
 This is configured in `eas.json` under the production profile.
 
