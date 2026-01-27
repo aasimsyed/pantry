@@ -997,6 +997,23 @@ class PantryService:
         logger.info(f"Deleted recent recipe ID {recipe_id}")
         return True
     
+    def delete_all_recent_recipes(self, user_id: int) -> int:
+        """Delete all recent recipes for a user.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            Number of recipes deleted
+        """
+        count = self.session.query(RecentRecipe).filter(
+            RecentRecipe.user_id == user_id
+        ).delete()
+        self.session.commit()
+        
+        logger.info(f"Deleted {count} recent recipes for user ID {user_id}")
+        return count
+    
     def save_recent_to_saved(
         self,
         recent_recipe_id: int,

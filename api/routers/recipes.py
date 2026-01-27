@@ -307,3 +307,21 @@ def delete_recent_recipe(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete recent recipe",
         ) from e
+
+
+@router.delete("/recent", response_model=MessageResponse)
+def delete_all_recent_recipes(
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service),
+) -> MessageResponse:
+    """Delete all recent recipes for the current user."""
+    try:
+        count = service.delete_all_recent_recipes(current_user.id)
+        logger.info("Deleted %d recent recipes for user ID %s", count, current_user.id)
+        return MessageResponse(message=f"Deleted {count} recent recipe(s) successfully")
+    except Exception as e:
+        logger.error("Error deleting all recent recipes: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete recent recipes",
+        ) from e

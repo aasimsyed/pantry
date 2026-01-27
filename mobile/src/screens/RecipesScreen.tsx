@@ -252,6 +252,34 @@ export default function RecipesScreen() {
     }
   };
 
+  const handleClearAllRecentRecipes = () => {
+    if (recentRecipes.length === 0) return;
+    
+    Alert.alert(
+      'Clear All Recent Recipes',
+      `Are you sure you want to delete all ${recentRecipes.length} recent recipe(s)? This cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.deleteAllRecentRecipes();
+              setRecentRecipes([]);
+              Alert.alert('Success', 'All recent recipes deleted');
+            } catch (err: any) {
+              Alert.alert('Error', err.response?.data?.detail || err.message || 'Failed to delete recipes');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const toggleIngredient = (ingredient: string, list: string[], setList: (list: string[]) => void) => {
     if (list.includes(ingredient)) {
       setList(list.filter((i) => i !== ingredient));
@@ -589,9 +617,22 @@ export default function RecipesScreen() {
       {(loadingRecent || recentRecipes.length > 0) && (
         <Card style={[styles.card, { backgroundColor: ds.colors.surface }]}>
           <Card.Content>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
-              📋 Recent Recipes
-            </Text>
+            <View style={styles.recentHeader}>
+              <Text variant="titleMedium" style={[styles.sectionTitle, { color: ds.colors.textPrimary, flex: 1 }]}>
+                📋 Recent Recipes
+              </Text>
+              {!loadingRecent && recentRecipes.length > 0 && (
+                <Button
+                  mode="text"
+                  onPress={handleClearAllRecentRecipes}
+                  textColor={isDark ? '#f87171' : '#ef4444'}
+                  labelStyle={{ fontSize: 14, fontWeight: '600' }}
+                  compact
+                >
+                  Clear All
+                </Button>
+              )}
+            </View>
             {!loadingRecent && (
               <Text variant="bodySmall" style={{ color: ds.colors.textSecondary, marginBottom: 12 }}>
                 Recipes you generated recently. Save them to your Recipe Box to keep them forever.
@@ -989,6 +1030,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 12,
     marginBottom: 8,
   },

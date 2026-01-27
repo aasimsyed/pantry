@@ -582,6 +582,10 @@ class APIClient {
     return this.request<void>('DELETE', `/api/recipes/recent/${recipeId}`);
   }
 
+  async deleteAllRecentRecipes(): Promise<{ message: string }> {
+    return this.request<{ message: string }>('DELETE', '/api/recipes/recent');
+  }
+
   // Products
   async getProducts(skip: number = 0, limit: number = 100): Promise<Product[]> {
     return this.request<Product[]>('GET', '/api/products', {
