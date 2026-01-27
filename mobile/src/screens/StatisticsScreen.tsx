@@ -1,14 +1,95 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
-import { Card, Text, ActivityIndicator } from 'react-native-paper';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle } from 'react-native-svg';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
 import { getDesignSystem } from '../utils/designSystem';
 import type { Statistics } from '../types';
 
+// Health score ring component
+const HealthScoreRing = ({ 
+  score, 
+  size = 140, 
+  strokeWidth = 12,
+  color,
+  backgroundColor,
+}: { 
+  score: number; 
+  size?: number; 
+  strokeWidth?: number;
+  color: string;
+  backgroundColor: string;
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const progress = (score / 100) * circumference;
+  
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={backgroundColor}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={`${progress} ${circumference}`}
+          strokeLinecap="round"
+        />
+      </Svg>
+      <View style={{ position: 'absolute', alignItems: 'center' }}>
+        <Text style={{ fontSize: 36, fontWeight: '700', color }}>{score}</Text>
+        <Text style={{ fontSize: 12, color, opacity: 0.7, marginTop: -2 }}>/ 100</Text>
+      </View>
+    </View>
+  );
+};
+
+// Progress bar component
+const ProgressBar = ({ 
+  value, 
+  maxValue, 
+  color, 
+  backgroundColor,
+  height = 8,
+}: { 
+  value: number; 
+  maxValue: number; 
+  color: string; 
+  backgroundColor: string;
+  height?: number;
+}) => {
+  const progress = maxValue > 0 ? Math.min(value / maxValue, 1) : 0;
+  
+  return (
+    <View style={{ height, backgroundColor, borderRadius: height / 2, overflow: 'hidden' }}>
+      <View 
+        style={{ 
+          height: '100%', 
+          width: `${progress * 100}%`, 
+          backgroundColor: color,
+          borderRadius: height / 2,
+        }} 
+      />
+    </View>
+  );
+};
+
 export default function StatisticsScreen() {
+  const navigation = useNavigation();
   const { isDark } = useTheme();
   const ds = getDesignSystem(isDark);
   const [stats, setStats] = useState<Statistics | null>(null);
@@ -30,12 +111,26 @@ export default function StatisticsScreen() {
     }
   };
 
+  const getHealthColor = (score: number) => {
+    if (score >= 80) return ds.colors.success;
+    if (score >= 60) return '#F59E0B'; // amber
+    if (score >= 40) return ds.colors.warning;
+    return ds.colors.error;
+  };
+
+  const getHealthLabel = (score: number) => {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Fair';
+    return 'Needs Attention';
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={ds.colors.primary} />
-          <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading statistics...</Text>
+          <ActivityIndicator size="large" color={ds.colors.textPrimary} />
+          <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading insights...</Text>
         </View>
       </SafeAreaView>
     );
@@ -51,174 +146,257 @@ export default function StatisticsScreen() {
     );
   }
 
-  const getLocationIcon = (location: string) => {
-    switch (location) {
-      case 'pantry': return 'archive';
-      case 'fridge': return 'fridge';
-      case 'freezer': return 'snowflake';
-      default: return 'map-marker';
-    }
-  };
+  const healthColor = getHealthColor(stats.health_score);
+  const totalStorage = Object.values(stats.storage_counts || {}).reduce((a, b) => a + b, 0);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text testID="statistics-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
-          Statistics
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <Text style={[styles.title, { color: ds.colors.textPrimary }]}>
+          Insights
         </Text>
 
-        <View style={styles.metricsContainer}>
-          <Card style={[styles.metricCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-            <Card.Content style={styles.metricContent}>
-              <View style={[styles.metricIconContainer, { backgroundColor: `${ds.colors.primary}15` }]}>
-                <MaterialCommunityIcons name="package-variant" size={24} color={ds.colors.primary} />
-              </View>
-              <Text style={[styles.metricValue, { color: ds.colors.primary }]}>
-                {stats.total_items}
+        {/* Pantry Health Score */}
+        <View style={[styles.healthCard, { backgroundColor: ds.colors.surface }]}>
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            PANTRY HEALTH
+          </Text>
+          <View style={styles.healthContent}>
+            <HealthScoreRing 
+              score={stats.health_score} 
+              color={healthColor}
+              backgroundColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}
+            />
+            <View style={styles.healthDetails}>
+              <Text style={[styles.healthLabel, { color: healthColor }]}>
+                {getHealthLabel(stats.health_score)}
               </Text>
-              <Text style={[styles.metricLabel, { color: ds.colors.textSecondary }]}>Total Items</Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={[styles.metricCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-            <Card.Content style={styles.metricContent}>
-              <View style={[styles.metricIconContainer, { backgroundColor: `${ds.colors.success}15` }]}>
-                <MaterialCommunityIcons name="check-circle" size={24} color={ds.colors.success} />
+              <View style={styles.healthFactors}>
+                {Object.entries(stats.health_factors || {}).map(([factor, score]) => (
+                  <View key={factor} style={styles.factorRow}>
+                    <Text style={[styles.factorLabel, { color: ds.colors.textSecondary }]}>
+                      {factor === 'tracking' ? 'Expiration Tracking' :
+                       factor === 'freshness' ? 'Freshness' :
+                       factor === 'low_waste' ? 'Low Waste' :
+                       factor === 'diversity' ? 'Category Variety' : factor}
+                    </Text>
+                    <Text style={[styles.factorScore, { color: ds.colors.textPrimary }]}>
+                      {score}/25
+                    </Text>
+                  </View>
+                ))}
               </View>
-              <Text style={[styles.metricValue, { color: ds.colors.success }]}>
-                {stats.in_stock}
-              </Text>
-              <Text style={[styles.metricLabel, { color: ds.colors.textSecondary }]}>In Stock</Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={[styles.metricCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-            <Card.Content style={styles.metricContent}>
-              <View style={[styles.metricIconContainer, { backgroundColor: `${ds.colors.warning}15` }]}>
-                <MaterialCommunityIcons name="clock-alert" size={24} color={ds.colors.warning} />
-              </View>
-              <Text style={[styles.metricValue, { color: ds.colors.warning }]}>
-                {stats.expiring_soon}
-              </Text>
-              <Text style={[styles.metricLabel, { color: ds.colors.textSecondary }]}>Expiring</Text>
-            </Card.Content>
-          </Card>
-
-          <Card style={[styles.metricCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-            <Card.Content style={styles.metricContent}>
-              <View style={[styles.metricIconContainer, { backgroundColor: `${ds.colors.error}15` }]}>
-                <MaterialCommunityIcons name="alert-circle" size={24} color={ds.colors.error} />
-              </View>
-              <Text style={[styles.metricValue, { color: ds.colors.error }]}>
-                {stats.expired}
-              </Text>
-              <Text style={[styles.metricLabel, { color: ds.colors.textSecondary }]}>Expired</Text>
-            </Card.Content>
-          </Card>
+            </View>
+          </View>
         </View>
 
-        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.cardIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
-                <MaterialCommunityIcons name="tag-multiple" size={22} color={ds.colors.primary} />
+        {/* Expiration Timeline */}
+        <View style={[styles.card, { backgroundColor: ds.colors.surface }]}>
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            EXPIRATION TIMELINE
+          </Text>
+          
+          <TouchableOpacity 
+            style={[styles.timelineRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
+            onPress={() => navigation.navigate('Inventory' as never)}
+          >
+            <View style={styles.timelineLeft}>
+              <View style={[styles.timelineDot, { backgroundColor: ds.colors.error }]} />
+              <Text style={[styles.timelineLabel, { color: ds.colors.textPrimary }]}>Tomorrow</Text>
+            </View>
+            <View style={styles.timelineRight}>
+              <Text style={[styles.timelineValue, { color: stats.expiring_tomorrow > 0 ? ds.colors.error : ds.colors.textSecondary }]}>
+                {stats.expiring_tomorrow}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.timelineRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
+            onPress={() => navigation.navigate('Inventory' as never)}
+          >
+            <View style={styles.timelineLeft}>
+              <View style={[styles.timelineDot, { backgroundColor: ds.colors.warning }]} />
+              <Text style={[styles.timelineLabel, { color: ds.colors.textPrimary }]}>This Week</Text>
+            </View>
+            <View style={styles.timelineRight}>
+              <Text style={[styles.timelineValue, { color: stats.expiring_this_week > 0 ? ds.colors.warning : ds.colors.textSecondary }]}>
+                {stats.expiring_this_week}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.timelineRow}
+            onPress={() => navigation.navigate('Inventory' as never)}
+          >
+            <View style={styles.timelineLeft}>
+              <View style={[styles.timelineDot, { backgroundColor: '#F59E0B' }]} />
+              <Text style={[styles.timelineLabel, { color: ds.colors.textPrimary }]}>This Month</Text>
+            </View>
+            <View style={styles.timelineRight}>
+              <Text style={[styles.timelineValue, { color: ds.colors.textSecondary }]}>
+                {stats.expiring_this_month}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Stats Row */}
+        <View style={styles.quickStatsRow}>
+          <View style={[styles.quickStatCard, { backgroundColor: ds.colors.surface }]}>
+            <Text style={[styles.quickStatValue, { color: ds.colors.primary }]}>
+              {stats.total_items}
+            </Text>
+            <Text style={[styles.quickStatLabel, { color: ds.colors.textSecondary }]}>
+              Total Items
+            </Text>
+          </View>
+          <View style={[styles.quickStatCard, { backgroundColor: ds.colors.surface }]}>
+            <Text style={[styles.quickStatValue, { color: ds.colors.error }]}>
+              {stats.expired}
+            </Text>
+            <Text style={[styles.quickStatLabel, { color: ds.colors.textSecondary }]}>
+              Expired
+            </Text>
+          </View>
+          <View style={[styles.quickStatCard, { backgroundColor: ds.colors.surface }]}>
+            <Text style={[styles.quickStatValue, { color: ds.colors.warning }]}>
+              {stats.low_stock}
+            </Text>
+            <Text style={[styles.quickStatLabel, { color: ds.colors.textSecondary }]}>
+              Low Stock
+            </Text>
+          </View>
+        </View>
+
+        {/* Storage Distribution */}
+        <View style={[styles.card, { backgroundColor: ds.colors.surface }]}>
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            STORAGE DISTRIBUTION
+          </Text>
+          
+          {Object.entries(stats.storage_counts || {}).map(([location, count]) => {
+            const icon = location === 'pantry' ? 'archive' : 
+                        location === 'fridge' ? 'fridge' : 
+                        location === 'freezer' ? 'snowflake' : 'help-circle';
+            const color = location === 'pantry' ? '#8B5CF6' : 
+                         location === 'fridge' ? '#3B82F6' : 
+                         location === 'freezer' ? '#06B6D4' : ds.colors.textSecondary;
+            return (
+              <View key={location} style={styles.storageRow}>
+                <View style={styles.storageLeft}>
+                  <MaterialCommunityIcons name={icon as any} size={20} color={color} />
+                  <Text style={[styles.storageLabel, { color: ds.colors.textPrimary }]}>
+                    {location.charAt(0).toUpperCase() + location.slice(1)}
+                  </Text>
+                </View>
+                <View style={styles.storageRight}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <ProgressBar 
+                      value={count} 
+                      maxValue={totalStorage || 1}
+                      color={color}
+                      backgroundColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}
+                    />
+                  </View>
+                  <Text style={[styles.storageCount, { color: ds.colors.textPrimary }]}>
+                    {count}
+                  </Text>
+                </View>
               </View>
-              <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
-                By Category
+            );
+          })}
+        </View>
+
+        {/* Recipe Activity */}
+        <View style={[styles.card, { backgroundColor: ds.colors.surface }]}>
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            RECIPE ACTIVITY
+          </Text>
+          
+          <View style={styles.recipeStatsRow}>
+            <View style={styles.recipeStat}>
+              <MaterialCommunityIcons name="chef-hat" size={24} color={ds.colors.primary} />
+              <Text style={[styles.recipeStatValue, { color: ds.colors.textPrimary }]}>
+                {stats.recipes_generated}
+              </Text>
+              <Text style={[styles.recipeStatLabel, { color: ds.colors.textSecondary }]}>
+                Generated
               </Text>
             </View>
+            <View style={[styles.recipeDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
+            <View style={styles.recipeStat}>
+              <MaterialCommunityIcons name="bookmark" size={24} color={ds.colors.success} />
+              <Text style={[styles.recipeStatValue, { color: ds.colors.textPrimary }]}>
+                {stats.recipes_saved}
+              </Text>
+              <Text style={[styles.recipeStatLabel, { color: ds.colors.textSecondary }]}>
+                Saved
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Recent Activity */}
+        <View style={[styles.card, { backgroundColor: ds.colors.surface }]}>
+          <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+            RECENT ACTIVITY
+          </Text>
+          
+          <View style={styles.activityRow}>
+            <Text style={[styles.activityLabel, { color: ds.colors.textSecondary }]}>
+              Items added this week
+            </Text>
+            <Text style={[styles.activityValue, { color: ds.colors.textPrimary }]}>
+              {stats.items_added_this_week}
+            </Text>
+          </View>
+          <View style={[styles.activityRow, { borderBottomWidth: 0 }]}>
+            <Text style={[styles.activityLabel, { color: ds.colors.textSecondary }]}>
+              Items added this month
+            </Text>
+            <Text style={[styles.activityValue, { color: ds.colors.textPrimary }]}>
+              {stats.items_added_this_month}
+            </Text>
+          </View>
+        </View>
+
+        {/* Categories */}
+        {Object.keys(stats.by_category || {}).length > 0 && (
+          <View style={[styles.card, { backgroundColor: ds.colors.surface }]}>
+            <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
+              BY CATEGORY
+            </Text>
+            
             {Object.entries(stats.by_category || {})
               .sort(([, a], [, b]) => b - a)
+              .slice(0, 5)
               .map(([category, count], index, arr) => (
                 <View 
                   key={category} 
                   style={[
-                    styles.statRow, 
-                    { borderBottomColor: ds.colors.surfaceHover },
+                    styles.categoryRow,
+                    { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
                     index === arr.length - 1 && { borderBottomWidth: 0 }
                   ]}
                 >
-                  <Text style={[styles.statLabel, { color: ds.colors.textPrimary }]}>
-                    {category || 'Uncategorized'}
+                  <Text style={[styles.categoryLabel, { color: ds.colors.textPrimary }]}>
+                    {category}
                   </Text>
-                  <Text style={[styles.statValue, { color: ds.colors.primary }]}>
+                  <Text style={[styles.categoryCount, { color: ds.colors.primary }]}>
                     {count}
                   </Text>
                 </View>
               ))}
-          </Card.Content>
-        </Card>
+          </View>
+        )}
 
-        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.cardIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
-                <MaterialCommunityIcons name="map-marker" size={22} color={ds.colors.primary} />
-              </View>
-              <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
-                By Location
-              </Text>
-            </View>
-            {Object.entries(stats.by_location || {})
-              .sort(([, a], [, b]) => b - a)
-              .map(([location, count], index, arr) => (
-                <View 
-                  key={location} 
-                  style={[
-                    styles.statRow, 
-                    { borderBottomColor: ds.colors.surfaceHover },
-                    index === arr.length - 1 && { borderBottomWidth: 0 }
-                  ]}
-                >
-                  <View style={styles.locationRow}>
-                    <MaterialCommunityIcons 
-                      name={getLocationIcon(location)} 
-                      size={18} 
-                      color={ds.colors.textSecondary} 
-                    />
-                    <Text style={[styles.statLabel, styles.capitalize, { color: ds.colors.textPrimary }]}>
-                      {location}
-                    </Text>
-                  </View>
-                  <Text style={[styles.statValue, { color: ds.colors.primary }]}>
-                    {count}
-                  </Text>
-                </View>
-              ))}
-          </Card.Content>
-        </Card>
-
-        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.cardIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
-                <MaterialCommunityIcons name="chart-pie" size={22} color={ds.colors.primary} />
-              </View>
-              <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
-                By Status
-              </Text>
-            </View>
-            {Object.entries(stats.by_status || {})
-              .sort(([, a], [, b]) => b - a)
-              .map(([status, count], index, arr) => (
-                <View 
-                  key={status} 
-                  style={[
-                    styles.statRow, 
-                    { borderBottomColor: ds.colors.surfaceHover },
-                    index === arr.length - 1 && { borderBottomWidth: 0 }
-                  ]}
-                >
-                  <Text style={[styles.statLabel, { color: ds.colors.textPrimary }]}>
-                    {status.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                  </Text>
-                  <Text style={[styles.statValue, { color: ds.colors.primary }]}>
-                    {count}
-                  </Text>
-                </View>
-              ))}
-          </Card.Content>
-        </Card>
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -239,94 +417,191 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingTop: 16,
+    paddingTop: 8,
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '700',
     letterSpacing: -0.5,
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  metricsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 12,
-  },
-  metricCard: {
-    width: '47%',
+  // Health Card
+  healthCard: {
     borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
   },
-  metricContent: {
+  healthContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 20,
+    marginTop: 16,
   },
-  metricIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+  healthDetails: {
+    flex: 1,
+    marginLeft: 20,
+  },
+  healthLabel: {
+    fontSize: 20,
+    fontWeight: '600',
     marginBottom: 12,
   },
-  metricValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+  healthFactors: {
+    gap: 8,
   },
-  metricLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  card: {
-    marginBottom: 16,
-    borderRadius: 20,
-  },
-  cardContent: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  cardHeader: {
+  factorRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+  },
+  factorLabel: {
+    fontSize: 13,
+  },
+  factorScore: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Card
+  card: {
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
   },
-  cardIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 18,
+  sectionLabel: {
+    fontSize: 12,
     fontWeight: '600',
-    letterSpacing: -0.2,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  statRow: {
+  // Timeline
+  timelineRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
   },
-  statLabel: {
-    fontSize: 15,
+  timelineLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  statValue: {
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  timelineLabel: {
+    fontSize: 16,
+  },
+  timelineRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timelineValue: {
     fontSize: 18,
     fontWeight: '700',
   },
-  locationRow: {
+  // Quick Stats
+  quickStatsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  quickStatCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  quickStatValue: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  // Storage
+  storageRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  storageLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    width: 100,
   },
-  capitalize: {
-    textTransform: 'capitalize',
+  storageLabel: {
+    fontSize: 15,
+  },
+  storageRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  storageCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    width: 30,
+    textAlign: 'right',
+  },
+  // Recipe Activity
+  recipeStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  recipeStat: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  recipeStatValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  recipeStatLabel: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  recipeDivider: {
+    width: 1,
+    height: 60,
+  },
+  // Activity
+  activityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  activityLabel: {
+    fontSize: 15,
+  },
+  activityValue: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  // Categories
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  categoryLabel: {
+    fontSize: 15,
+  },
+  categoryCount: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
-

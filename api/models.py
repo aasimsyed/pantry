@@ -192,6 +192,7 @@ class ProcessingLogResponse(ProcessingLogCreate):
 
 class StatisticsResponse(BaseModel):
     """Response model for overall pantry statistics."""
+    # Core counts
     total_items: int
     total_products: int
     in_stock: int
@@ -199,6 +200,28 @@ class StatisticsResponse(BaseModel):
     expired: int
     consumed: int
     expiring_soon: int  # Within 7 days
+    
+    # Pantry Health Score (0-100)
+    health_score: int = Field(default=0, ge=0, le=100)
+    health_factors: Dict[str, int] = Field(default_factory=dict)  # Breakdown of score
+    
+    # Expiration Timeline
+    expiring_tomorrow: int = 0
+    expiring_this_week: int = 0
+    expiring_this_month: int = 0
+    
+    # Recipe Activity
+    recipes_generated: int = 0
+    recipes_saved: int = 0
+    
+    # Recent Activity
+    items_added_this_week: int = 0
+    items_added_this_month: int = 0
+    
+    # Storage Distribution (for visual bars)
+    storage_counts: Dict[str, int] = Field(default_factory=dict)
+    
+    # Legacy breakdowns
     by_category: Dict[str, int]
     by_location: Dict[str, int]
     by_status: Dict[str, int]

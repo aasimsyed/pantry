@@ -22,6 +22,7 @@ def get_statistics(
         stats = service.get_statistics()
         logger.info("Retrieved pantry statistics")
         return StatisticsResponse(
+            # Core counts
             total_items=stats.get("total_items", 0),
             total_products=stats.get("total_products", 0),
             in_stock=stats.get("by_status", {}).get("in_stock", 0),
@@ -29,6 +30,22 @@ def get_statistics(
             expired=stats.get("by_status", {}).get("expired", 0),
             consumed=stats.get("by_status", {}).get("consumed", 0),
             expiring_soon=stats.get("expiring_soon", 0),
+            # Pantry Health
+            health_score=stats.get("health_score", 0),
+            health_factors=stats.get("health_factors", {}),
+            # Expiration Timeline
+            expiring_tomorrow=stats.get("expiring_tomorrow", 0),
+            expiring_this_week=stats.get("expiring_this_week", 0),
+            expiring_this_month=stats.get("expiring_this_month", 0),
+            # Recipe Activity
+            recipes_generated=stats.get("recipes_generated", 0),
+            recipes_saved=stats.get("recipes_saved", 0),
+            # Recent Activity
+            items_added_this_week=stats.get("items_added_this_week", 0),
+            items_added_this_month=stats.get("items_added_this_month", 0),
+            # Storage Distribution
+            storage_counts=stats.get("storage_counts", {}),
+            # Legacy breakdowns
             by_category=stats.get("by_category", {}),
             by_location=stats.get("by_location", {}),
             by_status=stats.get("by_status", {}),

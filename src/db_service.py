@@ -557,13 +557,63 @@ class PantryService:
         Returns:
             Dictionary with statistics
         """
+        from datetime import datetime, timedelta
+        
+        now = datetime.now()
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow = today + timedelta(days=1)
+        end_of_tomorrow = today + timedelta(days=2)
+        end_of_week = today + timedelta(days=7)
+        end_of_month = today + timedelta(days=30)
+        week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
+        
         total_products = self.session.query(Product).count()
         total_items = self.session.query(InventoryItem).filter(
             InventoryItem.status == "in_stock"
         ).count()
         
+        # Items with expiration dates
+        items_with_expiration = self.session.query(InventoryItem).filter(
+            InventoryItem.status == "in_stock",
+            InventoryItem.expiration_date.isnot(None)
+        ).count()
+        
         expiring_soon = len(self.get_expiring_items(7))
         expired = len(self.get_expired_items())
+        
+        # Expiration timeline
+        expiring_tomorrow = self.session.query(InventoryItem).filter(
+            InventoryItem.status == "in_stock",
+            InventoryItem.expiration_date >= tomorrow,
+            InventoryItem.expiration_date < end_of_tomorrow
+        ).count()
+        
+        expiring_this_week = self.session.query(InventoryItem).filter(
+            InventoryItem.status == "in_stock",
+            InventoryItem.expiration_date >= today,
+            InventoryItem.expiration_date < end_of_week
+        ).count()
+        
+        expiring_this_month = self.session.query(InventoryItem).filter(
+            InventoryItem.status == "in_stock",
+            InventoryItem.expiration_date >= today,
+            InventoryItem.expiration_date < end_of_month
+        ).count()
+        
+        # Recent activity
+        items_added_this_week = self.session.query(InventoryItem).filter(
+            InventoryItem.created_at >= week_ago
+        ).count()
+        
+        items_added_this_month = self.session.query(InventoryItem).filter(
+            InventoryItem.created_at >= month_ago
+        ).count()
+        
+        # Recipe stats
+        from src.database import SavedRecipe, RecentRecipe
+        recipes_saved = self.session.query(SavedRecipe).count()
+        recipes_generated = self.session.query(RecentRecipe).count()
         
         # Category breakdown
         category_counts = self.session.query(
@@ -581,13 +631,61 @@ class PantryService:
             InventoryItem.status == "in_stock"
         ).group_by(InventoryItem.storage_location).all()
         
+        # Status breakdown
+        status_counts = self.session.query(
+            InventoryItem.status,
+            func.count(InventoryItem.id)
+        ).group_by(InventoryItem.status).all()
+        
+        # Calculate Pantry Health Score (0-100)
+        health_factors = {}
+        
+        # Factor 1: Expiration tracking (25 points max)
+        if total_items > 0:
+            tracking_rate = items_with_expiration / total_items
+            health_factors["tracking"] = min(25, int(tracking_rate * 25))
+        else:
+            health_factors["tracking"] = 25  # No items = perfect tracking
+        
+        # Factor 2: Freshness - no expired items (25 points max)
+        if total_items > 0:
+            freshness_rate = 1 - (expired / max(total_items, 1))
+            health_factors["freshness"] = min(25, int(freshness_rate * 25))
+        else:
+            health_factors["freshness"] = 25
+        
+        # Factor 3: Low waste - few expiring soon (25 points max)
+        if total_items > 0:
+            # More than 20% expiring = 0 points, 0% = 25 points
+            expiring_rate = expiring_soon / total_items
+            health_factors["low_waste"] = max(0, min(25, int((1 - expiring_rate * 5) * 25)))
+        else:
+            health_factors["low_waste"] = 25
+        
+        # Factor 4: Diversity - multiple categories (25 points max)
+        num_categories = len([c for c, _ in category_counts if c])
+        health_factors["diversity"] = min(25, num_categories * 5)  # 5 categories = max
+        
+        health_score = sum(health_factors.values())
+        
         return {
             "total_products": total_products,
             "total_items": total_items,
             "expiring_soon": expiring_soon,
             "expired": expired,
-            "by_category": {cat: count for cat, count in category_counts},
-            "by_location": {loc: count for loc, count in location_counts},
+            "health_score": health_score,
+            "health_factors": health_factors,
+            "expiring_tomorrow": expiring_tomorrow,
+            "expiring_this_week": expiring_this_week,
+            "expiring_this_month": expiring_this_month,
+            "recipes_generated": recipes_generated,
+            "recipes_saved": recipes_saved,
+            "items_added_this_week": items_added_this_week,
+            "items_added_this_month": items_added_this_month,
+            "by_category": {cat or "Uncategorized": count for cat, count in category_counts},
+            "by_location": {loc or "Unknown": count for loc, count in location_counts},
+            "by_status": {status: count for status, count in status_counts},
+            "storage_counts": {loc or "Unknown": count for loc, count in location_counts},
         }
     
     # ========================================================================

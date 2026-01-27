@@ -113,6 +113,7 @@ export interface RecentRecipe {
 }
 
 export interface Statistics {
+  // Core counts
   total_items: number;
   total_products: number;
   in_stock: number;
@@ -120,6 +121,28 @@ export interface Statistics {
   expired: number;
   consumed: number;
   expiring_soon: number;
+  
+  // Pantry Health Score
+  health_score: number;
+  health_factors: Record<string, number>;
+  
+  // Expiration Timeline
+  expiring_tomorrow: number;
+  expiring_this_week: number;
+  expiring_this_month: number;
+  
+  // Recipe Activity
+  recipes_generated: number;
+  recipes_saved: number;
+  
+  // Recent Activity
+  items_added_this_week: number;
+  items_added_this_month: number;
+  
+  // Storage Distribution
+  storage_counts: Record<string, number>;
+  
+  // Legacy breakdowns
   by_category: Record<string, number>;
   by_location: Record<string, number>;
   by_status: Record<string, number>;
