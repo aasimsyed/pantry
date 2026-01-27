@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aasimsyed.smartpantry",
-      "buildNumber": "42",
+      "buildNumber": "43",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -28,7 +28,9 @@
         "NSPhotoLibraryUsageDescription": "Smart Pantry needs access to your photo library to upload product photos and receipts",
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["smartpantry"]
+            "CFBundleURLSchemes": [
+              "smartpantry"
+            ]
           }
         ]
       },
@@ -44,7 +46,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.aasimsyed.smartpantry",
-      "versionCode": 31,
+      "versionCode": 32,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -54,7 +56,10 @@
               "scheme": "smartpantry"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
