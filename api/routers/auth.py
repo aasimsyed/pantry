@@ -288,3 +288,138 @@ def get_current_user_info(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve user information: {str(e)}",
         ) from e
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+@limiter.limit("3/hour")
+def forgot_password(
+    request: Request,
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Request a password reset email.
+    
+    Rate limited to prevent abuse. Always returns success to avoid email enumeration.
+    """
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    
+    try:
+        # Find user by email
+        user = db.query(User).filter(User.email == email).first()
+        
+        if user:
+            # Generate password reset token (valid for 1 hour)
+            from src.auth_service import create_password_reset_token
+            reset_token = create_password_reset_token(user.email)
+            
+            # Send password reset email
+            from src.email_service import email_service
+            email_sent = email_service.send_password_reset_email(user.email, reset_token)
+            
+            if email_sent:
+                log_security_event(
+                    db=db,
+                    event_type="password_reset_requested",
+                    user_id=user.id,
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                    details={"email": user.email, "success": True, "message": "Password reset email sent successfully"}
+                )
+                logger.info(f"Password reset email sent to {user.email}")
+            else:
+                log_security_event(
+                    db=db,
+                    event_type="password_reset_email_failed",
+                    user_id=user.id,
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                    severity="warning",
+                    details={"email": user.email, "success": False, "message": "Failed to send password reset email"}
+                )
+                logger.error(f"Failed to send password reset email to {user.email}")
+        else:
+            # User not found - log but don't reveal this to prevent email enumeration
+            log_security_event(
+                db=db,
+                event_type="password_reset_invalid_email",
+                user_id=None,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                severity="warning",
+                details={"email": email, "success": False, "message": "Password reset requested for non-existent email"}
+            )
+            logger.info(f"Password reset requested for non-existent email: {email}")
+        
+        # Always return success to prevent email enumeration attacks
+        return MessageResponse(message="If an account exists with that email, a password reset link has been sent.")
+        
+    except Exception as e:
+        logger.error(f"Error processing password reset request: {e}", exc_info=True)
+        # Return generic success message even on error to avoid information leakage
+        return MessageResponse(message="If an account exists with that email, a password reset link has been sent.")
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+@limiter.limit("5/hour")
+def reset_password(
+    request: Request,
+    token: str = Form(...),
+    new_password: str = Form(...),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Reset password using a reset token from email."""
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    
+    try:
+        # Verify reset token and extract email
+        from src.auth_service import verify_password_reset_token, get_password_hash, validate_password_strength
+        
+        email = verify_password_reset_token(token)
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token"
+            )
+        
+        # Validate new password strength
+        is_valid, error_message = validate_password_strength(new_password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_message
+            )
+        
+        # Find user
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Update password
+        user.hashed_password = get_password_hash(new_password)
+        db.commit()
+        
+        log_security_event(
+            db=db,
+            event_type="password_reset_completed",
+            user_id=user.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"email": user.email, "success": True, "message": "Password successfully reset"}
+        )
+        
+        logger.info(f"Password successfully reset for user {user.email}")
+        return MessageResponse(message="Password successfully reset. You can now log in with your new password.")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting password: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset password. Please try again."
+        ) from e

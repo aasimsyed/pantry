@@ -362,3 +362,63 @@ def get_valid_refresh_token(db: Session, token_hash: str) -> Optional[RefreshTok
     ).first()
     return token
 
+
+def create_password_reset_token(email: str) -> str:
+    """Create a JWT token for password reset.
+    
+    Args:
+        email: User's email address
+        
+    Returns:
+        JWT token valid for 1 hour
+    """
+    expires_delta = timedelta(hours=1)
+    expire = datetime.utcnow() + expires_delta
+    to_encode = {"sub": email, "type": "password_reset", "exp": expire}
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)
+    return encoded_jwt
+
+
+def verify_password_reset_token(token: str) -> Optional[str]:
+    """Verify a password reset token and extract email.
+    
+    Args:
+        token: JWT password reset token
+        
+    Returns:
+        Email address if token is valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        
+        if email is None or token_type != "password_reset":
+            return None
+            
+        return email
+    except JWTError:
+        return None
+
+
+def validate_password_strength(password: str) -> tuple[bool, Optional[str]]:
+    """Validate password meets minimum security requirements.
+    
+    Args:
+        password: Plain text password
+        
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    # Check for at least one digit or special character (basic strength requirement)
+    has_digit = any(char.isdigit() for char in password)
+    has_special = any(not char.isalnum() for char in password)
+    
+    if not (has_digit or has_special):
+        return False, "Password must contain at least one number or special character"
+    
+    return True, None
+

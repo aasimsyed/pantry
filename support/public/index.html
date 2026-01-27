@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Pantry AI - Support</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Smart Pantry AI</h1>
+      <p class="subtitle">Support & Contact</p>
+    </header>
+
+    <main>
+      <section class="info-section">
+        <h2>Get Help</h2>
+        <p>Have a question or need assistance? We're here to help.</p>
+        
+        <div class="quick-links">
+          <a href="https://github.com/aasimsyed/pantry/blob/main/PRIVACY_POLICY.md" class="link-card">
+            <span class="link-icon">🔒</span>
+            <span class="link-text">Privacy Policy</span>
+          </a>
+          <a href="https://github.com/aasimsyed/pantry/blob/main/TERMS_OF_SERVICE.md" class="link-card">
+            <span class="link-icon">📄</span>
+            <span class="link-text">Terms of Service</span>
+          </a>
+          <a href="https://github.com/aasimsyed/pantry" class="link-card">
+            <span class="link-icon">💻</span>
+            <span class="link-text">Open Source</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="contact-section">
+        <h2>Contact Us</h2>
+        <form id="contactForm" class="contact-form">
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+
+          <div class="form-group">
+            <label for="subject">Subject</label>
+            <input type="text" id="subject" name="subject" required>
+          </div>
+
+          <div class="form-group">
+            <label for="message">Message</label>
+            <textarea id="message" name="message" rows="6" required></textarea>
+          </div>
+
+          <button type="submit" class="submit-button">Send Message</button>
+          
+          <div id="formStatus" class="form-status"></div>
+        </form>
+      </section>
+    </main>
+
+    <footer>
+      <p>© 2026 Smart Pantry AI. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

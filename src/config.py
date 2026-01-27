@@ -43,6 +43,27 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 30
 
     # -------------------------------------------------------------------------
+    # Email (SMTP)
+    # -------------------------------------------------------------------------
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
+    smtp_from_name: str = "Smart Pantry"
+    frontend_url: str = "http://localhost:8081"
+
+    # -------------------------------------------------------------------------
+    # Instacart Integration
+    # -------------------------------------------------------------------------
+    instacart_api_key: Optional[str] = None
+    instacart_api_url: str = "https://connect.instacart.com"
+    instacart_dev_api_url: str = "https://connect.dev.instacart.tools"
+    instacart_timeout: int = 30
+    instacart_link_expires_days: int = 30
+    instacart_enabled: bool = True
+
+    # -------------------------------------------------------------------------
     # API (server, CORS, rate limit)
     # -------------------------------------------------------------------------
     api_title: str = "Smart Pantry API"

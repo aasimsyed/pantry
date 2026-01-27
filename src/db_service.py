@@ -384,8 +384,9 @@ class PantryService:
         if 'product_id' in kwargs:
             item.product_id = kwargs['product_id']
         
-        # Update status based on expiration
-        item.update_status()
+        # Only auto-update status if not explicitly set by user
+        if 'status' not in kwargs:
+            item.update_status()
         
         self.session.commit()
         self.session.refresh(item)

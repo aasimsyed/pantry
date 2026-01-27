@@ -412,3 +412,42 @@ class UserResponse(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+
+# ============================================================================
+# Instacart Integration Models
+# ============================================================================
+
+class InstacartIngredient(BaseModel):
+    """Ingredient/item model for Instacart shopping requests."""
+    name: str = Field(..., min_length=1, max_length=255, description="Product/ingredient name")
+    quantity: Optional[float] = Field(1.0, gt=0, description="Quantity")
+    unit: Optional[str] = Field("each", max_length=50, description="Unit of measurement")
+    display_text: Optional[str] = Field(None, max_length=255, description="Display text override")
+
+
+class InstacartRecipeLinkRequest(BaseModel):
+    """Request model for creating an Instacart recipe shopping link."""
+    title: str = Field(..., min_length=1, max_length=255, description="Recipe title")
+    ingredients: List[InstacartIngredient] = Field(..., min_length=1, description="List of ingredients")
+    instructions: Optional[List[str]] = Field(None, description="Cooking instructions")
+    servings: Optional[int] = Field(None, ge=1, description="Number of servings")
+    cooking_time_minutes: Optional[int] = Field(None, ge=1, description="Cooking time in minutes")
+
+
+class InstacartShoppingListRequest(BaseModel):
+    """Request model for creating an Instacart shopping list link."""
+    title: str = Field(..., min_length=1, max_length=255, description="Shopping list title")
+    items: List[InstacartIngredient] = Field(..., min_length=1, description="List of items to shop for")
+
+
+class InstacartLinkResponse(BaseModel):
+    """Response model for Instacart shopping link."""
+    products_link_url: str = Field(..., description="URL to Instacart shopping page")
+    expires_at: Optional[datetime] = Field(None, description="When the link expires")
+
+
+class InstacartStatusResponse(BaseModel):
+    """Response model for Instacart service status."""
+    enabled: bool = Field(..., description="Whether Instacart integration is enabled")
+    available: bool = Field(..., description="Whether Instacart service is available")
+

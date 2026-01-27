@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput, Image } from 'react-native';
+
+// Instacart branding
+const INSTACART_GREEN = '#43B02A';
+const InstacartLogo = require('../../assets/instacart-carrot.png');
 import {
   Card,
   Text,
@@ -19,6 +23,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import apiClient from '../api/client';
+import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { PremiumButton } from '../components/PremiumButton';
 import { useTheme } from '../contexts/ThemeContext';
@@ -31,6 +36,7 @@ export default function InventoryScreen() {
   const ds = getDesignSystem(isDark);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [instacartLoading, setInstacartLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState<string>('All');
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
@@ -381,6 +387,34 @@ export default function InventoryScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Shop Low Stock - Only show when there are low stock items */}
+        {items.filter(item => item.status === 'low').length > 0 && (
+          <TouchableOpacity
+            onPress={() => instacartService.shopLowStockItems(items, setInstacartLoading)}
+            disabled={instacartLoading}
+            style={[
+              styles.instacartButton,
+              { backgroundColor: isDark ? 'rgba(67, 176, 42, 0.15)' : 'rgba(67, 176, 42, 0.1)' }
+            ]}
+            activeOpacity={0.7}
+          >
+            {instacartLoading ? (
+              <ActivityIndicator size="small" color={INSTACART_GREEN} />
+            ) : (
+              <>
+                <Image 
+                  source={InstacartLogo} 
+                  style={{ width: 24, height: 24, marginRight: 8 }}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.instacartButtonText, { color: INSTACART_GREEN }]}>
+                  Shop Low Stock Items ({items.filter(item => item.status === 'low').length})
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Count - Minimal label */}
         <Text style={[styles.countLabel, { color: ds.colors.textTertiary }]}>
@@ -1154,6 +1188,20 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 13,
     letterSpacing: -0.1,
+  },
+  instacartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 24,
+    marginBottom: 8,
+    borderRadius: 10,
+  },
+  instacartButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   countLabel: {
     fontSize: 11,

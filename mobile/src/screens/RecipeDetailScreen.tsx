@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, ActivityIndicator, Image } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
+import { instacartService } from '../services/instacartService';
+
+// Instacart branding
+const INSTACART_GREEN = '#43B02A';
+const InstacartLogo = require('../../assets/instacart-carrot.png');
 import { useTheme } from '../contexts/ThemeContext';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 import { FlavorChemistrySheet } from '../components/FlavorChemistrySheet';
@@ -31,6 +36,9 @@ export default function RecipeDetailScreen() {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [scaledServings, setScaledServings] = useState(recipe.servings || 4);
   const [flavorSheetVisible, setFlavorSheetVisible] = useState(false);
+  const [instacartLoading, setInstacartLoading] = useState(false);
+  const [calculatedMissingIngredients, setCalculatedMissingIngredients] = useState<string[]>([]);
+  const [loadingMissing, setLoadingMissing] = useState(false);
 
   // Track keyboard visibility
   useEffect(() => {
@@ -59,6 +67,93 @@ export default function RecipeDetailScreen() {
     'id' in recipe && 
     !('generated_at' in recipe) && // Not a RecentRecipe
     (('created_at' in recipe) || ('updated_at' in recipe)); // Has SavedRecipe timestamps
+
+  // Calculate missing ingredients for saved recipes by comparing against current inventory
+  useEffect(() => {
+    if (!isSavedRecipe) return;
+    
+    // If recipe already has missing_ingredients, don't recalculate
+    if ('missing_ingredients' in recipe && recipe.missing_ingredients && recipe.missing_ingredients.length > 0) {
+      return;
+    }
+    
+    const calculateMissing = async () => {
+      setLoadingMissing(true);
+      try {
+        // Get current inventory
+        const inventory = await apiClient.getInventory(0, 1000);
+        
+        // Get recipe ingredients
+        let recipeIngredients: string[] = [];
+        if ('ingredients' in recipe) {
+          if (typeof recipe.ingredients === 'string') {
+            try {
+              const parsed = JSON.parse(recipe.ingredients);
+              recipeIngredients = parsed.map((ing: any) => {
+                if (typeof ing === 'string') return ing.toLowerCase();
+                return (ing.item || ing.name || '').toLowerCase();
+              });
+            } catch {
+              recipeIngredients = [];
+            }
+          } else if (Array.isArray(recipe.ingredients)) {
+            recipeIngredients = recipe.ingredients.map((ing: any) => {
+              if (typeof ing === 'string') return ing.toLowerCase();
+              return (ing.item || ing.name || '').toLowerCase();
+            });
+          }
+        }
+        
+        // Get inventory item names (lowercase for comparison)
+        const inventoryNames = inventory.map(item => 
+          (item.product_name || '').toLowerCase()
+        );
+        
+        // Find missing ingredients (not in inventory)
+        const missing = recipeIngredients.filter(ingredient => {
+          // Check if any inventory item contains this ingredient name
+          return !inventoryNames.some(invName => 
+            invName.includes(ingredient) || ingredient.includes(invName)
+          );
+        });
+        
+        // Get original ingredient names (not lowercased) for display
+        let originalIngredients: string[] = [];
+        if ('ingredients' in recipe) {
+          if (typeof recipe.ingredients === 'string') {
+            try {
+              const parsed = JSON.parse(recipe.ingredients);
+              originalIngredients = parsed.map((ing: any) => {
+                if (typeof ing === 'string') return ing;
+                return ing.item || ing.name || '';
+              });
+            } catch {
+              originalIngredients = [];
+            }
+          } else if (Array.isArray(recipe.ingredients)) {
+            originalIngredients = recipe.ingredients.map((ing: any) => {
+              if (typeof ing === 'string') return ing;
+              return ing.item || ing.name || '';
+            });
+          }
+        }
+        
+        // Map back to original names
+        const missingOriginal = originalIngredients.filter(orig => {
+          const lower = orig.toLowerCase();
+          return missing.includes(lower);
+        });
+        
+        setCalculatedMissingIngredients(missingOriginal);
+      } catch (err) {
+        console.error('Failed to calculate missing ingredients:', err);
+      } finally {
+        setLoadingMissing(false);
+      }
+    };
+    
+    calculateMissing();
+  }, [isSavedRecipe, recipe]);
 
   const handleSaveNotesRating = async () => {
     if (!isSavedRecipe) return;
@@ -523,8 +618,99 @@ export default function RecipeDetailScreen() {
                   • {item}
                 </Text>
               ))}
+              <TouchableOpacity
+                style={[
+                  styles.instacartButton,
+                  { backgroundColor: isDark ? 'rgba(67, 176, 42, 0.15)' : 'rgba(67, 176, 42, 0.1)' }
+                ]}
+                onPress={() => instacartService.shopMissingIngredients(recipe as Recipe, setInstacartLoading)}
+                disabled={instacartLoading}
+                activeOpacity={0.7}
+              >
+                {instacartLoading ? (
+                  <ActivityIndicator size="small" color={INSTACART_GREEN} />
+                ) : (
+                  <>
+                    <Image 
+                      source={InstacartLogo} 
+                      style={{ width: 24, height: 24, marginRight: 8 }}
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.instacartButtonText, { color: INSTACART_GREEN }]}>
+                      Shop on Instacart
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </Card.Content>
           </Card>
+        </>
+      )}
+
+      {/* Calculated Missing Ingredients - for saved recipes */}
+      {isSavedRecipe && !('missing_ingredients' in recipe && recipe.missing_ingredients && recipe.missing_ingredients.length > 0) && (
+        <>
+          {loadingMissing ? (
+            <View style={{ padding: 16, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={ds.colors.textTertiary} />
+              <Text style={{ color: ds.colors.textTertiary, marginTop: 8, fontSize: 13 }}>
+                Checking your pantry...
+              </Text>
+            </View>
+          ) : calculatedMissingIngredients.length > 0 ? (
+            <>
+              <Divider style={styles.divider} />
+              <Card style={styles.missingCard}>
+                <Card.Content>
+                  <Text variant="titleMedium" style={styles.missingTitle}>
+                    Missing Ingredients
+                  </Text>
+                  {calculatedMissingIngredients.map((item: string, i: number) => (
+                    <Text key={i} variant="bodyMedium" style={styles.missingItem}>
+                      • {item}
+                    </Text>
+                  ))}
+                  <TouchableOpacity
+                    style={[
+                      styles.instacartButton,
+                      { backgroundColor: isDark ? 'rgba(67, 176, 42, 0.15)' : 'rgba(67, 176, 42, 0.1)' }
+                    ]}
+                    onPress={() => {
+                      // Create a temporary recipe object with calculated missing ingredients
+                      const recipeWithMissing = {
+                        ...recipe,
+                        missing_ingredients: calculatedMissingIngredients,
+                      };
+                      instacartService.shopMissingIngredients(recipeWithMissing as Recipe, setInstacartLoading);
+                    }}
+                    disabled={instacartLoading}
+                    activeOpacity={0.7}
+                  >
+                    {instacartLoading ? (
+                      <ActivityIndicator size="small" color={INSTACART_GREEN} />
+                    ) : (
+                      <>
+                        <Image 
+                          source={InstacartLogo} 
+                          style={{ width: 24, height: 24, marginRight: 8 }}
+                          resizeMode="contain"
+                        />
+                        <Text style={[styles.instacartButtonText, { color: INSTACART_GREEN }]}>
+                          Shop on Instacart
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </Card.Content>
+              </Card>
+            </>
+          ) : (
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+              <Text style={{ color: ds.colors.textSecondary, fontSize: 14, textAlign: 'center' }}>
+                You have all the ingredients for this recipe!
+              </Text>
+            </View>
+          )}
         </>
       )}
 
@@ -939,6 +1125,20 @@ const styles = StyleSheet.create({
     marginBottom: DesignSystem.spacing.sm,
   },
   missingItem: {
+  },
+  // Instacart Button
+  instacartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: DesignSystem.spacing.md,
+    borderRadius: DesignSystem.borderRadius.md,
+  },
+  instacartButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   // Notes Card
   modernNotesCard: {

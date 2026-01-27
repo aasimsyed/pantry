@@ -83,6 +83,7 @@ class APIClient {
   private refreshSubscribers: Array<(token: string | null) => void> = []; // Queue for requests waiting on token refresh
   private pendingRequests: Array<() => Promise<any>> = []; // Queue for offline requests
   private isOnline: boolean = true; // Track online status
+  private onAuthFailureCallback: (() => void) | null = null; // Callback for authentication failures
 
   constructor(baseURL: string = API_BASE_URL) {
     this.client = axios.create({
@@ -139,7 +140,7 @@ class APIClient {
           // Skip refresh if this is already a refresh request (avoid infinite loop)
           if (originalRequest?.url?.includes('/api/auth/refresh')) {
             // Refresh token is invalid, clear tokens
-            this.clearTokens();
+            await this.clearTokens(true);
             this.onRefreshComplete(null); // Notify waiting requests that refresh failed
           } else if (this.isRefreshing) {
             // Another request is already refreshing, wait for it to complete
@@ -166,7 +167,7 @@ class APIClient {
               }
             } catch (refreshError: any) {
               // Refresh failed (429 rate limit, 401 invalid token, etc.), clear tokens
-              this.clearTokens();
+              await this.clearTokens(true);
               this.onRefreshComplete(null); // Notify waiting requests that refresh failed
               // Don't retry if it was a rate limit - user needs to wait
               if (refreshError.response?.status === 429) {
@@ -240,14 +241,23 @@ class APIClient {
     }
   }
 
-  private async clearTokens(): Promise<void> {
+  private async clearTokens(isAuthFailure: boolean = false): Promise<void> {
     this.accessToken = null;
     try {
       await SecureStore.deleteItemAsync('access_token');
       await SecureStore.deleteItemAsync('refresh_token');
+      
+      // Notify app of authentication failure
+      if (isAuthFailure && this.onAuthFailureCallback) {
+        this.onAuthFailureCallback();
+      }
     } catch (error) {
       console.error('Error clearing tokens:', error);
     }
+  }
+  
+  setOnAuthFailure(callback: () => void): void {
+    this.onAuthFailureCallback = callback;
   }
 
   getToken(): string | null {
@@ -341,6 +351,87 @@ class APIClient {
 
   async getCurrentUser(): Promise<User> {
     return this.request<User>('GET', '/api/auth/me');
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const formData = new FormData();
+    formData.append('email', email);
+
+    const response = await this.client.post<{ message: string }>('/api/auth/forgot-password', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const formData = new FormData();
+    formData.append('token', token);
+    formData.append('new_password', newPassword);
+
+    const response = await this.client.post<{ message: string }>('/api/auth/reset-password', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  }
+
+  // Instacart Integration
+
+  async getInstacartStatus(): Promise<{ enabled: boolean; available: boolean }> {
+    return this.request<{ enabled: boolean; available: boolean }>('GET', '/api/instacart/status');
+  }
+
+  async createInstacartRecipeLink(
+    title: string,
+    ingredients: Array<{
+      name: string;
+      quantity?: number;
+      unit?: string;
+      display_text?: string;
+    }>,
+    options?: {
+      instructions?: string[];
+      servings?: number;
+      cooking_time_minutes?: number;
+    }
+  ): Promise<{ products_link_url: string; expires_at?: string }> {
+    return this.request<{ products_link_url: string; expires_at?: string }>(
+      'POST',
+      '/api/instacart/recipe-link',
+      {
+        data: {
+          title,
+          ingredients,
+          ...options,
+        },
+      }
+    );
+  }
+
+  async createInstacartShoppingListLink(
+    title: string,
+    items: Array<{
+      name: string;
+      quantity?: number;
+      unit?: string;
+      display_text?: string;
+    }>
+  ): Promise<{ products_link_url: string; expires_at?: string }> {
+    return this.request<{ products_link_url: string; expires_at?: string }>(
+      'POST',
+      '/api/instacart/shopping-list-link',
+      {
+        data: {
+          title,
+          items,
+        },
+      }
+    );
   }
 
   private async request<T>(

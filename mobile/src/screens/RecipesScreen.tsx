@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput, Image } from 'react-native';
+
+// Instacart branding
+const INSTACART_GREEN = '#43B02A';
+const InstacartLogo = require('../../assets/instacart-carrot.png');
 import {
   Card,
   Text,
@@ -17,9 +21,10 @@ import {
   Searchbar,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
+import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { SkeletonRecipeCard } from '../components/Skeleton';
 import { PremiumButton } from '../components/PremiumButton';
@@ -67,10 +72,13 @@ export default function RecipesScreen() {
     setIngredientsError(null);
     try {
       console.log('Loading ingredients from API...');
-      const items = await apiClient.getInventory(0, 1000, undefined, 'in_stock', selectedPantryId);
+      const items = await apiClient.getInventory(0, 1000, undefined, undefined, selectedPantryId);
       console.log(`Loaded ${items.length} inventory items`);
+      // Filter out expired and consumed items, but keep in_stock and low items
+      const usableItems = items.filter(item => item.status !== 'expired' && item.status !== 'consumed');
+      console.log(`${usableItems.length} usable items after filtering`);
       const uniqueNames = new Set<string>();
-      items.forEach((item) => {
+      usableItems.forEach((item) => {
         if (item.product_name) uniqueNames.add(item.product_name);
       });
       const ingredients = Array.from(uniqueNames).sort();
@@ -127,6 +135,15 @@ export default function RecipesScreen() {
       loadAvailableIngredients();
     }
   }, [selectedPantryId, loadAvailableIngredients]);
+
+  // Reload ingredients when screen comes into focus (e.g., after adding items in Inventory)
+  useFocusEffect(
+    useCallback(() => {
+      if (selectedPantryId !== undefined) {
+        loadAvailableIngredients();
+      }
+    }, [selectedPantryId, loadAvailableIngredients])
+  );
 
   // Load recent recipes on mount
   useEffect(() => {
@@ -687,13 +704,15 @@ export default function RecipesScreen() {
             </>
           ) : (
             recentRecipes.map((recentRecipe) => (
-              <TouchableOpacity
+              <View
                 key={recentRecipe.id}
-                onPress={() => navigation.navigate('RecipeDetail', { recipe: recentRecipe } as never)}
                 style={[styles.recipeItem, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
-                activeOpacity={0.6}
               >
-                <View style={styles.recipeContent}>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('RecipeDetail', { recipe: recentRecipe } as never)}
+                  style={styles.recipeContent}
+                  activeOpacity={0.6}
+                >
                   <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>
                     {recentRecipe.name}
                   </Text>
@@ -719,9 +738,38 @@ export default function RecipesScreen() {
                       </Text>
                     )}
                   </View>
+                </TouchableOpacity>
+                <View style={styles.recipeActions}>
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleSaveRecipe(recentRecipe as any);
+                    }}
+                    style={styles.recipeActionButton}
+                  >
+                    <MaterialCommunityIcons 
+                      name="bookmark-outline" 
+                      size={20} 
+                      color={ds.colors.textPrimary} 
+                      style={{ opacity: 0.6 }}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteRecentRecipe(recentRecipe.id);
+                    }}
+                    style={styles.recipeActionButton}
+                  >
+                    <MaterialCommunityIcons 
+                      name="trash-can-outline" 
+                      size={20} 
+                      color={isDark ? '#f87171' : '#ef4444'} 
+                      style={{ opacity: 0.6 }}
+                    />
+                  </TouchableOpacity>
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
-              </TouchableOpacity>
+              </View>
             ))
           )}
         </View>
@@ -738,13 +786,15 @@ export default function RecipesScreen() {
       )}
 
       {recipes.map((recipe, idx) => (
-        <TouchableOpacity
+        <View
           key={idx}
-          onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
           style={[styles.recipeItem, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
-          activeOpacity={0.6}
         >
-          <View style={styles.recipeContent}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
+            style={styles.recipeContent}
+            activeOpacity={0.6}
+          >
             <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>
               {recipe.name}
             </Text>
@@ -775,9 +825,39 @@ export default function RecipesScreen() {
                 Missing: {recipe.missing_ingredients.slice(0, 2).join(', ')}{recipe.missing_ingredients.length > 2 ? '...' : ''}
               </Text>
             )}
+          </TouchableOpacity>
+          <View style={styles.recipeActions}>
+            {recipe.missing_ingredients && recipe.missing_ingredients.length > 0 && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  instacartService.shopMissingIngredients(recipe);
+                }}
+                style={styles.recipeActionButton}
+              >
+                <Image 
+                  source={InstacartLogo} 
+                  style={{ width: 22, height: 22 }}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                handleSaveRecipe(recipe);
+              }}
+              style={styles.recipeActionButton}
+            >
+              <MaterialCommunityIcons 
+                name="bookmark-outline" 
+                size={20} 
+                color={ds.colors.textPrimary} 
+                style={{ opacity: 0.6 }}
+              />
+            </TouchableOpacity>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={ds.colors.textTertiary} style={{ opacity: 0.4 }} />
-        </TouchableOpacity>
+        </View>
       ))}
 
       {/* Required Ingredients Dialog */}
@@ -1235,6 +1315,15 @@ const styles = StyleSheet.create({
   },
   recipeContent: {
     flex: 1,
+  },
+  recipeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 12,
+  },
+  recipeActionButton: {
+    padding: 8,
   },
   recipeName: {
     fontSize: 17,

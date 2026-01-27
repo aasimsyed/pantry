@@ -11,6 +11,8 @@ import { DesignSystem, getDesignSystem } from '../utils/designSystem';
 // Screens
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import HomeScreen from '../screens/HomeScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import RecipesScreen from '../screens/RecipesScreen';
@@ -157,16 +159,28 @@ export default function AppNavigator() {
         },
       };
 
+  const linking = {
+    prefixes: ['smartpantry://', 'https://smartpantry.app'],
+    config: {
+      screens: {
+        ResetPassword: 'reset-password',
+        Login: 'login',
+        Register: 'register',
+        ForgotPassword: 'forgot-password',
+      },
+    },
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: ds.colors.background }}>
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer theme={navigationTheme} linking={linking}>
         <Stack.Navigator 
           screenOptions={{ 
             headerShown: false,
             animation: 'fade_from_bottom',
             animationDuration: 200,
             contentStyle: { backgroundColor: ds.colors.background },
-            fullScreenGestureEnabled: true,
+            fullScreenGestureEnabled: false, // Only allow swipe-back from left edge to prevent scroll conflicts
           }}
         >
           {!isAuthenticated ? (
@@ -174,6 +188,8 @@ export default function AppNavigator() {
             <>
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="Register" component={RegisterScreen} />
+              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+              <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
             </>
           ) : (
             // Main app screens
@@ -242,6 +258,16 @@ export default function AppNavigator() {
                   headerTintColor: ds.colors.textPrimary,
                   headerBackTitle: 'Back',
                 })}
+              />
+              <Stack.Screen
+                name="ResetPassword"
+                component={ResetPasswordScreen}
+                options={{
+                  title: 'Reset Password',
+                  headerShown: true,
+                  headerStyle: { backgroundColor: ds.colors.surface },
+                  headerTintColor: ds.colors.textPrimary,
+                }}
               />
             </>
           )}

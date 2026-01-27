@@ -1,0 +1,10 @@
+{
+  "name": "smart-pantry-support",
+  "version": "1.0.0",
+  "description": "Support website for Smart Pantry AI",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve public",
+    "deploy": "vercel --prod"
+  }
+}

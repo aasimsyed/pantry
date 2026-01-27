@@ -297,6 +297,7 @@ from api.routers import admin as admin_router
 from api.routers import auth as auth_router
 from api.routers import config as config_router
 from api.routers import health as health_router
+from api.routers import instacart as instacart_router
 from api.routers import inventory as inventory_router
 from api.routers import pantries as pantries_router
 from api.routers import products as products_router
@@ -314,6 +315,7 @@ app.include_router(inventory_router.router)
 app.include_router(recipes_router.router)
 app.include_router(user_router.router)
 app.include_router(admin_router.router)
+app.include_router(instacart_router.router)
 
 # ============================================================================
 # Recipe Generation Endpoints

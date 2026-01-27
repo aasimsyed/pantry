@@ -59,6 +59,12 @@ We use the following third-party services:
 - **Sentry** - For error monitoring and crash reporting
 - Usage: Error logs and diagnostic information
 
+### Shopping Integration
+- **Instacart** - For shopping list and ingredient purchasing
+- Usage: When you choose to shop for missing recipe ingredients or low-stock items, ingredient names and quantities are sent to Instacart to create a shopping list
+- Privacy: Instacart processes this data according to their privacy policy (https://www.instacart.com/privacy)
+- Note: This is an optional feature that you must explicitly trigger; no data is sent to Instacart without your action
+
 ### Cloud Infrastructure
 - **Google Cloud Platform (Cloud Run, Cloud SQL)** - For hosting our backend services
 - **PostgreSQL** - For database storage

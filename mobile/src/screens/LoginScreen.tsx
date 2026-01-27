@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, Text, Card, Snackbar } from 'react-native-paper';
+import { TextInput, Button, Text, Card } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +13,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { token: string };
   MainTabs: undefined;
 };
 
@@ -45,11 +47,19 @@ export default function LoginScreen() {
         err.code === 'ERR_NETWORK' ||
         err.message?.includes('Network Error') ||
         err.message?.includes('timeout');
-      setError(
-        isNetwork
-          ? "Can't reach API. Is the backend running? (Physical device? Use Mac IP — see terminal.)"
-          : err.response?.data?.detail || err.message || 'Login failed'
-      );
+      
+      const errorDetail = err.response?.data?.detail || err.message || 'Login failed';
+      
+      // Check if it's an invalid credentials error
+      if (errorDetail.toLowerCase().includes('incorrect') || 
+          errorDetail.toLowerCase().includes('invalid') ||
+          errorDetail.toLowerCase().includes('not found')) {
+        setError('Invalid email or password');
+      } else if (isNetwork) {
+        setError("Can't reach API. Is the backend running? (Physical device? Use Mac IP — see terminal.)");
+      } else {
+        setError(errorDetail);
+      }
     } finally {
       setLoading(false);
     }
@@ -80,11 +90,23 @@ export default function LoginScreen() {
               Sign in to continue to Smart Pantry
             </Text>
 
+            {error && (
+              <View style={[styles.errorContainer, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)' }]}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#ef4444" />
+                <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                  {error}
+                </Text>
+              </View>
+            )}
+
             <TextInput
               testID="email-input"
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (error) setError(null);
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -97,7 +119,10 @@ export default function LoginScreen() {
               testID="password-input"
               label="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (error) setError(null);
+              }}
               secureTextEntry
               autoCapitalize="none"
               autoComplete="password"
@@ -105,6 +130,16 @@ export default function LoginScreen() {
               style={styles.input}
               left={<TextInput.Icon icon="lock-outline" />}
             />
+
+            <Button
+              mode="text"
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotPasswordButton}
+              labelStyle={styles.forgotPasswordLabel}
+              compact
+            >
+              Forgot Password?
+            </Button>
 
             <PremiumButton
               testID="login-button"
@@ -126,17 +161,22 @@ export default function LoginScreen() {
             >
               Don't have an account? Sign up
             </Button>
+
+            {__DEV__ && (
+              <Button
+                mode="text"
+                onPress={() => navigation.navigate('ResetPassword', { 
+                  token: 'test-token-for-development' 
+                })}
+                style={styles.linkButton}
+                labelStyle={[styles.linkButtonLabel, { fontSize: 12, opacity: 0.5 }]}
+              >
+                [DEV] Test Reset Password Screen
+              </Button>
+            )}
           </Card.Content>
         </Card>
       </ScrollView>
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={4000}
-      >
-        {error || ''}
-      </Snackbar>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -191,6 +231,15 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 16,
   },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  forgotPasswordLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   button: {
     marginTop: 8,
     marginBottom: 16,
@@ -200,6 +249,20 @@ const styles = StyleSheet.create({
   },
   linkButtonLabel: {
     fontSize: 15,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 10,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '500',
   },
 });

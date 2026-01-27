@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Alert } from 'react-native';
 import apiClient from '../api/client';
 import type { User, LoginRequest, RegisterRequest } from '../types';
 
@@ -21,6 +22,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check if user is logged in on mount
     checkAuth();
+    
+    // Register callback for authentication failures
+    apiClient.setOnAuthFailure(() => {
+      setUser(null);
+      // Show user-friendly message on next tick to avoid render conflicts
+      setTimeout(() => {
+        Alert.alert(
+          'Session Expired',
+          'Your session has expired. Please sign in again to continue.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      }, 100);
+    });
   }, []);
 
   const checkAuth = async () => {

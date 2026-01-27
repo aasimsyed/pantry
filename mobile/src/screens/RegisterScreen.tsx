@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, Text, Card, Snackbar } from 'react-native-paper';
+import { TextInput, Button, Text, Card } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'general' | 'email' | 'password'>('general');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const { isDark } = useTheme();
@@ -32,15 +33,18 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     if (!email || !password) {
       setError('Please enter email and password');
+      setErrorType('general');
       return;
     }
 
     if (password.length < 8) {
       setError('Password must be at least 8 characters long');
+      setErrorType('password');
       return;
     }
 
     setError(null);
+    setErrorType('general');
     setLoading(true);
 
     try {
@@ -55,11 +59,21 @@ export default function RegisterScreen() {
         err.code === 'ERR_NETWORK' ||
         err.message?.includes('Network Error') ||
         err.message?.includes('timeout');
-      setError(
-        isNetwork
-          ? "Can't reach API. Is the backend running? (Physical device? Use Mac IP — see terminal.)"
-          : err.response?.data?.detail || err.message || 'Registration failed'
-      );
+      
+      const errorDetail = err.response?.data?.detail || err.message || 'Registration failed';
+      
+      // Check if it's an email already registered error
+      if (errorDetail.toLowerCase().includes('email already registered') || 
+          errorDetail.toLowerCase().includes('already exists')) {
+        setError('This email is already registered');
+        setErrorType('email');
+      } else if (isNetwork) {
+        setError("Can't reach API. Is the backend running? (Physical device? Use Mac IP — see terminal.)");
+        setErrorType('general');
+      } else {
+        setError(errorDetail);
+        setErrorType('general');
+      }
     } finally {
       setLoading(false);
     }
@@ -90,6 +104,15 @@ export default function RegisterScreen() {
               Create your Smart Pantry account
             </Text>
 
+            {errorType === 'general' && error && (
+              <View style={[styles.generalErrorContainer, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)' }]}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#ef4444" />
+                <Text style={[styles.generalErrorText, { color: '#ef4444' }]}>
+                  {error}
+                </Text>
+              </View>
+            )}
+
             <TextInput
               testID="full-name-input"
               label="Full Name (Optional)"
@@ -105,30 +128,69 @@ export default function RegisterScreen() {
               testID="email-input"
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errorType === 'email') {
+                  setError(null);
+                }
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
               mode="outlined"
               style={styles.input}
+              error={errorType === 'email'}
               left={<TextInput.Icon icon="email-outline" />}
             />
+            {errorType === 'email' && error && (
+              <View style={styles.errorContainer}>
+                <MaterialCommunityIcons name="alert-circle" size={16} color="#ef4444" />
+                <View style={styles.errorTextContainer}>
+                  <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                    {error}
+                  </Text>
+                  <Button
+                    mode="text"
+                    onPress={() => navigation.navigate('Login')}
+                    style={styles.errorButton}
+                    labelStyle={styles.errorButtonLabel}
+                    compact
+                  >
+                    Sign in instead
+                  </Button>
+                </View>
+              </View>
+            )}
 
             <TextInput
               testID="password-input"
               label="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (errorType === 'password') {
+                  setError(null);
+                }
+              }}
               secureTextEntry
               autoCapitalize="none"
               autoComplete="password-new"
               mode="outlined"
               style={styles.input}
+              error={errorType === 'password'}
               left={<TextInput.Icon icon="lock-outline" />}
             />
             <Text style={[styles.helperText, { color: ds.colors.textTertiary }]}>
               Must be at least 8 characters
             </Text>
+            {errorType === 'password' && error && (
+              <View style={styles.errorContainer}>
+                <MaterialCommunityIcons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                  {error}
+                </Text>
+              </View>
+            )}
 
             <PremiumButton
               testID="register-button"
@@ -153,14 +215,6 @@ export default function RegisterScreen() {
           </Card.Content>
         </Card>
       </ScrollView>
-
-      <Snackbar
-        visible={!!error}
-        onDismiss={() => setError(null)}
-        duration={4000}
-      >
-        {error || ''}
-      </Snackbar>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -231,6 +285,44 @@ const styles = StyleSheet.create({
   linkButtonLabel: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  generalErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 10,
+  },
+  generalErrorText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: -12,
+    marginBottom: 16,
+    marginLeft: 4,
+    gap: 6,
+  },
+  errorTextContainer: {
+    flex: 1,
+  },
+  errorText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  errorButton: {
+    marginTop: 4,
+    marginLeft: -8,
+  },
+  errorButtonLabel: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 
