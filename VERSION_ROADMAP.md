@@ -119,7 +119,24 @@
 
 ---
 
-## Version 1.4.0 (MINOR Release)
+## Version 1.4.0 (MINOR Release) ✅
+**Barcode Scanner**
+
+### New Features
+- 📱 **Barcode Scanner**: Scan UPC/EAN barcodes to instantly add products to inventory
+- 🔍 **Open Food Facts + UPCitemdb Integration**: Dual-API product lookup for better coverage
+- 📸 **FAB Speed Dial**: Quick access to barcode scanner, label scanner, and manual entry
+- ✅ **Product Confirmation**: Review and edit scanned product details before adding
+
+### Technical Details
+- `barcode_service.py`: Open Food Facts + UPCitemdb API integration
+- `BarcodeScannerScreen`: Full-screen camera with barcode detection (bottom control bar UX)
+- `ProductConfirmScreen`: Review and edit scanned product details
+- `/api/products/barcode/{barcode}`: Barcode lookup endpoint
+
+---
+
+## Version 1.5.0 (MINOR Release)
 **Collaboration & Multi-User**
 
 ### New Features
@@ -135,7 +152,7 @@
 
 ---
 
-## Version 1.5.0 (MINOR Release)
+## Version 1.6.0 (MINOR Release)
 **AI & Automation Enhancements**
 
 ### New Features
@@ -152,11 +169,10 @@
 
 ---
 
-## Version 1.6.0 (MINOR Release)
+## Version 1.7.0 (MINOR Release)
 **Integrations & Ecosystem**
 
 ### New Features
-- 🛒 **Grocery Store APIs**: Integration with Instacart, Amazon Fresh, etc.
 - 📱 **Smart Home Integration**: Alexa, Google Home voice commands
 - 🍎 **Health Apps**: Integration with MyFitnessPal, Apple Health
 - 📧 **Email Receipt Parsing**: Auto-add items from email receipts
@@ -164,7 +180,7 @@
 
 ---
 
-## Version 1.7.0 (MINOR Release)
+## Version 1.8.0 (MINOR Release)
 **Mobile App Enhancements**
 
 ### New Features
@@ -181,7 +197,7 @@
 
 ---
 
-## Version 1.8.0 (MINOR Release)
+## Version 1.9.0 (MINOR Release)
 **Recipe Community**
 
 ### New Features
@@ -193,7 +209,7 @@
 
 ---
 
-## Version 1.9.0 (MINOR Release)
+## Version 1.10.0 (MINOR Release)
 **Enterprise & Advanced Features**
 
 ### New Features
@@ -272,6 +288,7 @@ Update this file when releasing new versions:
 - **1.3.0** - 2026-01-25 - Jony Ive-inspired UI/UX redesign across all screens
 - **1.3.1** - 2026-01-26 - Flavor chemistry feature, FAB speed dial for manual entry, DB migration fixes
 - **1.3.2** - 2026-01-26 - Smooth navigation transitions, fix screen flash on back, fix title clipping
+- **1.4.0** - 2026-01-26 - Barcode scanner, Open Food Facts + UPCitemdb integration
 
 ---
 

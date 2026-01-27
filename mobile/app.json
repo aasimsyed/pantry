@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Pantry AI",
     "slug": "smart-pantry",
-    "version": "1.3.2",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSCameraUsageDescription": "Smart Pantry needs camera access to scan barcodes and product labels"
       }
     },
     "android": {

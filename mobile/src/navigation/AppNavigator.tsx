@@ -18,6 +18,8 @@ import RecipeBoxScreen from '../screens/RecipeBoxScreen';
 import StatisticsScreen from '../screens/StatisticsScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
+import ProductConfirmScreen from '../screens/ProductConfirmScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -205,6 +207,24 @@ export default function AppNavigator() {
                 component={SettingsScreen}
                 options={{ 
                   title: 'Settings', 
+                  headerShown: true,
+                  headerStyle: { backgroundColor: ds.colors.surface },
+                  headerTintColor: ds.colors.textPrimary,
+                }}
+              />
+              <Stack.Screen
+                name="BarcodeScanner"
+                component={BarcodeScannerScreen}
+                options={{ 
+                  headerShown: false,
+                  presentation: 'fullScreenModal',
+                }}
+              />
+              <Stack.Screen
+                name="ProductConfirm"
+                component={ProductConfirmScreen}
+                options={{ 
+                  title: 'Add Product', 
                   headerShown: true,
                   headerStyle: { backgroundColor: ds.colors.surface },
                   headerTintColor: ds.colors.textPrimary,

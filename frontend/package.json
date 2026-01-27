@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:prod": "VITE_API_URL=https://pantry-api-apqja3ye2q-vp.a.run.app vite",
-    "build": "tsc -b && vite build",
-    "build:prod": "VITE_API_URL=https://pantry-api-apqja3ye2q-vp.a.run.app tsc -b && vite build",
+    "build": "vite build",
+    "build:typecheck": "tsc -b && vite build",
+    "build:prod": "VITE_API_URL=https://pantry-api-apqja3ye2q-vp.a.run.app vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

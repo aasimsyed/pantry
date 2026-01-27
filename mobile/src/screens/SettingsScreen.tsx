@@ -152,8 +152,8 @@ export default function SettingsScreen() {
   
   // Fallback to app.json values if nothing found
   if (appVersion === 'Unknown') {
-    appVersion = '1.3.2';
-    buildNumber = '33'; // iOS build number from app.json
+    appVersion = '1.4.0';
+    buildNumber = '39'; // iOS build number from app.json
   }
   
   const versionText = buildNumber 

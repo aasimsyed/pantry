@@ -516,7 +516,7 @@ export default function RecipeDetailScreen() {
               <Text variant="titleMedium" style={styles.missingTitle}>
                 Missing Ingredients
               </Text>
-              {recipe.missing_ingredients.map((item, i) => (
+              {recipe.missing_ingredients.map((item: string, i: number) => (
                 <Text key={i} variant="bodyMedium" style={styles.missingItem}>
                   • {item}
                 </Text>

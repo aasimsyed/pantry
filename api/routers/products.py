@@ -1,9 +1,10 @@
 """Product CRUD and search."""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from api.dependencies import get_pantry_service
@@ -15,10 +16,124 @@ from api.models import (
 )
 from src.database import Product
 from src.db_service import PantryService
+from src.barcode_service import get_barcode_service, BarcodeProduct
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/products", tags=["Products"])
+
+
+# Barcode lookup response model
+class BarcodeProductResponse(BaseModel):
+    """Response model for barcode product lookup."""
+    barcode: str = Field(..., description="UPC/EAN barcode")
+    product_name: str = Field(..., description="Product name")
+    brand: Optional[str] = Field(None, description="Brand name")
+    category: Optional[str] = Field(None, description="Product category")
+    quantity: Optional[str] = Field(None, description="Package size (e.g., '500g')")
+    image_url: Optional[str] = Field(None, description="Product image URL")
+    nutrition_grade: Optional[str] = Field(None, description="Nutri-Score grade (A-E)")
+    ingredients: Optional[str] = Field(None, description="Ingredients list")
+    allergens: Optional[str] = Field(None, description="Allergens")
+    found_in_database: bool = Field(False, description="Whether found in local database")
+
+
+@router.get("/barcode/{barcode}", response_model=BarcodeProductResponse)
+def lookup_barcode(
+    barcode: str,
+    service: PantryService = Depends(get_pantry_service),
+) -> BarcodeProductResponse:
+    """
+    Look up product information by barcode (UPC/EAN).
+    
+    First checks the local database, then falls back to Open Food Facts API.
+    Results from Open Food Facts are cached in the local database for future lookups.
+    """
+    # Clean the barcode
+    barcode = barcode.strip().replace("-", "").replace(" ", "")
+    
+    if not barcode or len(barcode) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid barcode format",
+        )
+    
+    logger.info(f"Looking up barcode: {barcode}")
+    
+    # First, check local database
+    try:
+        db_session = service.session
+        existing_product = db_session.query(Product).filter(
+            Product.barcode == barcode
+        ).first()
+        
+        if existing_product:
+            logger.info(f"Found barcode in local database: {existing_product.product_name}")
+            return BarcodeProductResponse(
+                barcode=barcode,
+                product_name=existing_product.product_name,
+                brand=existing_product.brand,
+                category=existing_product.category,
+                quantity=None,
+                image_url=None,
+                nutrition_grade=None,
+                ingredients=None,
+                allergens=None,
+                found_in_database=True,
+            )
+    except SQLAlchemyError as e:
+        logger.warning(f"Database error checking for existing barcode: {e}")
+    
+    # Not in local database, try Open Food Facts API
+    try:
+        barcode_service = get_barcode_service()
+        product = barcode_service.lookup(barcode)
+        
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product with barcode {barcode} not found",
+            )
+        
+        # Optionally cache in local database
+        try:
+            new_product = Product(
+                product_name=product.product_name,
+                brand=product.brand,
+                category=product.category or "Other",
+                barcode=barcode,
+            )
+            db_session.add(new_product)
+            db_session.commit()
+            logger.info(f"Cached new product in database: {product.product_name}")
+        except IntegrityError:
+            db_session.rollback()
+            logger.info(f"Product already exists in database (race condition)")
+        except SQLAlchemyError as e:
+            db_session.rollback()
+            logger.warning(f"Failed to cache product in database: {e}")
+        
+        return BarcodeProductResponse(
+            barcode=product.barcode,
+            product_name=product.product_name,
+            brand=product.brand,
+            category=product.category,
+            quantity=product.quantity,
+            image_url=product.image_url,
+            nutrition_grade=product.nutrition_grade,
+            ingredients=product.ingredients,
+            allergens=product.allergens,
+            found_in_database=False,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error looking up barcode {barcode}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to look up barcode: {str(e)}",
+        ) from e
 
 
 @router.get("", response_model=List[ProductResponse])

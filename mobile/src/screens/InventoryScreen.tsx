@@ -491,8 +491,19 @@ export default function InventoryScreen() {
             labelStyle: { fontWeight: '600' },
           },
           {
+            icon: 'barcode-scan',
+            label: 'Scan Barcode',
+            onPress: () => navigation.navigate('BarcodeScanner' as never, { 
+              pantryId: selectedPantryId,
+              storageLocation: 'pantry'
+            } as never),
+            style: { backgroundColor: ds.colors.info },
+            color: ds.colors.surface,
+            labelStyle: { fontWeight: '600' },
+          },
+          {
             icon: 'camera',
-            label: 'Scan Item',
+            label: 'Scan Label',
             onPress: () => setDialogVisible(true),
             style: { backgroundColor: ds.colors.accent },
             color: ds.colors.surface,

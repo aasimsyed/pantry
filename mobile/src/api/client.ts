@@ -16,6 +16,7 @@ import type {
   RegisterRequest,
   LoginRequest,
   User,
+  BarcodeProduct,
 } from '../types';
 
 // API Base URL Configuration
@@ -605,6 +606,11 @@ class APIClient {
     if (category) params.category = category;
     if (brand) params.brand = brand;
     return this.request<Product[]>('GET', '/api/products/search', { params });
+  }
+
+  // Barcode lookup
+  async lookupBarcode(barcode: string): Promise<BarcodeProduct> {
+    return this.request<BarcodeProduct>('GET', `/api/products/barcode/${barcode}`);
   }
 
   // User Settings

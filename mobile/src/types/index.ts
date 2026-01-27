@@ -187,3 +187,18 @@ export interface LoginRequest {
   password: string;
 }
 
+// Barcode lookup types
+export interface BarcodeProduct {
+  barcode: string;
+  product_name: string;
+  brand?: string;
+  category?: string;
+  quantity?: string;
+  image_url?: string;
+  nutrition_grade?: string;
+  ingredients?: string;
+  allergens?: string;
+  found_in_database: boolean;
+}
+
+

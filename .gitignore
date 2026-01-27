@@ -98,3 +98,4 @@ fly.toml
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .cursor/rules/snyk_rules.mdc
+.vercel
