@@ -8,7 +8,7 @@ The **Build and Deploy iOS App** workflow needs these secrets so `xcodebuild arc
 
 | Secret | Description |
 |--------|-------------|
-| `APPLE_ID` | Your Apple ID email (for TestFlight upload) |
+| `APPLE_ID` | Apple ID email (for TestFlight upload). For this repo: `aasim.ss@gmail.com` |
 | `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password from [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security → App-Specific Passwords |
 | `BUILD_CERTIFICATE_BASE64` | Your **Apple Distribution** (.p12) certificate, base64-encoded |
 | `P12_PASSWORD` | Password you set when exporting the .p12 |
