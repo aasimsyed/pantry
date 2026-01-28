@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput, Image } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput } from 'react-native';
 
-// Instacart branding
+// Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
-const InstacartLogo = require('../../assets/instacart-carrot.png');
 import {
   Card,
   Text,
@@ -835,10 +834,10 @@ export default function RecipesScreen() {
                 }}
                 style={styles.recipeActionButton}
               >
-                <Image 
-                  source={InstacartLogo} 
-                  style={{ width: 22, height: 22 }}
-                  resizeMode="contain"
+                <MaterialCommunityIcons 
+                  name="cart-outline" 
+                  size={22} 
+                  color={INSTACART_GREEN} 
                 />
               </TouchableOpacity>
             )}

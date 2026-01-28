@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput, Image } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput } from 'react-native';
 
-// Instacart branding
+// Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
-const InstacartLogo = require('../../assets/instacart-carrot.png');
 import {
   Card,
   Text,
@@ -26,6 +25,7 @@ import apiClient from '../api/client';
 import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { PremiumButton } from '../components/PremiumButton';
+import { InstacartLogo } from '../components/InstacartLogo';
 import { useTheme } from '../contexts/ThemeContext';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { InventoryItem } from '../types';
@@ -395,23 +395,22 @@ export default function InventoryScreen() {
             disabled={instacartLoading}
             style={[
               styles.instacartButton,
-              { backgroundColor: isDark ? 'rgba(67, 176, 42, 0.15)' : 'rgba(67, 176, 42, 0.1)' }
+              { 
+                backgroundColor: '#F5E6D3', // Cashew - approved Instacart background color
+                borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)'
+              }
             ]}
             activeOpacity={0.7}
           >
             {instacartLoading ? (
               <ActivityIndicator size="small" color={INSTACART_GREEN} />
             ) : (
-              <>
-                <Image 
-                  source={InstacartLogo} 
-                  style={{ width: 24, height: 24, marginRight: 8 }}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.instacartButtonText, { color: INSTACART_GREEN }]}>
-                  Shop Low Stock Items ({items.filter(item => item.status === 'low').length})
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <InstacartLogo width={100} height={18} />
+                <Text style={[styles.instacartButtonText, { color: ds.colors.textSecondary, fontSize: 13 }]}>
+                  ({items.filter(item => item.status === 'low').length} items)
                 </Text>
-              </>
+              </View>
             )}
           </TouchableOpacity>
         )}
@@ -1198,6 +1197,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     marginBottom: 8,
     borderRadius: 10,
+    borderWidth: 1,
+    // borderColor is set inline to be theme-aware
   },
   instacartButtonText: {
     fontSize: 14,

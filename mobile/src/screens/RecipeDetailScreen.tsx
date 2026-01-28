@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, ActivityIndicator, Image } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, ActivityIndicator } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -8,12 +8,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { instacartService } from '../services/instacartService';
 
-// Instacart branding
+// Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
-const InstacartLogo = require('../../assets/instacart-carrot.png');
 import { useTheme } from '../contexts/ThemeContext';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 import { FlavorChemistrySheet } from '../components/FlavorChemistrySheet';
+import { InstacartLogo } from '../components/InstacartLogo';
 import type { Recipe, RecentRecipe, SavedRecipe, FlavorPairing } from '../types';
 
 type RouteParams = {
@@ -621,7 +621,10 @@ export default function RecipeDetailScreen() {
               <TouchableOpacity
                 style={[
                   styles.instacartButton,
-                  { backgroundColor: isDark ? 'rgba(67, 176, 42, 0.15)' : 'rgba(67, 176, 42, 0.1)' }
+                  { 
+                    backgroundColor: '#F5E6D3', // Cashew - approved Instacart background color
+                    borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)'
+                  }
                 ]}
                 onPress={() => instacartService.shopMissingIngredients(recipe as Recipe, setInstacartLoading)}
                 disabled={instacartLoading}
@@ -630,16 +633,7 @@ export default function RecipeDetailScreen() {
                 {instacartLoading ? (
                   <ActivityIndicator size="small" color={INSTACART_GREEN} />
                 ) : (
-                  <>
-                    <Image 
-                      source={InstacartLogo} 
-                      style={{ width: 24, height: 24, marginRight: 8 }}
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.instacartButtonText, { color: INSTACART_GREEN }]}>
-                      Shop on Instacart
-                    </Text>
-                  </>
+                  <InstacartLogo width={120} height={20} />
                 )}
               </TouchableOpacity>
             </Card.Content>
@@ -673,7 +667,10 @@ export default function RecipeDetailScreen() {
                   <TouchableOpacity
                     style={[
                       styles.instacartButton,
-                      { backgroundColor: isDark ? 'rgba(67, 176, 42, 0.15)' : 'rgba(67, 176, 42, 0.1)' }
+                      { 
+                        backgroundColor: '#F5E6D3', // Cashew - approved Instacart background color
+                        borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)'
+                      }
                     ]}
                     onPress={() => {
                       // Create a temporary recipe object with calculated missing ingredients
@@ -689,16 +686,7 @@ export default function RecipeDetailScreen() {
                     {instacartLoading ? (
                       <ActivityIndicator size="small" color={INSTACART_GREEN} />
                     ) : (
-                      <>
-                        <Image 
-                          source={InstacartLogo} 
-                          style={{ width: 24, height: 24, marginRight: 8 }}
-                          resizeMode="contain"
-                        />
-                        <Text style={[styles.instacartButtonText, { color: INSTACART_GREEN }]}>
-                          Shop on Instacart
-                        </Text>
-                      </>
+                      <InstacartLogo width={120} height={20} />
                     )}
                   </TouchableOpacity>
                 </Card.Content>
@@ -1135,6 +1123,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: DesignSystem.spacing.md,
     borderRadius: DesignSystem.borderRadius.md,
+    borderWidth: 1,
+    // borderColor is set inline to be theme-aware
   },
   instacartButtonText: {
     fontSize: 15,
