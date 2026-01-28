@@ -199,7 +199,9 @@ def init_database():
             add_security_events_table,
             add_recent_recipes_table,
             add_performance_indexes,
-            add_flavor_pairings_to_saved_recipes
+            add_flavor_pairings_to_saved_recipes,
+            add_totp_and_password_reset_requests,
+            add_user_recovery_questions_table,
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
@@ -214,6 +216,8 @@ def init_database():
         add_recent_recipes_table()  # Create recent_recipes table
         add_performance_indexes()  # Add performance indexes
         add_flavor_pairings_to_saved_recipes()  # Add flavor pairings to saved recipes
+        add_totp_and_password_reset_requests()  # TOTP-based password reset
+        add_user_recovery_questions_table()  # Security questions for easy password reset
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
@@ -1079,6 +1083,9 @@ class User(Base):
     email_verified = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     
+    # TOTP secret for Authenticator app (optional; used for password reset and optional 2FA)
+    totp_secret = Column(String(32), nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
@@ -1123,6 +1130,44 @@ class User(Base):
     def is_admin(self) -> bool:
         """Check if user is admin."""
         return self.role == "admin"
+
+
+# ============================================================================
+# PasswordResetRequest Model - TOTP-based password reset
+# ============================================================================
+
+class PasswordResetRequest(Base):
+    """One-time password reset request (TOTP Authenticator flow).
+    
+    Stores email and optional TOTP secret for the reset session.
+    If user has no totp_secret, we generate one here for this request only;
+    after successful reset we can save it to User for future 2FA.
+    """
+    __tablename__ = "password_reset_requests"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    totp_secret = Column(String(32), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+
+
+# ============================================================================
+# UserRecoveryQuestion Model - Security questions for easy password reset
+# ============================================================================
+
+class UserRecoveryQuestion(Base):
+    """Stores one recovery question/answer per user (2–3 per user).
+    
+    Answers are stored as bcrypt hashes. Used for "easy" password reset
+    path (no Authenticator app required).
+    """
+    __tablename__ = "user_recovery_questions"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id = Column(Integer, nullable=False)
+    answer_hash = Column(String(255), nullable=False)
 
 
 # ============================================================================

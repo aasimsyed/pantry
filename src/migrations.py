@@ -903,6 +903,102 @@ def add_flavor_pairings_to_saved_recipes():
             raise
 
 
+def add_user_recovery_questions_table():
+    """Create user_recovery_questions table for security-question password reset."""
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+
+    if "user_recovery_questions" in inspector.get_table_names():
+        logger.info("user_recovery_questions table already exists")
+        return
+
+    logger.info("Creating user_recovery_questions table...")
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            if db_url.startswith("sqlite"):
+                conn.execute(text("""
+                    CREATE TABLE user_recovery_questions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        question_id INTEGER NOT NULL,
+                        answer_hash VARCHAR(255) NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_user_recovery_questions_user_id ON user_recovery_questions(user_id)"))
+            else:
+                conn.execute(text("""
+                    CREATE TABLE user_recovery_questions (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        question_id INTEGER NOT NULL,
+                        answer_hash VARCHAR(255) NOT NULL,
+                        CONSTRAINT fk_user_recovery_questions_user_id
+                            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """))
+                conn.execute(text("CREATE INDEX ix_user_recovery_questions_user_id ON user_recovery_questions(user_id)"))
+            logger.info("✅ Created user_recovery_questions table")
+            trans.commit()
+        except Exception as e:
+            trans.rollback()
+            logger.error("Migration failed: %s", e, exc_info=True)
+            raise
+
+
+def add_totp_and_password_reset_requests():
+    """Add totp_secret to users and create password_reset_requests table (TOTP-based password reset)."""
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            if "users" in inspector.get_table_names():
+                columns = [col["name"] for col in inspector.get_columns("users")]
+                if "totp_secret" not in columns:
+                    logger.info("Adding totp_secret column to users table...")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(32)"))
+                    logger.info("✅ Added totp_secret to users")
+                else:
+                    logger.info("totp_secret column already exists in users")
+            if "password_reset_requests" not in inspector.get_table_names():
+                logger.info("Creating password_reset_requests table...")
+                if db_url.startswith("sqlite"):
+                    conn.execute(text("""
+                        CREATE TABLE password_reset_requests (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            email VARCHAR(255) NOT NULL,
+                            totp_secret VARCHAR(32) NOT NULL,
+                            created_at DATETIME NOT NULL,
+                            expires_at DATETIME NOT NULL
+                        )
+                    """))
+                    conn.execute(text("CREATE INDEX ix_password_reset_requests_email ON password_reset_requests(email)"))
+                else:
+                    conn.execute(text("""
+                        CREATE TABLE password_reset_requests (
+                            id SERIAL PRIMARY KEY,
+                            email VARCHAR(255) NOT NULL,
+                            totp_secret VARCHAR(32) NOT NULL,
+                            created_at TIMESTAMP NOT NULL,
+                            expires_at TIMESTAMP NOT NULL
+                        )
+                    """))
+                    conn.execute(text("CREATE INDEX ix_password_reset_requests_email ON password_reset_requests(email)"))
+                logger.info("✅ Created password_reset_requests table")
+            else:
+                logger.info("password_reset_requests table already exists")
+            trans.commit()
+        except Exception as e:
+            trans.rollback()
+            logger.error("Migration failed: %s", e, exc_info=True)
+            raise
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
@@ -919,6 +1015,8 @@ def run_migrations():
     add_recent_recipes_table()  # Create recent_recipes table
     add_performance_indexes()  # Add performance indexes
     add_flavor_pairings_to_saved_recipes()  # Add flavor pairings to saved recipes
+    add_totp_and_password_reset_requests()  # TOTP-based password reset
+    add_user_recovery_questions_table()  # Security questions for easy password reset
     logger.info("✅ All migrations completed")
 
 

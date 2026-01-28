@@ -436,6 +436,54 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ForgotPasswordResponse(BaseModel):
+    """Response for forgot-password (TOTP and/or recovery-questions flow)."""
+    has_existing_totp: bool = Field(..., description="True if user already has Authenticator set up")
+    totp_uri: Optional[str] = Field(None, description="Provisioning URI for new Authenticator (if no existing TOTP)")
+    qr_image_base64: Optional[str] = Field(None, description="QR code image as base64 (if no existing TOTP)")
+    has_recovery_questions: bool = Field(False, description="True if user has set recovery questions (easy reset path)")
+    recovery_questions: Optional[List[dict]] = Field(None, description="Question id/text for user's recovery questions (if has_recovery_questions)")
+
+
+class RecoveryQuestionItem(BaseModel):
+    """One recovery question (id + text)."""
+    id: int = Field(..., description="Question id")
+    text: str = Field(..., description="Question text")
+
+
+class GetRecoveryQuestionsResponse(BaseModel):
+    """All predefined questions + user's current question ids (if any)."""
+    all_questions: List[RecoveryQuestionItem] = Field(..., description="All available questions")
+    user_question_ids: List[int] = Field(default_factory=list, description="Ids of questions user has set (empty if none)")
+
+
+class RecoveryAnswerInput(BaseModel):
+    """One answer for recovery questions (set or verify)."""
+    question_id: int = Field(..., description="Question id")
+    answer: str = Field(..., min_length=1, description="User's answer")
+
+
+class SetRecoveryQuestionsRequest(BaseModel):
+    """Set or update recovery answers. 2–3 (question_id, answer) pairs."""
+    answers: List[RecoveryAnswerInput] = Field(..., min_length=2, max_length=3, description="List of question_id + answer")
+
+
+class VerifyResetTotpResponse(BaseModel):
+    """Response for verify-reset-totp."""
+    reset_token: str = Field(..., description="JWT to use for POST /api/auth/reset-password")
+
+
+class VerifyResetRecoveryResponse(BaseModel):
+    """Response for verify-reset-recovery (same token shape as TOTP)."""
+    reset_token: str = Field(..., description="JWT to use for POST /api/auth/reset-password")
+
+
+class VerifyResetRecoveryRequest(BaseModel):
+    """Request body for verify-reset-recovery."""
+    email: str = Field(..., description="User email")
+    answers: List[RecoveryAnswerInput] = Field(..., min_length=2, max_length=3, description="Answers to recovery questions")
+
+
 # ============================================================================
 # Instacart Integration Models
 # ============================================================================

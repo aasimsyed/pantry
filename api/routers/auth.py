@@ -1,32 +1,51 @@
 """Authentication endpoints: register, login, refresh, logout, me."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user, get_db
 from api.limiter import limiter
 from api.models import (
+    ForgotPasswordResponse,
+    GetRecoveryQuestionsResponse,
     MessageResponse,
+    RecoveryQuestionItem,
     RefreshTokenResponse,
+    SetRecoveryQuestionsRequest,
     TokenResponse,
     UserResponse,
+    VerifyResetRecoveryRequest,
+    VerifyResetRecoveryResponse,
+    VerifyResetTotpResponse,
 )
 from src.auth_service import (
     authenticate_user,
-    create_access_token,
+    create_password_reset_token,
     create_refresh_token,
+    create_access_token,
     create_user,
+    generate_totp_secret,
+    get_password_hash,
+    get_totp_uri,
+    get_user_by_email,
+    get_recovery_questions_for_user,
+    get_recovery_questions_list,
     get_valid_refresh_token,
     hash_refresh_token,
     revoke_refresh_token,
+    set_recovery_answers,
     store_refresh_token,
+    verify_password_reset_token,
+    verify_recovery_answers,
     verify_token,
+    verify_totp,
+    validate_password_strength,
 )
-from src.database import User
+from src.database import PasswordResetRequest, User
 from src.security_logger import get_client_ip, get_user_agent, log_security_event
 
 logger = logging.getLogger(__name__)
@@ -290,56 +309,57 @@ def get_current_user_info(
         ) from e
 
 
-@router.post("/forgot-password", response_model=MessageResponse)
-@limiter.limit("3/hour")
+@router.get("/recovery-questions", response_model=GetRecoveryQuestionsResponse)
+@limiter.limit("30/hour")
+def get_recovery_questions(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GetRecoveryQuestionsResponse:
+    """Get all predefined recovery questions and the ids of questions the user has set."""
+    all_questions = [
+        RecoveryQuestionItem(id=q["id"], text=q["text"])
+        for q in get_recovery_questions_list()
+    ]
+    user_questions = get_recovery_questions_for_user(db, current_user.id)
+    user_question_ids = [q["id"] for q in user_questions]
+    return GetRecoveryQuestionsResponse(all_questions=all_questions, user_question_ids=user_question_ids)
+
+
+@router.post("/recovery-questions", response_model=MessageResponse)
+@limiter.limit("10/hour")
+def set_recovery_questions(
+    request: Request,
+    body: SetRecoveryQuestionsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Set or update recovery questions/answers (2–3 pairs). Requires authentication."""
+    answers_tuples = [(a.question_id, a.answer) for a in body.answers]
+    set_recovery_answers(db, current_user.id, answers_tuples)
+    return MessageResponse(message="Recovery questions updated.")
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+@limiter.limit("10/hour")
 def forgot_password(
     request: Request,
     email: str = Form(...),
+    new_setup: bool = Form(False),
     db: Session = Depends(get_db),
-) -> MessageResponse:
-    """Request a password reset email.
-    
-    Rate limited to prevent abuse. Always returns success to avoid email enumeration.
-    """
+) -> ForgotPasswordResponse:
+    """Start TOTP-based password reset. Returns QR/URI if user has no Authenticator yet or new_setup=True. Also returns recovery_questions if user has set them."""
     client_ip = get_client_ip(request)
     user_agent = get_user_agent(request)
-    
+    has_existing_totp = False
+    totp_uri: Optional[str] = None
+    qr_image_base64: Optional[str] = None
+    has_recovery_questions = False
+    recovery_questions: Optional[list] = None
+
     try:
-        # Find user by email
-        user = db.query(User).filter(User.email == email).first()
-        
-        if user:
-            # Generate password reset token (valid for 1 hour)
-            from src.auth_service import create_password_reset_token
-            reset_token = create_password_reset_token(user.email)
-            
-            # Send password reset email
-            from src.email_service import email_service
-            email_sent = email_service.send_password_reset_email(user.email, reset_token)
-            
-            if email_sent:
-                log_security_event(
-                    db=db,
-                    event_type="password_reset_requested",
-                    user_id=user.id,
-                    ip_address=client_ip,
-                    user_agent=user_agent,
-                    details={"email": user.email, "success": True, "message": "Password reset email sent successfully"}
-                )
-                logger.info(f"Password reset email sent to {user.email}")
-            else:
-                log_security_event(
-                    db=db,
-                    event_type="password_reset_email_failed",
-                    user_id=user.id,
-                    ip_address=client_ip,
-                    user_agent=user_agent,
-                    severity="warning",
-                    details={"email": user.email, "success": False, "message": "Failed to send password reset email"}
-                )
-                logger.error(f"Failed to send password reset email to {user.email}")
-        else:
-            # User not found - log but don't reveal this to prevent email enumeration
+        user = get_user_by_email(db, email)
+        if not user:
             log_security_event(
                 db=db,
                 event_type="password_reset_invalid_email",
@@ -347,17 +367,115 @@ def forgot_password(
                 ip_address=client_ip,
                 user_agent=user_agent,
                 severity="warning",
-                details={"email": email, "success": False, "message": "Password reset requested for non-existent email"}
+                details={"email": email},
             )
-            logger.info(f"Password reset requested for non-existent email: {email}")
-        
-        # Always return success to prevent email enumeration attacks
-        return MessageResponse(message="If an account exists with that email, a password reset link has been sent.")
-        
+            return ForgotPasswordResponse(
+                has_existing_totp=False,
+                totp_uri=None,
+                qr_image_base64=None,
+                has_recovery_questions=False,
+                recovery_questions=None,
+            )
+
+        db.query(PasswordResetRequest).filter(PasswordResetRequest.email == email).delete()
+        db.commit()
+
+        expires_at = datetime.utcnow() + timedelta(minutes=15)
+        if user.totp_secret and not new_setup:
+            secret = user.totp_secret
+            has_existing_totp = True
+        else:
+            secret = generate_totp_secret()
+            totp_uri = get_totp_uri(secret, user.email)
+            try:
+                import base64
+                import io
+                import qrcode
+                buf = io.BytesIO()
+                qrcode.make(totp_uri).save(buf, format="PNG")
+                qr_image_base64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            except Exception as qr_err:
+                logger.warning("QR generation failed: %s", qr_err)
+            user.totp_secret = secret
+
+        req = PasswordResetRequest(email=email, totp_secret=secret, expires_at=expires_at)
+        db.add(req)
+        db.commit()
+
+        recovery_questions_list = get_recovery_questions_for_user(db, user.id)
+        has_recovery_questions = len(recovery_questions_list) >= 2
+        if has_recovery_questions:
+            recovery_questions = recovery_questions_list
+
+        log_security_event(
+            db=db,
+            event_type="password_reset_requested",
+            user_id=user.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"email": user.email, "totp_flow": True},
+        )
+        return ForgotPasswordResponse(
+            has_existing_totp=has_existing_totp,
+            totp_uri=totp_uri,
+            qr_image_base64=qr_image_base64,
+            has_recovery_questions=has_recovery_questions,
+            recovery_questions=recovery_questions,
+        )
     except Exception as e:
-        logger.error(f"Error processing password reset request: {e}", exc_info=True)
-        # Return generic success message even on error to avoid information leakage
-        return MessageResponse(message="If an account exists with that email, a password reset link has been sent.")
+        db.rollback()
+        logger.error("Error in forgot-password: %s", e, exc_info=True)
+        return ForgotPasswordResponse(
+            has_existing_totp=False,
+            totp_uri=None,
+            qr_image_base64=None,
+            has_recovery_questions=False,
+            recovery_questions=None,
+        )
+
+
+@router.post("/verify-reset-totp", response_model=VerifyResetTotpResponse)
+@limiter.limit("10/hour")
+def verify_reset_totp(
+    request: Request,
+    email: str = Form(...),
+    code: str = Form(...),
+    db: Session = Depends(get_db),
+) -> VerifyResetTotpResponse:
+    """Verify TOTP code and return a short-lived reset token for POST /api/auth/reset-password."""
+    req = (
+        db.query(PasswordResetRequest)
+        .filter(PasswordResetRequest.email == email, PasswordResetRequest.expires_at > datetime.utcnow())
+        .order_by(PasswordResetRequest.created_at.desc())
+        .first()
+    )
+    if not req or not verify_totp(req.totp_secret, code.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired code. Request a new password reset and try again.",
+        )
+    reset_token = create_password_reset_token(email)
+    db.delete(req)
+    db.commit()
+    return VerifyResetTotpResponse(reset_token=reset_token)
+
+
+@router.post("/verify-reset-recovery", response_model=VerifyResetRecoveryResponse)
+@limiter.limit("10/hour")
+def verify_reset_recovery(
+    request: Request,
+    body: VerifyResetRecoveryRequest = Body(...),
+    db: Session = Depends(get_db),
+) -> VerifyResetRecoveryResponse:
+    """Verify recovery-question answers and return a short-lived reset token for POST /api/auth/reset-password."""
+    answers_tuples = [(a.question_id, a.answer) for a in body.answers]
+    reset_token = verify_recovery_answers(db, body.email, answers_tuples)
+    if not reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect answers or no recovery questions set. Try again or use the Authenticator app.",
+        )
+    return VerifyResetRecoveryResponse(reset_token=reset_token)
 
 
 @router.post("/reset-password", response_model=MessageResponse)
@@ -368,39 +486,30 @@ def reset_password(
     new_password: str = Form(...),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
-    """Reset password using a reset token from email."""
+    """Reset password using the reset token from verify-reset-totp (TOTP flow)."""
     client_ip = get_client_ip(request)
     user_agent = get_user_agent(request)
-    
+
     try:
-        # Verify reset token and extract email
-        from src.auth_service import verify_password_reset_token, get_password_hash, validate_password_strength
-        
         email = verify_password_reset_token(token)
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired reset token"
+                detail="Invalid or expired reset token",
             )
-        
-        # Validate new password strength
         is_valid, error_message = validate_password_strength(new_password)
         if not is_valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_message
+                detail=error_message,
             )
-        
-        # Find user
-        user = db.query(User).filter(User.email == email).first()
+        user = get_user_by_email(db, email)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail="User not found",
             )
-        
-        # Update password
-        user.hashed_password = get_password_hash(new_password)
+        user.password_hash = get_password_hash(new_password)
         db.commit()
         
         log_security_event(

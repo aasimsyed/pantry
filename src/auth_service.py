@@ -15,15 +15,17 @@ Best Practices:
 import hashlib
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+import pyotp
 from src.config import settings
-from src.database import RefreshToken, User
+from src.database import PasswordResetRequest, RefreshToken, User, UserRecoveryQuestion
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +198,7 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     Raises:
         HTTPException: If user account is disabled
     """
-    user = db.query(User).filter(User.email == email).first()
+    user = get_user_by_email(db, email)
     if not user:
         return None
     if not verify_password(password, user.password_hash):
@@ -219,7 +221,10 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
     Returns:
         User object if found, None otherwise
     """
-    return db.query(User).filter(User.email == email).first()
+    if not email or not email.strip():
+        return None
+    normalized = email.strip().lower()
+    return db.query(User).filter(func.lower(User.email) == normalized).first()
 
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
@@ -257,8 +262,9 @@ def create_user(
     Raises:
         HTTPException: If email already exists
     """
-    # Check if user already exists
-    if get_user_by_email(db, email):
+    # Normalize email to lowercase for canonical storage
+    email_normalized = email.strip().lower()
+    if get_user_by_email(db, email_normalized):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
@@ -266,7 +272,7 @@ def create_user(
     
     # Create user
     user = User(
-        email=email,
+        email=email_normalized,
         password_hash=get_password_hash(password),
         full_name=full_name,
         role=role
@@ -363,16 +369,119 @@ def get_valid_refresh_token(db: Session, token_hash: str) -> Optional[RefreshTok
     return token
 
 
+def generate_totp_secret() -> str:
+    """Generate a new TOTP secret (base32) for Authenticator apps."""
+    return pyotp.random_base32()
+
+
+def get_totp_uri(secret: str, email: str, issuer: str = "Smart Pantry") -> str:
+    """Build provisioning URI for Authenticator apps (scan as QR)."""
+    return pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name=issuer)
+
+
+def verify_totp(secret: str, code: str) -> bool:
+    """Verify a 6-digit TOTP code. Allows current and adjacent window for clock skew."""
+    if not secret or not code or len(code) != 6 or not code.isdigit():
+        return False
+    totp = pyotp.TOTP(secret)
+    return totp.verify(code, valid_window=1)
+
+
+# Predefined recovery questions (id -> text). User picks 2; answers stored hashed.
+RECOVERY_QUESTIONS: list[tuple[int, str]] = [
+    (1, "What was your first pet's name?"),
+    (2, "What city were you born in?"),
+    (3, "What is your mother's maiden name?"),
+    (4, "What was the name of your first school?"),
+    (5, "What street did you grow up on?"),
+]
+
+
+def _normalize_recovery_answer(answer: str) -> str:
+    """Normalize answer for consistent hashing (strip, lowercase)."""
+    return answer.strip().lower() if answer else ""
+
+
+def set_recovery_answers(db: Session, user_id: int, answers: list[tuple[int, str]]) -> None:
+    """Set or replace recovery question/answers for a user. Requires 2–3 (question_id, answer) pairs."""
+    if len(answers) < 2 or len(answers) > 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide 2 or 3 recovery questions and answers.",
+        )
+    valid_ids = {qid for qid, _ in RECOVERY_QUESTIONS}
+    for qid, _ in answers:
+        if qid not in valid_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid question id: {qid}",
+            )
+    # Dedupe by question_id (last wins)
+    by_qid: dict[int, str] = {}
+    for qid, ans in answers:
+        by_qid[qid] = _normalize_recovery_answer(ans)
+    if len(by_qid) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must choose 2 or 3 different questions.",
+        )
+    db.query(UserRecoveryQuestion).filter(UserRecoveryQuestion.user_id == user_id).delete()
+    for qid, normalized in by_qid.items():
+        if not normalized:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Every answer must be non-empty.",
+            )
+        db.add(
+            UserRecoveryQuestion(
+                user_id=user_id,
+                question_id=qid,
+                answer_hash=get_password_hash(normalized),
+            )
+        )
+    db.commit()
+
+
+def get_recovery_questions_list() -> list[dict[str, Any]]:
+    """Return list of all predefined questions {id, text} for UI."""
+    return [{"id": qid, "text": text} for qid, text in RECOVERY_QUESTIONS]
+
+
+def get_recovery_questions_for_user(db: Session, user_id: int) -> list[dict[str, Any]]:
+    """Return the recovery questions (id, text) that this user has set."""
+    rows = db.query(UserRecoveryQuestion).filter(UserRecoveryQuestion.user_id == user_id).all()
+    by_id = {qid: text for qid, text in RECOVERY_QUESTIONS}
+    return [{"id": r.question_id, "text": by_id.get(r.question_id, "")} for r in rows if r.question_id in by_id]
+
+
+def verify_recovery_answers(db: Session, email: str, answers: list[tuple[int, str]]) -> Optional[str]:
+    """Verify recovery answers for the user; if all match, return a password reset token."""
+    user = get_user_by_email(db, email)
+    if not user:
+        return None
+    rows = db.query(UserRecoveryQuestion).filter(UserRecoveryQuestion.user_id == user.id).all()
+    if not rows:
+        return None
+    by_qid = {r.question_id: r.answer_hash for r in rows}
+    for qid, answer in answers:
+        if qid not in by_qid:
+            return None
+        normalized = _normalize_recovery_answer(answer)
+        if not verify_password(normalized, by_qid[qid]):
+            return None
+    return create_password_reset_token(email)
+
+
 def create_password_reset_token(email: str) -> str:
-    """Create a JWT token for password reset.
+    """Create a JWT token for password reset (used after TOTP verify).
     
     Args:
         email: User's email address
         
     Returns:
-        JWT token valid for 1 hour
+        JWT token valid for 10 minutes
     """
-    expires_delta = timedelta(hours=1)
+    expires_delta = timedelta(minutes=10)
     expire = datetime.utcnow() + expires_delta
     to_encode = {"sub": email, "type": "password_reset", "exp": expire}
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.jwt_algorithm)

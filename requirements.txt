@@ -63,5 +63,7 @@ python-jose[cryptography]>=3.3.0  # JWT token handling
 passlib[bcrypt]>=1.7.4  # Password hashing
 slowapi>=0.1.9  # Rate limiting
 email-validator>=2.1.0  # Email validation
+pyotp>=2.9.0  # TOTP for Authenticator-based password reset
+qrcode[pil]>=7.4.0  # QR code generation for TOTP setup
 
 
