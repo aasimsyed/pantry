@@ -88,6 +88,9 @@ fix_database_schema.py
 test-local-stack.sh
 /package-lock.json
 
+# Dashboard / Streamlit (local config and cache)
+dashboard/.streamlit/
+
 # Docker
 docker-compose.override.yml
 
