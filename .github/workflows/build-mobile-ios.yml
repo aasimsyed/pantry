@@ -1,5 +1,7 @@
 name: Build and Deploy iOS App
 
+# On push to main/master (when mobile changes): build locally with Xcode and upload to TestFlight.
+# Requires GitHub secrets: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD.
 on:
   push:
     branches:
@@ -11,18 +13,15 @@ on:
   workflow_dispatch:
     inputs:
       build_number:
-        description: 'Build number (leave empty to auto-increment)'
+        description: 'Build number (leave empty to use app.json)'
         required: false
         type: string
 
-env:
-  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
 jobs:
   build-and-submit:
-    name: Build iOS and Submit to TestFlight
-    runs-on: ubuntu-latest
-    
+    name: Build iOS (Xcode) and Submit to TestFlight
+    runs-on: macos-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,40 +33,21 @@ jobs:
           cache: 'npm'
           cache-dependency-path: mobile/package-lock.json
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Install dependencies
+      - name: Install mobile dependencies
         working-directory: ./mobile
         run: npm ci
 
-      # EAS uses EXPO_TOKEN from env (set above); no eas login needed.
-
-      - name: Update build number (if provided)
-        if: ${{ github.event.inputs.build_number != '' }}
+      - name: Update build number (manual run only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_number != ''
         working-directory: ./mobile
         run: |
           BUILD_NUMBER="${{ github.event.inputs.build_number }}"
-          # Update build number in app.json using node or sed
-          node -e "const fs = require('fs'); const config = JSON.parse(fs.readFileSync('app.json')); config.expo.ios.buildNumber = '$BUILD_NUMBER'; fs.writeFileSync('app.json', JSON.stringify(config, null, 2));"
-          echo "Updated build number to $BUILD_NUMBER"
+          node -e "const fs = require('fs'); const c = require('./app.json'); c.expo.ios.buildNumber = '$BUILD_NUMBER'; fs.writeFileSync('app.json', JSON.stringify(c, null, 2));"
+          echo "Set build number to $BUILD_NUMBER"
 
-      - name: Build iOS app
+      - name: Build and upload to TestFlight
         working-directory: ./mobile
-        run: |
-          eas build --platform ios \
-            --profile production \
-            --non-interactive
-
-      - name: Submit to TestFlight
-        working-directory: ./mobile
-        run: |
-          eas submit --platform ios \
-            --non-interactive \
-            --latest
-
-      - name: Show build status
-        working-directory: ./mobile
-        run: |
-          echo "Build completed! Check status at:"
-          eas build:list --platform ios --limit 1 --non-interactive
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: bash build-ios.sh

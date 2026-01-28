@@ -60,8 +60,21 @@ xcodebuild -exportArchive \
     -exportPath "$EXPORT_PATH" \
     -quiet
 
-echo ""
-echo "🎉 Build complete and uploaded to App Store Connect!"
+IPA_PATH=$(find "$EXPORT_PATH" -maxdepth 1 -name "*.ipa" -print -quit)
+if [ -z "$IPA_PATH" ]; then
+    echo "⚠️  No .ipa found in $EXPORT_PATH"
+    exit 1
+fi
+
+if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]; then
+    echo "📤 Step 5: Uploading to TestFlight..."
+    xcrun altool --upload-app -f "$IPA_PATH" -t ios -u "$APPLE_ID" -p "$APPLE_APP_SPECIFIC_PASSWORD" --output-format json
+    echo ""
+    echo "🎉 Build uploaded to App Store Connect."
+else
+    echo "ℹ️  Skipping upload (set APPLE_ID and APPLE_APP_SPECIFIC_PASSWORD to upload)."
+    echo "   To upload manually: xcrun altool --upload-app -f \"$IPA_PATH\" -t ios -u YOUR_APPLE_ID -p YOUR_APP_SPECIFIC_PASSWORD"
+fi
+
 echo "📱 Check TestFlight in ~10-30 minutes for the new build."
-echo ""
-echo "Archive location: $ARCHIVE_PATH"
+echo "Archive: $ARCHIVE_PATH"
