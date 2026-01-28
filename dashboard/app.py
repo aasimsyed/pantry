@@ -15,6 +15,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Check authentication
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please log in to access the dashboard")
+    if st.button("Go to Login"):
+        st.switch_page("pages/0_🔐_Login.py")
+    st.stop()
+
 # Custom CSS
 st.markdown("""
 <style>
@@ -45,6 +52,19 @@ st.markdown("""
 # Header
 st.markdown('<p class="main-header">🏠 Smart Pantry Dashboard</p>', unsafe_allow_html=True)
 st.markdown("**Manage your pantry inventory with AI-powered insights**")
+
+# User info and logout
+if st.session_state.get("user"):
+    user_email = st.session_state.user.get("email", "User")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.caption(f"Signed in as: {user_email}")
+    with col2:
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state.access_token = None
+            st.session_state.user = None
+            st.rerun()
+
 st.markdown("---")
 
 # Get API client

@@ -6,11 +6,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
+import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import type { InventoryItem } from '../types';
 
 export default function ExpiringScreen() {
   const { isDark } = useTheme();
+  const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const [expiringItems, setExpiringItems] = useState<InventoryItem[]>([]);
   const [expiredItems, setExpiredItems] = useState<InventoryItem[]>([]);
@@ -56,7 +59,13 @@ export default function ExpiringScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+        ]}
+      >
+        <ScreenContentWrapper>
         <Text testID="expiring-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Expiring Items
         </Text>
@@ -193,6 +202,7 @@ export default function ExpiringScreen() {
             ))
           )}
         </View>
+        </ScreenContentWrapper>
       </ScrollView>
     </SafeAreaView>
   );

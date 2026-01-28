@@ -5,9 +5,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.api_client import get_api_client
+from utils.api_client import get_api_client, require_auth
 
 st.set_page_config(page_title="Expiring Items", page_icon="⚠️", layout="wide")
+
+# Require authentication
+require_auth()
 
 st.title("⚠️ Expiring Items")
 st.markdown("Track items that are expiring soon")

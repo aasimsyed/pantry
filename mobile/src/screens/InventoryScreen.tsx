@@ -26,13 +26,16 @@ import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { PremiumButton } from '../components/PremiumButton';
 import { InstacartLogo } from '../components/InstacartLogo';
+import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { useTheme } from '../contexts/ThemeContext';
-import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { useLayout } from '../hooks/useLayout';
+import { getDesignSystem } from '../utils/designSystem';
 import type { InventoryItem } from '../types';
 
 export default function InventoryScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
+  const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -327,12 +330,17 @@ export default function InventoryScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+        ]}
+      >
         <PantrySelector
           selectedPantryId={selectedPantryId}
           onPantryChange={setSelectedPantryId}
         />
-        
+        <ScreenContentWrapper>
         {loading && (
           <View style={styles.center}>
             <ActivityIndicator size="large" />
@@ -535,6 +543,7 @@ export default function InventoryScreen() {
             </TouchableOpacity>
           );
         })}
+        </ScreenContentWrapper>
       </ScrollView>
 
       {/* Add Button - Minimal FAB */}

@@ -66,8 +66,8 @@ frontend/coverage/
 # Mobile app (not needed for backend)
 mobile/
 
-# Dashboard (not needed for backend)
-dashboard/
+# Dashboard - now needed for dashboard deployment
+# dashboard/
 
 # Documentation
 *.md

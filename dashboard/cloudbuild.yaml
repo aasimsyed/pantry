@@ -1,0 +1,21 @@
+# Cloud Build configuration for Streamlit Dashboard
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'dashboard/Dockerfile'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pantry-dashboard:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pantry-dashboard:${BUILD_ID}'
+      - '.'
+
+images:
+  - 'gcr.io/$PROJECT_ID/pantry-dashboard:latest'
+  - 'gcr.io/$PROJECT_ID/pantry-dashboard:${BUILD_ID}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'

@@ -6,9 +6,12 @@ from pathlib import Path
 from typing import List, Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.api_client import get_api_client
+from utils.api_client import get_api_client, require_auth
 
 st.set_page_config(page_title="Recipe Box", page_icon="📚", layout="wide")
+
+# Require authentication
+require_auth()
 
 st.title("📚 Recipe Box")
 st.markdown("Your saved favorite recipes")

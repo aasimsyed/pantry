@@ -8,9 +8,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.api_client import get_api_client
+from utils.api_client import get_api_client, require_auth
 
 st.set_page_config(page_title="Statistics", page_icon="📊", layout="wide")
+
+# Require authentication
+require_auth()
 
 st.title("📊 Pantry Statistics")
 st.markdown("Analytics and insights about your pantry inventory")

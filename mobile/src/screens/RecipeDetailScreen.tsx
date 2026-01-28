@@ -11,7 +11,9 @@ import { instacartService } from '../services/instacartService';
 // Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLayout } from '../hooks/useLayout';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { FlavorChemistrySheet } from '../components/FlavorChemistrySheet';
 import { InstacartLogo } from '../components/InstacartLogo';
 import type { Recipe, RecentRecipe, SavedRecipe, FlavorPairing } from '../types';
@@ -26,6 +28,7 @@ export default function RecipeDetailScreen() {
   const route = useRoute<RouteProp<RouteParams, 'RecipeDetail'>>();
   const navigation = useNavigation();
   const { isDark } = useTheme();
+  const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const { recipe: initialRecipe } = route.params;
   const [recipe, setRecipe] = useState(initialRecipe);
@@ -370,10 +373,14 @@ export default function RecipeDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
-      <ScrollView 
-        contentContainerStyle={styles.content}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+        ]}
         showsVerticalScrollIndicator={false}
       >
+        <ScreenContentWrapper>
         {/* Hero Section - Minimal */}
         <View style={styles.heroSection}>
           <Text testID="recipe-detail-title" style={[styles.heroTitle, { color: ds.colors.textPrimary }]}>
@@ -810,6 +817,7 @@ export default function RecipeDetailScreen() {
         flavorPairings={flavorPairings}
         recipeName={recipe.name}
       />
+      </ScreenContentWrapper>
       </ScrollView>
     </SafeAreaView>
   );

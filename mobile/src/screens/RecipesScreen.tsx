@@ -27,14 +27,17 @@ import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { SkeletonRecipeCard } from '../components/Skeleton';
 import { PremiumButton } from '../components/PremiumButton';
+import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { Recipe, RecentRecipe, InventoryItem } from '../types';
 
 export default function RecipesScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
+  const layout = useLayout();
   const { isAuthenticated } = useAuth();
   const ds = getDesignSystem(isDark);
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
@@ -423,7 +426,13 @@ export default function RecipesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+        ]}
+      >
+      <ScreenContentWrapper>
       <View style={styles.header}>
         <Text testID="recipes-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Recipes
@@ -1030,6 +1039,7 @@ export default function RecipesScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+      </ScreenContentWrapper>
       </ScrollView>
     </SafeAreaView>
   );

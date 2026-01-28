@@ -7,9 +7,12 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.api_client import get_api_client
+from utils.api_client import get_api_client, require_auth
 
 st.set_page_config(page_title="Inventory", page_icon="📦", layout="wide")
+
+# Require authentication
+require_auth()
 
 st.title("📦 Inventory Management")
 st.markdown("View and manage all pantry items")

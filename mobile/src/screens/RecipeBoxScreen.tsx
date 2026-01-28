@@ -5,7 +5,9 @@ import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import apiClient, { getApiErrorMessage } from '../api/client';
 import StarRating from '../components/StarRating';
 import { SkeletonRecipeCard } from '../components/Skeleton';
@@ -15,6 +17,7 @@ import type { SavedRecipe, FlavorPairing } from '../types';
 export default function RecipeBoxScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
+  const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,12 +123,16 @@ export default function RecipeBoxScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView 
-        contentContainerStyle={styles.content}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+      <ScreenContentWrapper>
       <View style={styles.header}>
         <Text testID="recipe-box-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Recipe Box
@@ -232,6 +239,7 @@ export default function RecipeBoxScreen() {
           })}
         </View>
       )}
+      </ScreenContentWrapper>
       </ScrollView>
     </SafeAreaView>
   );

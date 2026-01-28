@@ -15,15 +15,31 @@ logger = logging.getLogger(__name__)
 class APIClient:
     """HTTP client for Smart Pantry API."""
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: Optional[str] = None, access_token: Optional[str] = None):
         """
         Initialize API client.
         
         Args:
-            base_url: Base URL of the FastAPI server
+            base_url: Base URL of the FastAPI server (defaults to API_BASE_URL env var or localhost)
+            access_token: Optional JWT access token for authentication
         """
-        self.base_url = base_url
-        self.timeout = 10
+        import os
+        # Use environment variable for production, fallback to localhost for development
+        self.base_url = base_url or os.getenv("API_BASE_URL", "http://localhost:8000")
+        # Increased timeout for Cloud Run (cold starts can take 10-30 seconds)
+        self.timeout = 30
+        self.access_token = access_token
+    
+    def set_access_token(self, token: Optional[str]) -> None:
+        """Set the access token for authenticated requests."""
+        self.access_token = token
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """Get request headers with authentication if available."""
+        headers = {}
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+        return headers
     
     def _request(
         self,
@@ -51,6 +67,7 @@ class APIClient:
         """
         url = f"{self.base_url}{endpoint}"
         request_timeout = timeout if timeout is not None else self.timeout
+        headers = self._get_headers()
         
         try:
             response = requests.request(
@@ -58,6 +75,7 @@ class APIClient:
                 url=url,
                 params=params,
                 json=json,
+                headers=headers,
                 timeout=request_timeout
             )
             response.raise_for_status()
@@ -65,6 +83,38 @@ class APIClient:
         
         except requests.RequestException as e:
             logger.error(f"API request failed: {e}")
+            raise
+    
+    def login(self, email: str, password: str) -> Dict:
+        """
+        Login and get access token.
+        
+        Args:
+            email: User email
+            password: User password
+            
+        Returns:
+            Token response with access_token and refresh_token
+        """
+        url = f"{self.base_url}/api/auth/login"
+        data = {
+            "email": email,
+            "password": password
+        }
+        
+        try:
+            # Use extended timeout for login (60 seconds) to handle Cloud Run cold starts
+            response = requests.post(url, data=data, timeout=60)
+            response.raise_for_status()
+            token_data = response.json()
+            
+            # Store the access token
+            if "access_token" in token_data:
+                self.access_token = token_data["access_token"]
+            
+            return token_data
+        except requests.RequestException as e:
+            logger.error(f"Login failed: {e}")
             raise
     
     # Health
@@ -342,13 +392,27 @@ class APIClient:
         return self._request("DELETE", f"/api/recipes/saved/{recipe_id}")
 
 
-@st.cache_resource(ttl=3600)  # Cache for 1 hour, but will refresh on server restart
 def get_api_client() -> APIClient:
     """
-    Get cached API client instance.
+    Get API client instance with authentication from session state.
     
     Returns:
-        Singleton APIClient instance
+        APIClient instance with access token if authenticated
     """
-    return APIClient()
+    # Get access token from session state (set after login)
+    access_token = st.session_state.get("access_token")
+    return APIClient(access_token=access_token)
+
+
+def require_auth():
+    """
+    Check if user is authenticated, redirect to login if not.
+    
+    Call this at the start of protected pages.
+    """
+    if "access_token" not in st.session_state or not st.session_state.access_token:
+        st.warning("🔐 Please log in to access this page")
+        if st.button("Go to Login"):
+            st.switch_page("pages/0_🔐_Login.py")
+        st.stop()
 

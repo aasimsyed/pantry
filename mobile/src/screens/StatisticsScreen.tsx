@@ -7,7 +7,9 @@ import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle } from 'react-native-svg';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
+import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import type { Statistics } from '../types';
 
 // Health score ring component
@@ -91,6 +93,7 @@ const ProgressBar = ({
 export default function StatisticsScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
+  const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const [stats, setStats] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +154,14 @@ export default function StatisticsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <ScreenContentWrapper>
         {/* Header */}
         <Text style={[styles.title, { color: ds.colors.textPrimary }]}>
           Insights
@@ -397,6 +407,7 @@ export default function StatisticsScreen() {
         )}
 
         <View style={{ height: 32 }} />
+        </ScreenContentWrapper>
       </ScrollView>
     </SafeAreaView>
   );

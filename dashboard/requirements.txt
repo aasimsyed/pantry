@@ -1,0 +1,9 @@
+# Streamlit Dashboard Dependencies
+streamlit>=1.28.0
+requests>=2.31.0
+plotly>=5.17.0
+pandas>=2.1.0
+
+# Backend dependencies (for API client)
+# Note: These are minimal - dashboard only needs to call the API
+# Full backend dependencies are in root requirements.txt
