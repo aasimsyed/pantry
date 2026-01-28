@@ -23,6 +23,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
 import ProductConfirmScreen from '../screens/ProductConfirmScreen';
 import LegalScreen from '../screens/LegalScreen';
+import SetRecoveryQuestionsPromptScreen from '../screens/SetRecoveryQuestionsPromptScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -120,7 +121,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, needsRecoveryQuestions } = useAuth();
   const { isDark } = useTheme();
   const ds = getDesignSystem(isDark);
 
@@ -191,6 +192,13 @@ export default function AppNavigator() {
               <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
               <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
             </>
+          ) : needsRecoveryQuestions ? (
+            // Prompt to set recovery questions (pre-existing users or first login)
+            <Stack.Screen
+              name="SetRecoveryQuestions"
+              component={SetRecoveryQuestionsPromptScreen}
+              options={{ headerShown: false }}
+            />
           ) : (
             // Main app screens
             <>

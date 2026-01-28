@@ -9,13 +9,17 @@ import {
   ActivityIndicator,
   Divider,
   List,
+  Menu,
+  TextInput,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
+import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { PremiumButton } from '../components/PremiumButton';
 
 interface UserSettings {
@@ -44,20 +48,49 @@ const AI_MODELS = {
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const { themeMode, isDark, setThemeMode } = useTheme();
+  const layout = useLayout();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [recoveryData, setRecoveryData] = useState<{ all_questions: Array<{ id: number; text: string }>; user_question_ids: number[] } | null>(null);
+  const [showRecoveryForm, setShowRecoveryForm] = useState(false);
+  const [recoveryForm, setRecoveryForm] = useState<Array<{ question_id: number; answer: string }>>([
+    { question_id: 1, answer: '' },
+    { question_id: 2, answer: '' },
+  ]);
+  const [savingRecovery, setSavingRecovery] = useState(false);
+  const [recoveryMenuVisible, setRecoveryMenuVisible] = useState<0 | 1 | null>(null);
   const ds = getDesignSystem(isDark);
 
   useEffect(() => {
     loadSettings();
   }, []);
 
+  const loadRecoveryQuestions = async () => {
+    try {
+      const data = await apiClient.getRecoveryQuestions();
+      setRecoveryData(data);
+      if (data.user_question_ids.length >= 2 && data.all_questions.length >= 2) {
+        const q1 = data.all_questions.find((q) => q.id === data.user_question_ids[0]) ?? data.all_questions[0];
+        const q2 = data.all_questions.find((q) => q.id === data.user_question_ids[1]) ?? data.all_questions[1];
+        setRecoveryForm([
+          { question_id: q1.id, answer: '' },
+          { question_id: q2.id, answer: '' },
+        ]);
+      }
+    } catch {
+      setRecoveryData(null);
+    }
+  };
+
+
   const loadSettings = async () => {
     try {
       setLoading(true);
       const data = await apiClient.getUserSettings();
       setSettings(data);
+      const recovery = await apiClient.getRecoveryQuestions().catch(() => null);
+      if (recovery) setRecoveryData(recovery);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to load settings');
     } finally {
@@ -97,6 +130,28 @@ export default function SettingsScreen() {
       ...settings,
       ai_model: model || undefined,
     });
+  };
+
+  const handleSaveRecoveryQuestions = async () => {
+    if (recoveryForm.some((r) => !r.answer.trim())) {
+      Alert.alert('Missing answers', 'Please answer both questions.');
+      return;
+    }
+    if (recoveryForm[0].question_id === recoveryForm[1].question_id) {
+      Alert.alert('Different questions', 'Please choose two different questions.');
+      return;
+    }
+    try {
+      setSavingRecovery(true);
+      await apiClient.setRecoveryQuestions(recoveryForm.map((r) => ({ question_id: r.question_id, answer: r.answer.trim() })));
+      setShowRecoveryForm(false);
+      await loadRecoveryQuestions();
+      Alert.alert('Saved', 'Recovery questions updated. You can use them for easier password reset.');
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.detail || err.message || 'Failed to save.');
+    } finally {
+      setSavingRecovery(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -234,10 +289,15 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
-      <ScrollView 
-        contentContainerStyle={[styles.content, { paddingTop: 16, paddingBottom: 16 }]}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: 16, paddingBottom: 16 },
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+        ]}
         showsVerticalScrollIndicator={true}
       >
+        <ScreenContentWrapper>
         <Text testID="settings-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Settings
         </Text>
@@ -447,6 +507,107 @@ export default function SettingsScreen() {
           </Card.Content>
         </Card>
 
+        {/* Recovery questions */}
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
+                <MaterialCommunityIcons name="help-circle-outline" size={24} color={ds.colors.primary} />
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                  Recovery questions
+                </Text>
+                <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                  Easier password reset without the Authenticator app. Set 2 questions.
+                </Text>
+              </View>
+            </View>
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+            {recoveryData && (
+              <>
+                <Text style={[styles.description, { color: ds.colors.textSecondary, marginBottom: 12 }]}>
+                  {recoveryData.user_question_ids.length >= 2 ? '2 questions set. You can use them on Forgot password.' : 'Not set. Tap below to set 2 questions.'}
+                </Text>
+                {!showRecoveryForm ? (
+                  <Button
+                    mode="outlined"
+                    onPress={() => {
+                      if (recoveryData.user_question_ids.length >= 2) {
+                        const q1 = recoveryData.all_questions.find((q) => q.id === recoveryData.user_question_ids[0]) ?? recoveryData.all_questions[0];
+                        const q2 = recoveryData.all_questions.find((q) => q.id === recoveryData.user_question_ids[1]) ?? recoveryData.all_questions[1];
+                        setRecoveryForm([{ question_id: q1.id, answer: '' }, { question_id: q2.id, answer: '' }]);
+                      }
+                      setShowRecoveryForm(true);
+                    }}
+                    style={styles.saveButton}
+                  >
+                    {recoveryData.user_question_ids.length >= 2 ? 'Update recovery questions' : 'Set recovery questions'}
+                  </Button>
+                ) : (
+                  <>
+                    {[0, 1].map((idx) => (
+                      <View key={idx} style={{ marginBottom: 16 }}>
+                        <Text style={[styles.description, { color: ds.colors.textSecondary, marginBottom: 4 }]}>
+                          Question {idx + 1}
+                        </Text>
+                        <Menu
+                          visible={recoveryMenuVisible === idx}
+                          onDismiss={() => setRecoveryMenuVisible(null)}
+                          anchor={
+                            <Button mode="outlined" onPress={() => setRecoveryMenuVisible(idx)} style={{ marginBottom: 6 }}>
+                              {recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}
+                            </Button>
+                          }
+                        >
+                          {recoveryData.all_questions.map((q) => (
+                            <Menu.Item
+                              key={q.id}
+                              onPress={() => {
+                                setRecoveryForm((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], question_id: q.id };
+                                  return next;
+                                });
+                                setRecoveryMenuVisible(null);
+                              }}
+                              title={q.text}
+                              titleStyle={{ color: ds.colors.textPrimary }}
+                            />
+                          ))}
+                        </Menu>
+                        <TextInput
+                          label="Your answer"
+                          value={recoveryForm[idx].answer}
+                          onChangeText={(text) =>
+                            setRecoveryForm((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], answer: text };
+                              return next;
+                            })
+                          }
+                          mode="outlined"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          style={styles.input}
+                        />
+                      </View>
+                    ))}
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <Button mode="outlined" onPress={() => setShowRecoveryForm(false)} style={{ flex: 1 }}>
+                        Cancel
+                      </Button>
+                      <PremiumButton mode="contained" onPress={handleSaveRecoveryQuestions} loading={savingRecovery} disabled={savingRecovery} style={{ flex: 1 }}>
+                        Save
+                      </PremiumButton>
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+          </Card.Content>
+        </Card>
+
         {/* Account Management Section */}
         <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
           <Card.Content style={styles.cardContent}>
@@ -572,6 +733,7 @@ export default function SettingsScreen() {
             {versionText}
           </Text>
         </View>
+        </ScreenContentWrapper>
       </ScrollView>
     </SafeAreaView>
   );
@@ -633,6 +795,9 @@ const styles = StyleSheet.create({
   },
   radioLabel: {
     fontSize: 15,
+  },
+  input: {
+    marginBottom: 8,
   },
   saveButton: {
     marginTop: 24,

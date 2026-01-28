@@ -7,6 +7,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
+  needsRecoveryQuestions: boolean;
+  completeRecoveryQuestions: () => void;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -18,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsRecoveryQuestions, setNeedsRecoveryQuestions] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in on mount
@@ -37,6 +40,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const checkRecoveryQuestions = async () => {
+    try {
+      const data = await apiClient.getRecoveryQuestions();
+      setNeedsRecoveryQuestions(data.user_question_ids.length < 2);
+    } catch {
+      setNeedsRecoveryQuestions(false);
+    }
+  };
+
+  const completeRecoveryQuestions = () => {
+    setNeedsRecoveryQuestions(false);
+  };
+
   const checkAuth = async () => {
     try {
       const token = apiClient.getToken();
@@ -45,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const userData = await apiClient.getCurrentUser();
           setUser(userData);
+          await checkRecoveryQuestions();
         } catch (error: any) {
           // Handle different error types
           const status = error.response?.status;
@@ -92,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (data: LoginRequest) => {
     const response = await apiClient.login(data);
     setUser(response.user);
+    await checkRecoveryQuestions();
   };
 
   const register = async (data: RegisterRequest) => {
@@ -120,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         isAuthenticated: !!user,
+        needsRecoveryQuestions,
+        completeRecoveryQuestions,
         login,
         register,
         logout,

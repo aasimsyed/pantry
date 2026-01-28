@@ -4,6 +4,7 @@ import { TextInput, Button, Text, Card } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
 import { PremiumButton } from '../components/PremiumButton';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -27,6 +28,7 @@ export default function ResetPasswordScreen() {
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   
   const { isDark } = useTheme();
+  const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ResetPasswordRouteProp>();
@@ -84,16 +86,22 @@ export default function ResetPasswordScreen() {
   if (tokenValid === false) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
-            <Card.Content style={styles.cardContent}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingHorizontal: layout.horizontalPadding },
+            layout.isTablet && { alignItems: 'center' },
+          ]}
+        >
+          <Card style={[styles.card, layout.isTablet && styles.cardTablet, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
+            <Card.Content style={[styles.cardContent, layout.isTablet && styles.cardContentTablet]}>
               <View style={styles.iconContainer}>
                 <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
                   <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#ef4444" />
                 </View>
               </View>
               
-              <Text style={[styles.title, { color: ds.colors.textPrimary }]}>
+              <Text style={[styles.title, layout.isTablet && styles.titleTablet, { color: ds.colors.textPrimary }]}>
                 Invalid Link
               </Text>
               
@@ -118,16 +126,22 @@ export default function ResetPasswordScreen() {
   if (success) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
-            <Card.Content style={styles.cardContent}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingHorizontal: layout.horizontalPadding },
+            layout.isTablet && { alignItems: 'center' },
+          ]}
+        >
+          <Card style={[styles.card, layout.isTablet && styles.cardTablet, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
+            <Card.Content style={[styles.cardContent, layout.isTablet && styles.cardContentTablet]}>
               <View style={styles.iconContainer}>
                 <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.1)' }]}>
                   <MaterialCommunityIcons name="check-circle-outline" size={48} color="#22c55e" />
                 </View>
               </View>
               
-              <Text style={[styles.title, { color: ds.colors.textPrimary }]}>
+              <Text style={[styles.title, layout.isTablet && styles.titleTablet, { color: ds.colors.textPrimary }]}>
                 Password Reset!
               </Text>
               
@@ -137,7 +151,7 @@ export default function ResetPasswordScreen() {
 
               <PremiumButton
                 mode="contained"
-                onPress={() => navigation.navigate('Login')}
+                onPress={() => navigation.popToTop()}
                 style={styles.button}
               >
                 Sign In
@@ -156,22 +170,26 @@ export default function ResetPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingHorizontal: layout.horizontalPadding },
+            layout.isTablet && { alignItems: 'center' },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
-          <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
-            <Card.Content style={styles.cardContent}>
+          <Card style={[styles.card, layout.isTablet && styles.cardTablet, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
+            <Card.Content style={[styles.cardContent, layout.isTablet && styles.cardContentTablet]}>
               <View style={styles.iconContainer}>
                 <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.1)' }]}>
                   <MaterialCommunityIcons name="lock-reset" size={48} color="#3b82f6" />
                 </View>
               </View>
               
-              <Text style={[styles.title, { color: ds.colors.textPrimary }]}>
+              <Text style={[styles.title, layout.isTablet && styles.titleTablet, { color: ds.colors.textPrimary }]}>
                 Reset Your Password
               </Text>
               
-              <Text style={[styles.subtitle, { color: ds.colors.textSecondary }]}>
+              <Text style={[styles.subtitle, layout.isTablet && styles.subtitleTablet, { color: ds.colors.textSecondary }]}>
                 Enter your new password below
               </Text>
 
@@ -251,7 +269,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
   },
   card: {
     maxWidth: 400,
@@ -259,9 +276,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 24,
   },
+  cardTablet: {
+    maxWidth: 560,
+    width: '100%',
+    borderRadius: 28,
+  },
   cardContent: {
     paddingVertical: 32,
     paddingHorizontal: 24,
+  },
+  cardContentTablet: {
+    paddingVertical: 40,
+    paddingHorizontal: 40,
   },
   iconContainer: {
     alignItems: 'center',
@@ -281,11 +307,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+  titleTablet: {
+    fontSize: 32,
+    marginBottom: 10,
+  },
   subtitle: {
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 24,
     textAlign: 'center',
+  },
+  subtitleTablet: {
+    fontSize: 17,
+    lineHeight: 26,
+    marginBottom: 28,
   },
   message: {
     fontSize: 16,

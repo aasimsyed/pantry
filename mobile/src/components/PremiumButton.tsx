@@ -7,12 +7,14 @@ interface PremiumButtonProps extends Omit<ButtonProps, 'labelStyle'> {
   children: string;
 }
 
-export function PremiumButton({ children, style, ...props }: PremiumButtonProps) {
+export function PremiumButton({ children, style, icon, ...props }: PremiumButtonProps) {
+  const labelStyle = icon ? [styles.label, styles.labelWithIcon] : styles.label;
   return (
     <Button
       {...props}
+      icon={icon}
       style={[styles.button, style]}
-      labelStyle={styles.label}
+      labelStyle={labelStyle}
       contentStyle={styles.content}
       uppercase={false}
       compact={false}
@@ -36,5 +38,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     lineHeight: 22,
     marginHorizontal: 8,
+  },
+  labelWithIcon: {
+    marginLeft: 22,
   },
 });

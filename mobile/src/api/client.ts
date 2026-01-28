@@ -353,30 +353,80 @@ class APIClient {
     return this.request<User>('GET', '/api/auth/me');
   }
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
-    const formData = new FormData();
-    formData.append('email', email);
-
-    const response = await this.client.post<{ message: string }>('/api/auth/forgot-password', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+  async forgotPassword(
+    email: string,
+    newSetup?: boolean
+  ): Promise<{
+    has_existing_totp: boolean;
+    totp_uri: string | null;
+    qr_image_base64: string | null;
+    has_recovery_questions?: boolean;
+    recovery_questions?: Array<{ id: number; text: string }>;
+  }> {
+    const body = new URLSearchParams();
+    body.append('email', email);
+    if (newSetup === true) {
+      body.append('new_setup', 'true');
+    }
+    const response = await this.client.post<{
+      has_existing_totp: boolean;
+      totp_uri: string | null;
+      qr_image_base64: string | null;
+      has_recovery_questions?: boolean;
+      recovery_questions?: Array<{ id: number; text: string }>;
+    }>('/api/auth/forgot-password', body.toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
+    return response.data;
+  }
 
+  async getRecoveryQuestions(): Promise<{
+    all_questions: Array<{ id: number; text: string }>;
+    user_question_ids: number[];
+  }> {
+    return this.request<{
+      all_questions: Array<{ id: number; text: string }>;
+      user_question_ids: number[];
+    }>('GET', '/api/auth/recovery-questions');
+  }
+
+  async setRecoveryQuestions(answers: Array<{ question_id: number; answer: string }>): Promise<{ message: string }> {
+    return this.request<{ message: string }>('POST', '/api/auth/recovery-questions', { data: { answers } });
+  }
+
+  async verifyResetRecovery(
+    email: string,
+    answers: Array<{ question_id: number; answer: string }>
+  ): Promise<{ reset_token: string }> {
+    const response = await this.client.post<{ reset_token: string }>(
+      '/api/auth/verify-reset-recovery',
+      { email, answers },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return response.data;
+  }
+
+  async verifyResetTotp(email: string, code: string): Promise<{ reset_token: string }> {
+    const body = new URLSearchParams();
+    body.append('email', email);
+    body.append('code', code);
+    const response = await this.client.post<{ reset_token: string }>(
+      '/api/auth/verify-reset-totp',
+      body.toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
     return response.data;
   }
 
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
-    const formData = new FormData();
-    formData.append('token', token);
-    formData.append('new_password', newPassword);
-
-    const response = await this.client.post<{ message: string }>('/api/auth/reset-password', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-
+    const body = new URLSearchParams();
+    body.append('token', token);
+    body.append('new_password', newPassword);
+    const response = await this.client.post<{ message: string }>(
+      '/api/auth/reset-password',
+      body.toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
     return response.data;
   }
 

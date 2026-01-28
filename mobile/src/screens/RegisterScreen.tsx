@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
 import { PremiumButton } from '../components/PremiumButton';
 import { useNavigation } from '@react-navigation/native';
@@ -27,6 +28,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const { isDark } = useTheme();
+  const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const navigation = useNavigation<NavigationProp>();
 
@@ -86,21 +88,25 @@ export default function RegisterScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: 16 }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: 16, paddingHorizontal: layout.horizontalPadding },
+            layout.isTablet && { alignItems: 'center' },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
-        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
-          <Card.Content style={styles.cardContent}>
+        <Card style={[styles.card, layout.isTablet && styles.cardTablet, { backgroundColor: ds.colors.surface, ...ds.shadows.lg }]}>
+          <Card.Content style={[styles.cardContent, layout.isTablet && styles.cardContentTablet]}>
             <View style={styles.logoContainer}>
               <View style={[styles.logoCircle, { backgroundColor: ds.colors.accent }]}>
                 <MaterialCommunityIcons name="account-plus" size={40} color="#FFFFFF" />
               </View>
             </View>
             
-            <Text testID="register-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
+            <Text testID="register-title" style={[styles.title, layout.isTablet && styles.titleTablet, { color: ds.colors.textPrimary }]}>
               Get Started
             </Text>
-            <Text testID="register-subtitle" style={[styles.subtitle, { color: ds.colors.textSecondary }]}>
+            <Text testID="register-subtitle" style={[styles.subtitle, layout.isTablet && styles.subtitleTablet, { color: ds.colors.textSecondary }]}>
               Create your Smart Pantry account
             </Text>
 
@@ -230,7 +236,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
   },
   card: {
     maxWidth: 400,
@@ -238,9 +243,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 24,
   },
+  cardTablet: {
+    maxWidth: 560,
+    width: '100%',
+    borderRadius: 28,
+  },
   cardContent: {
     paddingVertical: 32,
     paddingHorizontal: 24,
+  },
+  cardContentTablet: {
+    paddingVertical: 40,
+    paddingHorizontal: 40,
   },
   logoContainer: {
     alignItems: 'center',
@@ -260,11 +274,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+  titleTablet: {
+    fontSize: 32,
+    marginBottom: 10,
+  },
   subtitle: {
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 32,
     textAlign: 'center',
+  },
+  subtitleTablet: {
+    fontSize: 17,
+    lineHeight: 26,
+    marginBottom: 40,
   },
   input: {
     marginBottom: 16,
