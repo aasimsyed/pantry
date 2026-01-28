@@ -13,6 +13,8 @@ interface AuthContextType {
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  /** Try to sign in using stored tokens after biometric. Returns true if user is now logged in. */
+  tryBiometricLogin: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
+      await apiClient.loadTokensIfNeeded();
       const token = apiClient.getToken();
       if (token) {
         // Try to get user data, but don't fail hard if network is unreachable
@@ -132,6 +135,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const tryBiometricLogin = async (): Promise<boolean> => {
+    try {
+      await apiClient.loadTokensIfNeeded();
+      const token = apiClient.getToken();
+      if (!token) return false;
+      const userData = await apiClient.getCurrentUser();
+      setUser(userData);
+      await checkRecoveryQuestions();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -144,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshUser,
+        tryBiometricLogin,
       }}
     >
       {children}

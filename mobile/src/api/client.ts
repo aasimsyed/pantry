@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import type {
   Product,
@@ -94,8 +95,7 @@ class APIClient {
       },
     });
 
-    // Load token on initialization
-    this.loadToken();
+    // Token is loaded after biometric gate in loadTokensIfNeeded() (called by AuthContext)
 
     // Add request interceptor to include auth token
     this.client.interceptors.request.use(
@@ -179,6 +179,14 @@ class APIClient {
           }
         }
 
+        // Do not retry 429 on rate-limited auth endpoints (retries waste user's quota)
+        const isAuthRateLimited =
+          error.response?.status === 429 &&
+          originalRequest?.url?.includes('/api/auth/forgot-password');
+        if (isAuthRateLimited) {
+          throw error;
+        }
+
         // Retry logic for retryable errors
         if (isRetryableError(error) && retryCount < MAX_RETRIES && originalRequest) {
           originalRequest._retryCount = retryCount + 1;
@@ -191,13 +199,19 @@ class APIClient {
         }
 
         // Log error with more details for debugging
+        const isRecoveryQuestions404 =
+          error.response?.status === 404 && originalRequest?.url?.includes('recovery-questions');
         if (error.response) {
-          console.error(`API request failed: ${error.response.status} ${error.response.statusText}`, {
-            url: originalRequest?.url,
-            method: originalRequest?.method,
-            data: error.response.data,
-            retryCount,
-          });
+          if (isRecoveryQuestions404) {
+            console.warn('Recovery questions endpoint not available (404), backend may not be deployed with this feature');
+          } else {
+            console.error(`API request failed: ${error.response.status} ${error.response.statusText}`, {
+              url: originalRequest?.url,
+              method: originalRequest?.method,
+              data: error.response.data,
+              retryCount,
+            });
+          }
         } else {
           console.error('API request failed:', error.message || error, {
             code: error.code,
@@ -216,6 +230,72 @@ class APIClient {
   }
 
   // Token management
+  private static readonly BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
+
+  /** Load tokens from SecureStore into memory. If biometric is enabled, prompt first; only load on success. */
+  async loadTokensIfNeeded(): Promise<void> {
+    try {
+      const biometricEnabled = await SecureStore.getItemAsync(APIClient.BIOMETRIC_ENABLED_KEY) === 'true';
+      if (biometricEnabled) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!hasHardware || !isEnrolled) {
+          await this.loadToken();
+          return;
+        }
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Unlock Smart Pantry',
+          cancelLabel: 'Use password',
+          disableDeviceFallback: true,
+        });
+        if (!result.success) {
+          return;
+        }
+      }
+      await this.loadToken();
+    } catch (error) {
+      console.error('Error in loadTokensIfNeeded:', error);
+    }
+  }
+
+  async getBiometricEnabled(): Promise<boolean> {
+    try {
+      return (await SecureStore.getItemAsync(APIClient.BIOMETRIC_ENABLED_KEY)) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  async setBiometricEnabled(enabled: boolean): Promise<void> {
+    try {
+      if (enabled) {
+        await SecureStore.setItemAsync(APIClient.BIOMETRIC_ENABLED_KEY, 'true');
+      } else {
+        await SecureStore.deleteItemAsync(APIClient.BIOMETRIC_ENABLED_KEY);
+      }
+    } catch (error) {
+      console.error('Error setting biometric enabled:', error);
+      throw error;
+    }
+  }
+
+  /** Check if device supports biometric (Face ID / Touch ID) and has credentials enrolled. */
+  async isBiometricAvailable(): Promise<boolean> {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    return hasHardware && isEnrolled;
+  }
+
+  /** Check if a session is stored (e.g. access_token exists). Used to show a clear "no saved session" without prompting Face ID. */
+  async hasStoredSession(): Promise<boolean> {
+    try {
+      const token = await SecureStore.getItemAsync('access_token');
+      return !!token;
+    } catch {
+      return false;
+    }
+  }
+
   private async loadToken(): Promise<void> {
     try {
       this.accessToken = await SecureStore.getItemAsync('access_token');
@@ -384,10 +464,16 @@ class APIClient {
     all_questions: Array<{ id: number; text: string }>;
     user_question_ids: number[];
   }> {
-    return this.request<{
-      all_questions: Array<{ id: number; text: string }>;
-      user_question_ids: number[];
-    }>('GET', '/api/auth/recovery-questions');
+    const defaultResponse = { all_questions: [], user_question_ids: [] };
+    try {
+      return await this.request<{
+        all_questions: Array<{ id: number; text: string }>;
+        user_question_ids: number[];
+      }>('GET', '/api/auth/recovery-questions');
+    } catch (err: any) {
+      if (err?.response?.status === 404) return defaultResponse;
+      throw err;
+    }
   }
 
   async setRecoveryQuestions(answers: Array<{ question_id: number; answer: string }>): Promise<{ message: string }> {

@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from api.config import config
 from api.dependencies import get_current_user, get_db
 from api.limiter import limiter
 from api.models import (
@@ -341,7 +342,7 @@ def set_recovery_questions(
 
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
-@limiter.limit("10/hour")
+@limiter.limit(f"{config.rate_limit_forgot_password_per_hour}/hour")
 def forgot_password(
     request: Request,
     email: str = Form(...),

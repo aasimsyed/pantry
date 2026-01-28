@@ -24,6 +24,7 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
+        "NSFaceIDUsageDescription": "Smart Pantry uses Face ID to sign you in quickly and securely",
         "NSCameraUsageDescription": "Smart Pantry needs camera access to scan barcodes and product labels",
         "NSPhotoLibraryUsageDescription": "Smart Pantry needs access to your photo library to upload product photos and receipts",
         "CFBundleURLTypes": [

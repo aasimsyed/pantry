@@ -78,8 +78,16 @@ export default function ForgotPasswordScreen() {
         setError("If an account exists with that email, you'll need to set up the Authenticator app or recovery questions. Try again.");
       }
     } catch (err: any) {
+      const status = err.response?.status;
+      const isRateLimited = status === 429 || err.response?.data?.error?.includes('Rate limit');
       const isNetwork = err.code === 'ERR_NETWORK' || err.message?.includes('Network Error') || err.message?.includes('timeout');
-      setError(isNetwork ? "Can't reach server. Check your connection." : 'An error occurred. Please try again.');
+      if (isRateLimited) {
+        setError('Too many password reset attempts. Please try again in about an hour.');
+      } else if (isNetwork) {
+        setError("Can't reach server. Check your connection.");
+      } else {
+        setError('An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

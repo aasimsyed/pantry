@@ -10,6 +10,7 @@ import {
   Divider,
   List,
   Menu,
+  Switch,
   TextInput,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -60,6 +61,8 @@ export default function SettingsScreen() {
   ]);
   const [savingRecovery, setSavingRecovery] = useState(false);
   const [recoveryMenuVisible, setRecoveryMenuVisible] = useState<0 | 1 | null>(null);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const ds = getDesignSystem(isDark);
 
   useEffect(() => {
@@ -91,6 +94,12 @@ export default function SettingsScreen() {
       setSettings(data);
       const recovery = await apiClient.getRecoveryQuestions().catch(() => null);
       if (recovery) setRecoveryData(recovery);
+      const [available, enabled] = await Promise.all([
+        apiClient.isBiometricAvailable(),
+        apiClient.getBiometricEnabled(),
+      ]);
+      setBiometricAvailable(available);
+      setBiometricEnabled(enabled);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to load settings');
     } finally {
@@ -301,6 +310,50 @@ export default function SettingsScreen() {
         <Text testID="settings-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Settings
         </Text>
+
+        {/* Sign-in: Face ID / Touch ID */}
+        {biometricAvailable && (
+          <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+            <Card.Content style={styles.cardContent}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
+                  <MaterialCommunityIcons name="fingerprint" size={24} color={ds.colors.primary} />
+                </View>
+                <View style={styles.sectionHeaderText}>
+                  <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                    Sign-in
+                  </Text>
+                  <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                    Use Face ID or Touch ID to unlock the app
+                  </Text>
+                </View>
+              </View>
+              <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+              <List.Item
+                title="Use Face ID / Touch ID"
+                description={biometricEnabled ? 'On — you will be prompted when opening the app' : 'Off — sign in with email and password'}
+                left={(props) => <List.Icon {...props} icon="fingerprint" color={ds.colors.primary} />}
+                right={() => (
+                  <Switch
+                    value={biometricEnabled}
+                    onValueChange={async (value) => {
+                      try {
+                        await apiClient.setBiometricEnabled(value);
+                        setBiometricEnabled(value);
+                      } catch (err: any) {
+                        Alert.alert('Error', err.message || 'Could not update setting');
+                      }
+                    }}
+                    color={ds.colors.primary}
+                  />
+                )}
+                titleStyle={{ color: ds.colors.textPrimary }}
+                descriptionStyle={{ color: ds.colors.textSecondary }}
+                style={styles.listItem}
+              />
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Appearance Settings */}
         <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>

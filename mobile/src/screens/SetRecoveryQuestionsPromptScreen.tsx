@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Button, Menu, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -87,6 +87,11 @@ export default function SetRecoveryQuestionsPromptScreen() {
             <Text style={[styles.subtitle, layout.isTablet && styles.subtitleTablet, { color: ds.colors.textSecondary }]}>
               For easier password reset without the Authenticator app. Choose 2 questions and answers. You can change them later in Settings.
             </Text>
+            {recoveryData.all_questions.length === 0 && (
+              <Text style={[styles.emptyHint, { color: ds.colors.textSecondary }]}>
+                Recovery questions aren't available right now. Tap Remind me later to skip, or try again later.
+              </Text>
+            )}
             {[0, 1].map((idx) => (
               <View key={idx} style={styles.questionBlock}>
                 <Text style={[styles.questionLabel, { color: ds.colors.textSecondary }]}>Question {idx + 1}</Text>
@@ -94,9 +99,21 @@ export default function SetRecoveryQuestionsPromptScreen() {
                   visible={menuVisible === idx}
                   onDismiss={() => setMenuVisible(null)}
                   anchor={
-                    <Button mode="outlined" onPress={() => setMenuVisible(idx)} style={styles.menuButton}>
-                      {recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}
-                    </Button>
+                    <Pressable
+                      onPress={() => recoveryData.all_questions.length > 0 && setMenuVisible(idx)}
+                      style={({ pressed }) => [
+                        styles.menuButtonTouchable,
+                        {
+                          backgroundColor: ds.colors.surface,
+                          borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.menuButtonText, { color: ds.colors.primary }]}>
+                        {recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}
+                      </Text>
+                    </Pressable>
                   }
                 >
                   {recoveryData.all_questions.map((q) => (
@@ -161,7 +178,15 @@ const styles = StyleSheet.create({
   subtitleTablet: { fontSize: 17, lineHeight: 26, marginBottom: 28 },
   questionBlock: { marginBottom: 16 },
   questionLabel: { fontSize: 14, marginBottom: 6 },
-  menuButton: { marginBottom: 8 },
+  menuButtonTouchable: {
+    marginBottom: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  menuButtonText: { fontSize: 16 },
+  emptyHint: { marginBottom: 16, fontSize: 14 },
   input: { marginBottom: 8 },
   button: { marginTop: 8, marginBottom: 16 },
   linkButton: { marginTop: 8 },

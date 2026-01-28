@@ -89,6 +89,7 @@ class Settings(BaseSettings):
     rate_limit_auth_per_minute: int = 5
     rate_limit_upload_per_minute: int = 10
     rate_limit_recipe_per_hour: int = 20
+    rate_limit_forgot_password_per_hour: int = 10
 
     # -------------------------------------------------------------------------
     # Sentry

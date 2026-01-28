@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, Card } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { AuthenticationType } from 'expo-local-authentication';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
@@ -10,6 +12,7 @@ import { getDesignSystem } from '../utils/designSystem';
 import { PremiumButton } from '../components/PremiumButton';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import apiClient from '../api/client';
 
 type RootStackParamList = {
   Login: undefined;
@@ -26,11 +29,39 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [biometricCtaVisible, setBiometricCtaVisible] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState<'Face ID' | 'Touch ID'>('Face ID');
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const { login, tryBiometricLogin } = useAuth();
   const { isDark } = useTheme();
   const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const navigation = useNavigation<NavigationProp>();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [enabled, available] = await Promise.all([
+          apiClient.getBiometricEnabled(),
+          apiClient.isBiometricAvailable(),
+        ]);
+        if (cancelled || !enabled || !available) {
+          if (!cancelled) setBiometricCtaVisible(false);
+          return;
+        }
+        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+        const label = types.includes(AuthenticationType.FACIAL_RECOGNITION) ? 'Face ID' : 'Touch ID';
+        if (!cancelled) {
+          setBiometricLabel(label);
+          setBiometricCtaVisible(true);
+        }
+      } catch {
+        if (!cancelled) setBiometricCtaVisible(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -137,6 +168,38 @@ export default function LoginScreen() {
               left={<TextInput.Icon icon="lock-outline" />}
             />
 
+            {biometricCtaVisible && (
+              <>
+                <PremiumButton
+                  testID="biometric-login-button"
+                  mode="outlined"
+                  onPress={async () => {
+                    setError(null);
+                    setBiometricLoading(true);
+                    try {
+                      const ok = await tryBiometricLogin();
+                      if (!ok) {
+                        setError('Sign in with your email and password first. Then Face ID will work next time.');
+                      }
+                    } catch {
+                      setError('Something went wrong. Try signing in with your email and password.');
+                    } finally {
+                      setBiometricLoading(false);
+                    }
+                  }}
+                  loading={biometricLoading}
+                  disabled={loading || biometricLoading}
+                  style={styles.biometricButton}
+                  icon="face-recognition"
+                >
+                  Sign in with {biometricLabel}
+                </PremiumButton>
+                <Text style={[styles.biometricHint, { color: ds.colors.textSecondary }]}>
+                  Sign in with your password first; then you can use this next time.
+                </Text>
+              </>
+            )}
+
             <Button
               mode="text"
               onPress={() => navigation.navigate('ForgotPassword')}
@@ -152,7 +215,7 @@ export default function LoginScreen() {
               mode="contained"
               onPress={handleLogin}
               loading={loading}
-              disabled={loading}
+              disabled={loading || biometricLoading}
               style={styles.button}
             >
               Sign In
@@ -253,6 +316,14 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 8,
     marginBottom: 16,
+  },
+  biometricButton: {
+    marginBottom: 4,
+  },
+  biometricHint: {
+    fontSize: 12,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   linkButton: {
     marginTop: 8,
