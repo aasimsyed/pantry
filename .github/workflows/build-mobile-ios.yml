@@ -1,7 +1,14 @@
 name: Build and Deploy iOS App
 
-# On push to main/master (when mobile changes): build locally with Xcode and upload to TestFlight.
-# Requires GitHub secrets: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD.
+# On push to main/master (when mobile changes): build with Xcode and upload to TestFlight.
+# Required GitHub secrets:
+#   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD — for altool upload
+#   Team: Aasim S Syed (K5A25879TB)
+#   BUILD_CERTIFICATE_BASE64 — .p12 (distribution) cert, base64-encoded
+#   P12_PASSWORD — password for the .p12
+#   BUILD_PROVISION_PROFILE_BASE64 — App Store provisioning profile, base64-encoded
+#   KEYCHAIN_PASSWORD — password for the temporary keychain (e.g. "secret")
+# See: https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications
 on:
   push:
     branches:
@@ -44,6 +51,31 @@ jobs:
           BUILD_NUMBER="${{ github.event.inputs.build_number }}"
           node -e "const fs = require('fs'); const c = require('./app.json'); c.expo.ios.buildNumber = '$BUILD_NUMBER'; fs.writeFileSync('app.json', JSON.stringify(c, null, 2));"
           echo "Set build number to $BUILD_NUMBER"
+
+      - name: Import code signing certificate and provisioning profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -z "$BUILD_CERTIFICATE_BASE64" ] || [ -z "$BUILD_PROVISION_PROFILE_BASE64" ]; then
+            echo "::error::Secrets BUILD_CERTIFICATE_BASE64, P12_PASSWORD, BUILD_PROVISION_PROFILE_BASE64, KEYCHAIN_PASSWORD are required for code signing. See: https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications"
+            exit 1
+          fi
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$RUNNER_TEMP/certificate.p12"
+          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$RUNNER_TEMP/profile.mobileprovision"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
 
       - name: Build and upload to TestFlight
         working-directory: ./mobile

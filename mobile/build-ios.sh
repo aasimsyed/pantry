@@ -27,6 +27,7 @@ if [ -f "$PROJECT_PATH" ]; then
     sed -i '' 's/ENABLE_USER_SCRIPT_SANDBOXING = YES/ENABLE_USER_SCRIPT_SANDBOXING = NO/g' "$PROJECT_PATH" 2>/dev/null || true
 fi
 
+# Team: Aasim S Syed (K5A25879TB)
 echo "📦 Step 3: Building archive (workspace=$WORKSPACE_NAME, scheme=$SCHEME)..."
 ARCHIVE_PATH="$HOME/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/${WORKSPACE_NAME}-$(date +%H%M%S).xcarchive"
 mkdir -p "$(dirname "$ARCHIVE_PATH")"
