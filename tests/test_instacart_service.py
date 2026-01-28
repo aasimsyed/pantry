@@ -28,6 +28,7 @@ class TestInstacartService:
         settings.instacart_timeout = 30
         settings.instacart_link_expires_days = 30
         settings.instacart_enabled = True
+        settings.instacart_affiliate_partner_id = None
         return settings
     
     @pytest.fixture
@@ -237,3 +238,33 @@ class TestInstacartExceptions:
         """Test InstacartConfigError."""
         error = InstacartConfigError("Config error")
         assert str(error) == "Config error"
+    
+    def test_append_affiliate_params_no_partner_id(self, service):
+        """Test that URLs are unchanged when no affiliate partner ID is configured."""
+        url = "https://www.instacart.com/store/shopping_lists/123456"
+        result = service._append_affiliate_params(url)
+        assert result == url
+    
+    def test_append_affiliate_params_with_partner_id(self, mock_settings):
+        """Test that UTM parameters are appended when affiliate partner ID is configured."""
+        mock_settings.instacart_affiliate_partner_id = "5928554"
+        with patch('src.instacart_service.settings', mock_settings):
+            service = InstacartService()
+            
+            # URL without existing query params
+            url = "https://www.instacart.com/store/shopping_lists/123456"
+            result = service._append_affiliate_params(url)
+            assert "?" in result
+            assert "utm_campaign=instacart-idp" in result
+            assert "utm_medium=affiliate" in result
+            assert "utm_source=instacart_idp" in result
+            assert "utm_term=partnertype-mediapartner" in result
+            assert "utm_content=campaignid-20313_partnerid-5928554" in result
+            
+            # URL with existing query params
+            url_with_params = "https://www.instacart.com/store/shopping_lists/123456?existing=param"
+            result_with_params = service._append_affiliate_params(url_with_params)
+            assert "&" in result_with_params
+            assert "existing=param" in result_with_params
+            assert "utm_campaign=instacart-idp" in result_with_params
+            assert "utm_content=campaignid-20313_partnerid-5928554" in result_with_params

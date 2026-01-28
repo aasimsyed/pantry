@@ -456,6 +456,8 @@ export default function InventoryScreen() {
             displayName = name;
           }
 
+          const isLowStock = item.status === 'low';
+
           return (
             <TouchableOpacity
               key={item.id}
@@ -465,6 +467,11 @@ export default function InventoryScreen() {
                 { 
                   borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
                   borderBottomWidth: index < filteredItems.length - 1 ? 1 : 0,
+                  // Rams/Ive: Subtle left accent - refined, minimal, purposeful
+                  borderLeftWidth: isLowStock ? 2 : 0,
+                  borderLeftColor: isLowStock 
+                    ? (isDark ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.3)')
+                    : 'transparent',
                 }
               ]}
               onPress={() => handleEditItem(item)}
@@ -472,7 +479,16 @@ export default function InventoryScreen() {
             >
               <View style={styles.itemMain}>
                 <View style={styles.itemContent}>
-                  <Text style={[styles.itemName, { color: ds.colors.textPrimary }]}>
+                  <Text 
+                    style={[
+                      styles.itemName, 
+                      { 
+                        color: ds.colors.textPrimary,
+                        // Rams/Ive: Typography-based indication - subtle weight change
+                        fontWeight: isLowStock ? '600' : '500',
+                      }
+                    ]}
+                  >
                     {displayName}
                   </Text>
                   <View style={styles.itemMeta}>
@@ -481,7 +497,16 @@ export default function InventoryScreen() {
                         {item.brand}
                       </Text>
                     )}
-                    <Text style={[styles.itemQuantity, { color: ds.colors.textSecondary }]}>
+                    <Text 
+                      style={[
+                        styles.itemQuantity, 
+                        { 
+                          color: isLowStock 
+                            ? (isDark ? 'rgba(249, 115, 22, 0.9)' : 'rgba(249, 115, 22, 0.8)')
+                            : ds.colors.textSecondary 
+                        }
+                      ]}
+                    >
                       {item.quantity} {item.unit}
                     </Text>
                     <Text style={[styles.itemLocation, { color: ds.colors.textTertiary }]}>

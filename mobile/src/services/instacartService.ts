@@ -5,7 +5,7 @@
  * from recipes and inventory items.
  */
 
-import { Linking, Alert } from 'react-native';
+import { Linking, Alert, Platform } from 'react-native';
 import apiClient from '../api/client';
 import type { Recipe, RecentRecipe, SavedRecipe, InventoryItem, RecipeIngredient } from '../types';
 
@@ -89,6 +89,59 @@ function inventoryItemsToInstacart(items: InventoryItem[]): InstacartIngredient[
 }
 
 /**
+ * Attempt to open Instacart app if installed, otherwise open web URL.
+ * 
+ * Instacart's API returns Universal Links (iOS) and App Links (Android) that
+ * automatically open the native app if installed, or fall back to the web browser.
+ * 
+ * iOS Universal Link Behavior:
+ * - Universal Links work best when opened from apps like Mail or Notes
+ * - If opened from Safari, iOS may "claim" the link for Safari
+ * - The long-press "Open in Instacart" option only appears if iOS recognizes the Universal Link
+ * - If the option doesn't appear, iOS hasn't verified the association yet, or the link
+ *   was opened from Safari which suppresses the option
+ * 
+ * @param url The Instacart products_link_url (should be a Universal Link/App Link)
+ * @returns Promise<boolean> True if the URL was opened successfully
+ */
+async function openInstacartLink(url: string): Promise<boolean> {
+  try {
+    if (Platform.OS === 'ios') {
+      // On iOS, Universal Links can be tricky. The long-press option may not appear if:
+      // 1. iOS hasn't verified the apple-app-site-association file yet
+      // 2. The link is opened from Safari (which suppresses the option)
+      // 3. The Universal Link was previously disabled for this domain
+      
+      // Try opening the URL - it will either:
+      // - Open in the Instacart app (if Universal Link is working)
+      // - Open in Safari (if Safari has claimed it or Universal Link isn't recognized)
+      await Linking.openURL(url);
+      
+      // Note: We can't detect which one happened, but both work for shopping
+      // If it opened in Safari and the user wants the app:
+      // - Look for the "Open in Instacart app" banner at the top of Safari
+      // - Or wait 20-30 minutes for iOS to verify the Universal Link association
+      // - Or restart the device to force iOS to re-verify
+      
+      return true;
+    } else {
+      // Android: App Links work automatically
+      await Linking.openURL(url);
+      return true;
+    }
+  } catch (error: any) {
+    console.error('Failed to open Instacart link:', error);
+    
+    Alert.alert(
+      'Unable to Open Instacart',
+      'Please make sure the Instacart app is installed, or the link will open in your web browser.',
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+}
+
+/**
  * Instacart shopping service.
  */
 export const instacartService = {
@@ -139,14 +192,7 @@ export const instacartService = {
       );
       
       if (result.products_link_url) {
-        const supported = await Linking.canOpenURL(result.products_link_url);
-        if (supported) {
-          await Linking.openURL(result.products_link_url);
-          return true;
-        } else {
-          Alert.alert('Error', 'Unable to open Instacart link');
-          return false;
-        }
+        return await openInstacartLink(result.products_link_url);
       }
       
       return false;
@@ -226,14 +272,7 @@ export const instacartService = {
       );
       
       if (result.products_link_url) {
-        const supported = await Linking.canOpenURL(result.products_link_url);
-        if (supported) {
-          await Linking.openURL(result.products_link_url);
-          return true;
-        } else {
-          Alert.alert('Error', 'Unable to open Instacart link');
-          return false;
-        }
+        return await openInstacartLink(result.products_link_url);
       }
       
       return false;
@@ -274,14 +313,7 @@ export const instacartService = {
       );
       
       if (result.products_link_url) {
-        const supported = await Linking.canOpenURL(result.products_link_url);
-        if (supported) {
-          await Linking.openURL(result.products_link_url);
-          return true;
-        } else {
-          Alert.alert('Error', 'Unable to open Instacart link');
-          return false;
-        }
+        return await openInstacartLink(result.products_link_url);
       }
       
       return false;
@@ -316,14 +348,7 @@ export const instacartService = {
       const result = await apiClient.createInstacartShoppingListLink(title, instacartItems);
       
       if (result.products_link_url) {
-        const supported = await Linking.canOpenURL(result.products_link_url);
-        if (supported) {
-          await Linking.openURL(result.products_link_url);
-          return true;
-        } else {
-          Alert.alert('Error', 'Unable to open Instacart link');
-          return false;
-        }
+        return await openInstacartLink(result.products_link_url);
       }
       
       return false;

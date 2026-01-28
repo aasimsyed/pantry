@@ -51,6 +51,7 @@ class InstacartService:
         self.timeout = settings.instacart_timeout
         self.link_expires_days = settings.instacart_link_expires_days
         self.enabled = settings.instacart_enabled
+        self.affiliate_partner_id = settings.instacart_affiliate_partner_id
         
         if not self.api_key:
             logger.warning("Instacart API key not configured. Service will be disabled.")
@@ -126,6 +127,40 @@ class InstacartService:
         
         return formatted
     
+    def _append_affiliate_params(self, url: str) -> str:
+        """
+        Append Instacart affiliate tracking UTM parameters to a URL.
+        
+        According to Instacart's affiliate program documentation:
+        https://docs.instacart.com/developer_platform_api/guide/concepts/launch_activities/conversions_and_payments
+        
+        Args:
+            url: The Instacart products_link_url to append parameters to
+            
+        Returns:
+            URL with affiliate tracking parameters appended (if partner ID is configured)
+        """
+        if not self.affiliate_partner_id:
+            # No affiliate tracking configured, return URL as-is
+            return url
+        
+        # Build UTM parameters for affiliate tracking
+        # Format per Instacart documentation:
+        # utm_campaign=instacart-idp&utm_medium=affiliate&utm_source=instacart_idp&
+        # utm_term=partnertype-mediapartner&utm_content=campaignid-20313_partnerid-<partner-id>
+        utm_params = (
+            f"utm_campaign=instacart-idp"
+            f"&utm_medium=affiliate"
+            f"&utm_source=instacart_idp"
+            f"&utm_term=partnertype-mediapartner"
+            f"&utm_content=campaignid-20313_partnerid-{self.affiliate_partner_id}"
+        )
+        
+        # Append parameters to URL (handle existing query params)
+        # If URL already has query params, use &; otherwise use ?
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}{utm_params}"
+    
     async def create_recipe_link(
         self,
         title: str,
@@ -196,10 +231,17 @@ class InstacartService:
                     data = response.json()
                     expires_at = datetime.utcnow() + timedelta(days=self.link_expires_days)
                     
-                    logger.info(f"Instacart recipe link created successfully: {data.get('products_link_url', '')[:50]}...")
+                    # Get the base URL and append affiliate tracking if configured
+                    base_url = data.get("products_link_url", "")
+                    final_url = self._append_affiliate_params(base_url)
+                    
+                    if self.affiliate_partner_id:
+                        logger.info(f"Instacart recipe link created with affiliate tracking: {final_url[:50]}...")
+                    else:
+                        logger.info(f"Instacart recipe link created successfully: {final_url[:50]}...")
                     
                     return {
-                        "products_link_url": data["products_link_url"],
+                        "products_link_url": final_url,
                         "expires_at": expires_at.isoformat(),
                     }
                 else:
@@ -276,10 +318,17 @@ class InstacartService:
                     data = response.json()
                     expires_at = datetime.utcnow() + timedelta(days=self.link_expires_days)
                     
-                    logger.info(f"Instacart shopping list link created successfully: {data.get('products_link_url', '')[:50]}...")
+                    # Get the base URL and append affiliate tracking if configured
+                    base_url = data.get("products_link_url", "")
+                    final_url = self._append_affiliate_params(base_url)
+                    
+                    if self.affiliate_partner_id:
+                        logger.info(f"Instacart shopping list link created with affiliate tracking: {final_url[:50]}...")
+                    else:
+                        logger.info(f"Instacart shopping list link created successfully: {final_url[:50]}...")
                     
                     return {
-                        "products_link_url": data["products_link_url"],
+                        "products_link_url": final_url,
                         "expires_at": expires_at.isoformat(),
                     }
                 else:

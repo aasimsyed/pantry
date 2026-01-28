@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     instacart_timeout: int = 30
     instacart_link_expires_days: int = 30
     instacart_enabled: bool = True
+    instacart_affiliate_partner_id: Optional[str] = None  # Impact partner ID for affiliate tracking
 
     # -------------------------------------------------------------------------
     # API (server, CORS, rate limit)

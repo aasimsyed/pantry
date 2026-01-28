@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Smart Pantry AI</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .privacy-content {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .privacy-content h1 {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .privacy-content .last-updated {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 40px;
+    }
+    .privacy-content h2 {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      margin-top: 40px;
+      margin-bottom: 16px;
+    }
+    .privacy-content h3 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      margin-top: 32px;
+      margin-bottom: 12px;
+    }
+    .privacy-content p {
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+    .privacy-content ul, .privacy-content ol {
+      margin-left: 24px;
+      margin-bottom: 16px;
+    }
+    .privacy-content li {
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .privacy-content strong {
+      font-weight: 600;
+    }
+    .privacy-content a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .privacy-content a:hover {
+      text-decoration: underline;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 32px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .back-link:hover {
+      color: var(--text-primary);
+    }
+    .privacy-content hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 40px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← Back to Support</a>
+    
+    <div class="privacy-content">
+      <h1>Privacy Policy for Smart Pantry AI</h1>
+      <p class="last-updated"><strong>Last Updated:</strong> January 27, 2026</p>
+
+      <h2>Introduction</h2>
+      <p>Smart Pantry AI ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.</p>
+
+      <h2>Information We Collect</h2>
+
+      <h3>Account Information</h3>
+      <ul>
+        <li>Email address</li>
+        <li>Password (encrypted)</li>
+        <li>Full name (optional)</li>
+      </ul>
+
+      <h3>Usage Data</h3>
+      <ul>
+        <li>Pantry inventory items (product names, quantities, expiration dates, storage locations)</li>
+        <li>Product image filenames (metadata only - actual photos are not stored)</li>
+        <li>Recipes you save or generate</li>
+        <li>User preferences and settings</li>
+      </ul>
+
+      <h3>Camera and Photo Library</h3>
+      <ul>
+        <li>We access your camera to scan barcodes and product labels</li>
+        <li>We access your photo library when you choose to upload product photos</li>
+        <li><strong>Important:</strong> Photos are processed temporarily to extract product information using OCR and AI, then immediately deleted. We do NOT store your photos - only the extracted text and product information is saved.</li>
+      </ul>
+
+      <h3>Automatically Collected Information</h3>
+      <ul>
+        <li>Device information (OS version, app version)</li>
+        <li>Usage analytics and error logs (via Sentry)</li>
+        <li>API request logs for debugging and security</li>
+      </ul>
+
+      <h2>How We Use Your Information</h2>
+      <p>We use your information to:</p>
+      <ul>
+        <li>Provide and maintain the Smart Pantry AI service</li>
+        <li>Process and store your pantry inventory</li>
+        <li>Generate recipe recommendations based on your inventory</li>
+        <li>Scan and identify products from photos and barcodes</li>
+        <li>Send notifications about expiring items</li>
+        <li>Improve our services and user experience</li>
+        <li>Detect and prevent fraud or security issues</li>
+      </ul>
+
+      <h2>Third-Party Services</h2>
+      <p>We use the following third-party services:</p>
+
+      <h3>AI Services</h3>
+      <ul>
+        <li><strong>OpenAI (GPT models)</strong> - For recipe generation and product identification</li>
+        <li><strong>Anthropic (Claude models)</strong> - Alternative AI provider for recipe generation</li>
+        <li>Usage: Your inventory data and extracted text from photos (not the photos themselves) are sent to these services to generate recipes and analyze product information</li>
+        <li>Privacy: These services process data according to their privacy policies</li>
+      </ul>
+
+      <h3>Image Processing</h3>
+      <ul>
+        <li><strong>Google Cloud Vision API</strong> - For optical character recognition (OCR) to extract text from product labels</li>
+        <li>Usage: Product photos are temporarily sent to Google Vision API to extract text from labels. Photos are deleted immediately after processing.</li>
+        <li>Privacy: Google processes images according to their <a href="https://cloud.google.com/terms/cloud-privacy-notice" target="_blank" rel="noopener noreferrer">privacy policy</a></li>
+      </ul>
+
+      <h3>Barcode and Product Data</h3>
+      <ul>
+        <li><strong>Open Food Facts API</strong> - For barcode product lookup</li>
+        <li><strong>UPCitemdb API</strong> - For additional barcode product lookup</li>
+        <li>Usage: Barcode data is sent to these services to retrieve product information</li>
+      </ul>
+
+      <h3>Error Tracking</h3>
+      <ul>
+        <li><strong>Sentry</strong> - For error monitoring and crash reporting</li>
+        <li>Usage: Error logs and diagnostic information</li>
+      </ul>
+
+      <h3>Shopping Integration</h3>
+      <ul>
+        <li><strong>Instacart</strong> - For shopping list and ingredient purchasing</li>
+        <li>Usage: When you choose to shop for missing recipe ingredients or low-stock items, ingredient names and quantities are sent to Instacart to create a shopping list</li>
+        <li>Privacy: Instacart processes this data according to their <a href="https://www.instacart.com/privacy" target="_blank" rel="noopener noreferrer">privacy policy</a></li>
+        <li>Note: This is an optional feature that you must explicitly trigger; no data is sent to Instacart without your action</li>
+      </ul>
+
+      <h3>Cloud Infrastructure</h3>
+      <ul>
+        <li><strong>Google Cloud Platform (Cloud Run, Cloud SQL)</strong> - For hosting our backend services</li>
+        <li><strong>PostgreSQL</strong> - For database storage</li>
+      </ul>
+
+      <h2>Data Security</h2>
+      <p>We implement appropriate security measures including:</p>
+      <ul>
+        <li>Password encryption using industry-standard hashing (bcrypt)</li>
+        <li>HTTPS encryption for all data transmission</li>
+        <li>Secure token-based authentication with refresh tokens</li>
+        <li>Rate limiting to prevent abuse</li>
+        <li>Regular security audits</li>
+      </ul>
+
+      <h2>Data Retention</h2>
+      <ul>
+        <li>Account data is retained as long as your account is active</li>
+        <li>You can delete individual inventory items, recipes, or your entire account at any time</li>
+        <li>Deleted data is permanently removed from our systems</li>
+      </ul>
+
+      <h2>Your Rights</h2>
+      <p>You have the right to:</p>
+      <ul>
+        <li>Access your personal data</li>
+        <li>Correct inaccurate data</li>
+        <li>Delete your account and all associated data</li>
+        <li>Export your data</li>
+        <li>Opt-out of analytics tracking</li>
+      </ul>
+      <p>To exercise these rights, contact us at <strong>aasim.ss@gmail.com</strong></p>
+
+      <h2>Children's Privacy</h2>
+      <p>Smart Pantry AI is not intended for users under the age of 4. We do not knowingly collect personal information from children under 4.</p>
+
+      <h2>Changes to This Privacy Policy</h2>
+      <p>We may update this Privacy Policy from time to time. We will notify you of any changes by updating the "Last Updated" date and posting the new policy in the app.</p>
+
+      <h2>International Data Transfers</h2>
+      <p>Your data may be processed and stored in the United States or other countries where our service providers operate. By using Smart Pantry AI, you consent to the transfer of your data to these locations.</p>
+
+      <h2>Data Sharing</h2>
+      <p>We do NOT:</p>
+      <ul>
+        <li>Sell your personal information to third parties</li>
+        <li>Share your data with advertisers</li>
+        <li>Use your data for marketing purposes without consent</li>
+      </ul>
+      <p>We MAY share data:</p>
+      <ul>
+        <li>With service providers who help us operate the app (cloud hosting, AI services)</li>
+        <li>When required by law or to protect our legal rights</li>
+        <li>In connection with a business transfer (merger, acquisition)</li>
+      </ul>
+
+      <h2>Contact Us</h2>
+      <p>If you have questions about this Privacy Policy, please contact:</p>
+      <p><strong>Email:</strong> <a href="mailto:aasim.ss@gmail.com">aasim.ss@gmail.com</a><br>
+      <strong>Website:</strong> <a href="https://github.com/aasimsyed/pantry" target="_blank" rel="noopener noreferrer">https://github.com/aasimsyed/pantry</a></p>
+
+      <h2>Consent</h2>
+      <p>By using Smart Pantry AI, you consent to this Privacy Policy and agree to its terms.</p>
+
+      <hr>
+
+      <h2>Technical Details for Transparency</h2>
+
+      <h3>Data Security</h3>
+      <ul>
+        <li>All data transmission is encrypted using industry-standard TLS protocols</li>
+        <li>Passwords are hashed using secure cryptographic algorithms</li>
+        <li>Database storage is encrypted at rest</li>
+        <li>Access controls and authentication mechanisms are in place to protect your data</li>
+      </ul>
+
+      <h3>Permissions Explained</h3>
+      <ul>
+        <li><strong>Camera:</strong> Required to scan barcodes and product labels for inventory management</li>
+        <li><strong>Photo Library:</strong> Optional, allows you to upload existing photos of products</li>
+        <li><strong>Notifications:</strong> Optional, to alert you about expiring items</li>
+      </ul>
+
+      <h3>Data Deletion</h3>
+      <p>To delete your account and all data:</p>
+      <ol>
+        <li>Open the app</li>
+        <li>Go to Settings</li>
+        <li>Scroll to "Account Management"</li>
+        <li>Tap "Delete Account"</li>
+        <li>Confirm deletion</li>
+      </ol>
+      <p>All your data will be permanently deleted within 30 days.</p>
+    </div>
+
+    <footer>
+      <p>© 2026 Smart Pantry AI. All rights reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>
