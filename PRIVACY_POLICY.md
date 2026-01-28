@@ -1,6 +1,6 @@
 # Privacy Policy for Smart Pantry AI
 
-**Last Updated:** January 25, 2026
+**Last Updated:** January 27, 2026
 
 ## Introduction
 
@@ -15,14 +15,14 @@ Smart Pantry AI ("we", "our", or "us") is committed to protecting your privacy. 
 
 ### Usage Data
 - Pantry inventory items (product names, quantities, expiration dates, storage locations)
-- Photos you upload (product labels, receipts)
+- Product image filenames (metadata only - actual photos are not stored)
 - Recipes you save or generate
 - User preferences and settings
 
 ### Camera and Photo Library
 - We access your camera to scan barcodes and product labels
 - We access your photo library when you choose to upload product photos
-- These images are processed to extract product information using OCR and AI
+- **Important:** Photos are processed temporarily to extract product information using OCR and AI, then immediately deleted. We do NOT store your photos - only the extracted text and product information is saved.
 
 ### Automatically Collected Information
 - Device information (OS version, app version)
@@ -47,8 +47,13 @@ We use the following third-party services:
 ### AI Services
 - **OpenAI (GPT models)** - For recipe generation and product identification
 - **Anthropic (Claude models)** - Alternative AI provider for recipe generation
-- Usage: Your inventory data and photos may be sent to these services to generate recipes and analyze product information
+- Usage: Your inventory data and extracted text from photos (not the photos themselves) are sent to these services to generate recipes and analyze product information
 - Privacy: These services process data according to their privacy policies
+
+### Image Processing
+- **Google Cloud Vision API** - For optical character recognition (OCR) to extract text from product labels
+- Usage: Product photos are temporarily sent to Google Vision API to extract text from labels. Photos are deleted immediately after processing.
+- Privacy: Google processes images according to their privacy policy (https://cloud.google.com/terms/cloud-privacy-notice)
 
 ### Barcode and Product Data
 - **Open Food Facts API** - For barcode product lookup
@@ -97,7 +102,7 @@ To exercise these rights, contact us at **aasim.ss@gmail.com**
 
 ## Children's Privacy
 
-Smart Pantry AI is not intended for users under the age of 13. We do not knowingly collect personal information from children under 13.
+Smart Pantry AI is not intended for users under the age of 4. We do not knowingly collect personal information from children under 4.
 
 ## Changes to This Privacy Policy
 
@@ -134,20 +139,16 @@ By using Smart Pantry AI, you consent to this Privacy Policy and agree to its te
 
 ## Technical Details for Transparency
 
-### Data Processing Locations
-- Backend: Google Cloud Run (us-south1 region)
-- Database: Google Cloud SQL (PostgreSQL)
-- AI Processing: OpenAI/Anthropic APIs
-
-### Encryption
-- Data in transit: TLS 1.2+
-- Data at rest: Encrypted database storage
-- Passwords: bcrypt hashing with salt
+### Data Security
+- All data transmission is encrypted using industry-standard TLS protocols
+- Passwords are hashed using secure cryptographic algorithms
+- Database storage is encrypted at rest
+- Access controls and authentication mechanisms are in place to protect your data
 
 ### Permissions Explained
 - **Camera:** Required to scan barcodes and product labels for inventory management
 - **Photo Library:** Optional, allows you to upload existing photos of products
-- **Notifications:** Optional, to alert you about expiring items (future feature)
+- **Notifications:** Optional, to alert you about expiring items
 
 ### Data Deletion
 To delete your account and all data:
