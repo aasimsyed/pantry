@@ -17,8 +17,10 @@ if [ -z "$WORKSPACE_PATH" ]; then
 fi
 WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" .xcworkspace)
 
-# Scheme: prefer app.json expo.scheme, else workspace name
-SCHEME="${SCHEME:-$(node -e "try { const c = require('./app.json'); console.log(c.expo?.scheme || ''); } catch { console.log(''); }" 2>/dev/null)}"
+# Scheme: use first scheme in workspace (prebuild scheme name matches workspace, not app.json slug)
+if command -v jq &>/dev/null; then
+  SCHEME=$(xcodebuild -list -workspace "$WORKSPACE_PATH" -json 2>/dev/null | jq -r '.workspace.schemes[0] // .project.schemes[0] // empty')
+fi
 [ -z "$SCHEME" ] && SCHEME="$WORKSPACE_NAME"
 
 echo "🔧 Step 2: Disabling User Script Sandboxing..."
@@ -32,15 +34,21 @@ echo "📦 Step 3: Building archive (workspace=$WORKSPACE_NAME, scheme=$SCHEME).
 ARCHIVE_PATH="$HOME/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/${WORKSPACE_NAME}-$(date +%H%M%S).xcarchive"
 mkdir -p "$(dirname "$ARCHIVE_PATH")"
 
-xcodebuild archive \
-    -workspace "$WORKSPACE_PATH" \
-    -scheme "$SCHEME" \
-    -configuration Release \
-    -destination "generic/platform=iOS" \
-    -archivePath "$ARCHIVE_PATH" \
-    CODE_SIGN_STYLE=Automatic \
-    CODE_SIGN_IDENTITY="Apple Distribution" \
+ARCHIVE_ARGS=(
+    -workspace "$WORKSPACE_PATH"
+    -scheme "$SCHEME"
+    -configuration Release
+    -destination "generic/platform=iOS"
+    -archivePath "$ARCHIVE_PATH"
+    CODE_SIGN_IDENTITY="Apple Distribution"
     DEVELOPMENT_TEAM=K5A25879TB
+)
+if [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ]; then
+  ARCHIVE_ARGS+=(CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_SPECIFIER")
+else
+  ARCHIVE_ARGS+=(CODE_SIGN_STYLE=Automatic)
+fi
+xcodebuild archive "${ARCHIVE_ARGS[@]}"
 
 echo "✅ Archive created: $ARCHIVE_PATH"
 
