@@ -53,12 +53,29 @@ find ios -name "project.pbxproj" -path "*/Pods/*" -exec sed -i '' 's/SKIP_INSTAL
 # Team: Aasim S Syed (K5A25879TB)
 # Use distribution identity from keychain (name can be "Apple Distribution" or "iOS Distribution").
 CODE_SIGN_IDENTITY_NAME="Apple Distribution"
+FOUND=""
 if command -v security &>/dev/null; then
   FOUND=$(security find-identity -v -p codesigning 2>/dev/null | grep "K5A25879TB" | grep -i distribution | head -1)
   if [ -n "$FOUND" ]; then
     CODE_SIGN_IDENTITY_NAME=$(echo "$FOUND" | sed -E 's/.*"([^"]+)".*/\1/')
     echo "Using identity from keychain: $CODE_SIGN_IDENTITY_NAME"
   fi
+fi
+if [ -n "${GITHUB_ACTIONS:-}" ] && [ -z "$FOUND" ]; then
+  echo "::error::No distribution identity found for team K5A25879TB. Check BUILD_CERTIFICATE_BASE64 and P12 import."
+  echo "Current codesigning identities:"
+  security find-identity -v -p codesigning 2>/dev/null || true
+  exit 1
+fi
+
+# Pin app target Release to Apple Distribution so Xcode does not look for legacy "iOS Distribution".
+echo "🔧 Step 2c: Setting CODE_SIGN_IDENTITY for app target Release..."
+if [ -f "$PROJECT_PATH" ]; then
+  # App target Release config ID from expo prebuild; insert CODE_SIGN_IDENTITY after DEVELOPMENT_TEAM in that block.
+  sed -i '' '/13B07F951A680F5B00A75B9A/,/name = Release;/{
+    /DEVELOPMENT_TEAM = K5A25879TB;/a\
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+  }' "$PROJECT_PATH" 2>/dev/null || true
 fi
 
 echo "📦 Step 3: Building archive (workspace=$WORKSPACE_NAME, scheme=$SCHEME)..."
