@@ -3,7 +3,7 @@ import { StyleSheet, View, Alert, Dimensions, TouchableOpacity, Platform } from 
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { getDesignSystem } from '../utils/designSystem';
@@ -25,9 +25,10 @@ type RouteParams = {
 export default function BarcodeScannerScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RouteParams, 'BarcodeScanner'>>();
+  const isFocused = useIsFocused();
   const { isDark } = useTheme();
   const ds = getDesignSystem(isDark);
-  
+
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,18 +45,23 @@ export default function BarcodeScannerScreen() {
     }
   }, [permission, requestPermission]);
 
-  // On iOS, delay mounting CameraView to avoid AVCaptureSession "startRunning between beginConfiguration and commitConfiguration" crash
+  // Mount CameraView only when screen is focused; unmount when navigating away to avoid
+  // AVCaptureSession crash during view controller transition (addSubview / commitConfiguration race).
   useEffect(() => {
+    if (!isFocused) {
+      setCameraReady(false);
+      return;
+    }
     if (!permission?.granted) {
       setCameraReady(false);
       return;
     }
     if (Platform.OS === 'ios') {
-      const t = setTimeout(() => setCameraReady(true), 150);
+      const t = setTimeout(() => setCameraReady(true), 400);
       return () => clearTimeout(t);
     }
     setCameraReady(true);
-  }, [permission?.granted]);
+  }, [isFocused, permission?.granted]);
 
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
     const data = result?.data;
