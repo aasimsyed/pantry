@@ -239,30 +239,45 @@ export default function RecipesScreen() {
 
   const handleSaveRecipe = async (recipe: Recipe) => {
     const name = recipe.name;
+    const isRecent = 'id' in recipe && typeof (recipe as RecentRecipe).id === 'number';
+
+    // Optimistic: remove from list immediately so it disappears (moves to Recipe Box)
+    removeRecipeFromList(name);
+
     try {
-      await apiClient.saveRecipe({
-        name: recipe.name,
-        description: recipe.description,
-        cuisine: recipe.cuisine,
-        difficulty: recipe.difficulty,
-        prep_time: recipe.prep_time,
-        cook_time: recipe.cook_time,
-        servings: recipe.servings,
-        ingredients: recipe.ingredients as any, // API expects arrays
-        instructions: recipe.instructions as any, // API expects arrays
-        ai_model: recipe.ai_model, // Track which AI model generated this recipe
-        flavor_pairings: recipe.flavor_pairings as any, // Flavor chemistry data
-      });
+      if (isRecent) {
+        await apiClient.saveRecentRecipe((recipe as RecentRecipe).id);
+      } else {
+        await apiClient.saveRecipe({
+          name: recipe.name,
+          description: recipe.description,
+          cuisine: recipe.cuisine,
+          difficulty: recipe.difficulty,
+          prep_time: recipe.prep_time,
+          cook_time: recipe.cook_time,
+          servings: recipe.servings,
+          ingredients: recipe.ingredients as any, // API expects arrays
+          instructions: recipe.instructions as any, // API expects arrays
+          ai_model: recipe.ai_model, // Track which AI model generated this recipe
+          flavor_pairings: recipe.flavor_pairings as any, // Flavor chemistry data
+        });
+      }
       Alert.alert('Success', `Saved "${name}" to recipe box!`);
-      removeRecipeFromList(name);
       loadRecentRecipes();
     } catch (err: any) {
+      const statusCode = err.response?.status;
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
-      if (err.response?.status === 409 || errorMessage.includes('already saved')) {
-        removeRecipeFromList(name);
-        loadRecentRecipes();
+      // 409 = already saved: recipe is in Recipe Box. Don't refetch — backend still has it in
+      // recent list, so loadRecentRecipes() would bring it back. We already removed it from UI.
+      if (statusCode === 409 || errorMessage.includes('already saved')) {
+        return;
+      }
+      Alert.alert('Error', errorMessage);
+      // Re-add so user can retry
+      if (isRecent) {
+        setRecentRecipes((prev) => [...prev, recipe as RecentRecipe]);
       } else {
-        Alert.alert('Error', errorMessage);
+        setRecipes((prev) => [...prev, recipe]);
       }
     }
   };
