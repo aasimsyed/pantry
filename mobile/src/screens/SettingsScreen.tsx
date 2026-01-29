@@ -49,22 +49,22 @@ const AI_MODELS: Record<string, Array<{ value: string; label: string }>> = {
   ],
 };
 
+/** Fallback when API doesn't return default_ai_* (old backend). */
+const DEFAULT_AI_FALLBACK = { provider: 'openai', modelLabel: 'GPT-4 Turbo' };
+
 function getDefaultAiLabel(settings: UserSettings | null): string {
-  if (!settings?.default_ai_provider) return 'Use System Default';
-  const providerLabel = settings.default_ai_provider === 'openai' ? 'OpenAI' : 'Anthropic (Claude)';
-  const models = AI_MODELS[settings.default_ai_provider];
-  const modelEntry = models?.find((m) => m.value === settings.default_ai_model);
-  const modelLabel = modelEntry?.label ?? settings.default_ai_model ?? '';
-  return modelLabel ? `Use System Default (${providerLabel}, ${modelLabel})` : `Use System Default (${providerLabel})`;
+  const provider = settings?.default_ai_provider ?? DEFAULT_AI_FALLBACK.provider;
+  const providerLabel = provider === 'openai' ? 'OpenAI' : 'Anthropic (Claude)';
+  return `Use System Default (${providerLabel})`;
 }
 
 /** Label for "Use Provider Default" model option: show which model the server will use. */
 function getDefaultModelLabel(settings: UserSettings | null): string {
-  if (!settings?.default_ai_model) return 'Use Provider Default';
-  const provider = settings.ai_provider ?? settings.default_ai_provider;
+  const defaultModel = settings?.default_ai_model;
+  const provider = settings?.ai_provider ?? settings?.default_ai_provider ?? DEFAULT_AI_FALLBACK.provider;
   const models = provider ? AI_MODELS[provider] : undefined;
-  const modelEntry = models?.find((m) => m.value === settings.default_ai_model);
-  const modelLabel = modelEntry?.label ?? settings.default_ai_model;
+  const modelEntry = defaultModel ? models?.find((m) => m.value === defaultModel) : undefined;
+  const modelLabel = modelEntry?.label ?? defaultModel ?? DEFAULT_AI_FALLBACK.modelLabel;
   return `Use Provider Default (${modelLabel})`;
 }
 

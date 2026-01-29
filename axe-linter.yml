@@ -1,4 +1,0 @@
-# axe DevTools Linter config — https://docs.deque.com/linter/4.0.0/en/axe-linter-configuration
-# Enables React Native rules for .js, .jsx, .ts, .tsx
-global-libraries:
-  - react-native

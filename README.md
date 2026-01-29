@@ -80,8 +80,7 @@ streamlit run dashboard/app.py
 
 ## Accessibility
 
-- **Mobile (React Native):** ESLint + `eslint-plugin-react-native-a11y` in `mobile/` — run `npm run lint` in `mobile/` for static a11y checks.
-- **axe DevTools Linter (optional):** PR-based audit. Add repo secret `AXE_LINTER_API_KEY` (see [.github/axe-linter-setup.md](.github/axe-linter-setup.md)); then PRs that touch `mobile/**` get axe a11y comments.
+- **Mobile (React Native):** ESLint + `eslint-plugin-react-native-a11y` in `mobile/` — run `npm run lint` in `mobile/` for static a11y checks. Use the ESLint extension in VS Code/Cursor for real-time feedback. A **pre-commit hook** runs ESLint on staged mobile `.ts`/`.tsx` files; install with: `cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`.
 
 ## Deployment
 
