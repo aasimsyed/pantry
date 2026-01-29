@@ -39,6 +39,7 @@ xcodebuild archive \
     -destination "generic/platform=iOS" \
     -archivePath "$ARCHIVE_PATH" \
     CODE_SIGN_STYLE=Automatic \
+    CODE_SIGN_IDENTITY="Apple Distribution" \
     DEVELOPMENT_TEAM=K5A25879TB
 
 echo "✅ Archive created: $ARCHIVE_PATH"
