@@ -129,6 +129,7 @@ export default function RegisterScreen() {
               style={styles.input}
               left={<TextInput.Icon icon="account-outline" />}
               accessibilityLabel="Full name"
+              accessibilityHint="Double tap to enter your full name"
               accessibilityRole="none"
             />
 
@@ -150,6 +151,7 @@ export default function RegisterScreen() {
               error={errorType === 'email'}
               left={<TextInput.Icon icon="email-outline" />}
               accessibilityLabel="Email"
+              accessibilityHint="Double tap to enter your email"
               accessibilityRole="none"
             />
             {errorType === 'email' && error && (
@@ -166,6 +168,7 @@ export default function RegisterScreen() {
                     labelStyle={styles.errorButtonLabel}
                     compact
                     accessibilityLabel="Sign in instead"
+                    accessibilityHint="Double tap to go to sign in"
                     accessibilityRole="button"
                   >
                     Sign in instead
@@ -192,6 +195,7 @@ export default function RegisterScreen() {
               error={errorType === 'password'}
               left={<TextInput.Icon icon="lock-outline" />}
               accessibilityLabel="Password"
+              accessibilityHint="Double tap to enter your password"
               accessibilityRole="none"
             />
             <Text style={[styles.helperText, { color: ds.colors.textTertiary }]}>
@@ -214,6 +218,7 @@ export default function RegisterScreen() {
               disabled={loading}
               style={styles.button}
               accessibilityLabel="Create account"
+              accessibilityHint="Double tap to create your account"
               accessibilityRole="button"
             >
               Create Account
@@ -223,6 +228,7 @@ export default function RegisterScreen() {
               testID="login-link"
               mode="text"
               accessibilityLabel="Sign in"
+              accessibilityHint="Double tap to go to sign in"
               accessibilityRole="button"
               onPress={() => navigation.navigate('Login')}
               style={styles.linkButton}

@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   Dimensions,
-  Animated,
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -52,7 +51,7 @@ export function FlavorChemistrySheet({
   visible,
   onDismiss,
   flavorPairings,
-  recipeName,
+  recipeName: _recipeName,
 }: FlavorChemistrySheetProps) {
   const { isDark } = useTheme();
   const ds = getDesignSystem(isDark);
@@ -69,7 +68,7 @@ export function FlavorChemistrySheet({
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
-        <TouchableWithoutFeedback onPress={onDismiss} accessibilityLabel="Dismiss sheet" accessibilityRole="button">
+        <TouchableWithoutFeedback onPress={onDismiss} accessibilityLabel="Dismiss sheet" accessibilityHint="Double tap to close" accessibilityRole="button">
           <View style={styles.dismissArea} />
         </TouchableWithoutFeedback>
         <View
@@ -133,6 +132,7 @@ export function FlavorChemistrySheet({
                     ]}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     accessibilityLabel="Close"
+                    accessibilityHint="Double tap to close sheet"
                     accessibilityRole="button"
                   >
                     <MaterialCommunityIcons

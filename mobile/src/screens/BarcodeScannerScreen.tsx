@@ -39,7 +39,7 @@ export default function BarcodeScannerScreen() {
     }
   }, [permission, requestPermission]);
 
-  const handleBarCodeScanned = async ({ type, data }: BarcodeScanningResult) => {
+  const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
     if (scanned || loading || data === lastScannedRef.current) return;
     
     lastScannedRef.current = data;
@@ -119,6 +119,7 @@ export default function BarcodeScannerScreen() {
             style={[styles.permissionButton, { backgroundColor: ds.colors.primary }]}
             onPress={requestPermission}
             accessibilityLabel="Grant camera permission"
+            accessibilityHint="Double tap to open settings"
             accessibilityRole="button"
           >
             <Text style={[styles.permissionButtonText, { color: ds.colors.textInverse }]}>
@@ -129,6 +130,7 @@ export default function BarcodeScannerScreen() {
             style={styles.cancelLink}
             onPress={() => navigation.goBack()}
             accessibilityLabel="Cancel"
+            accessibilityHint="Double tap to go back"
             accessibilityRole="button"
           >
             <Text style={{ color: ds.colors.primary, fontSize: 16 }}>Cancel</Text>
@@ -192,6 +194,7 @@ export default function BarcodeScannerScreen() {
             onPress={() => setTorch(!torch)}
             activeOpacity={0.7}
             accessibilityLabel={torch ? 'Turn flashlight off' : 'Turn flashlight on'}
+            accessibilityHint="Double tap to toggle flashlight"
             accessibilityRole="button"
           >
             <View style={[styles.controlButtonInner, torch && styles.controlButtonActive]}>
@@ -210,6 +213,7 @@ export default function BarcodeScannerScreen() {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
             accessibilityLabel="Cancel scan"
+            accessibilityHint="Double tap to exit scanner"
             accessibilityRole="button"
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -222,6 +226,7 @@ export default function BarcodeScannerScreen() {
               onPress={resetScanner}
               activeOpacity={0.7}
               accessibilityLabel="Rescan barcode"
+              accessibilityHint="Double tap to scan again"
               accessibilityRole="button"
             >
               <View style={styles.controlButtonInner}>

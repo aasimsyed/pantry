@@ -4,19 +4,14 @@ import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, Touchabl
 // Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
 import {
-  Card,
   Text,
   Button,
-  TextInput,
   Checkbox,
   Switch,
   ActivityIndicator,
-  Chip,
   Menu,
-  Divider,
   Portal,
   Dialog,
-  Searchbar,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -30,8 +25,8 @@ import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLayout } from '../hooks/useLayout';
-import { getDesignSystem, getTextStyle } from '../utils/designSystem';
-import type { Recipe, RecentRecipe, InventoryItem } from '../types';
+import { getDesignSystem } from '../utils/designSystem';
+import type { Recipe, RecentRecipe } from '../types';
 
 /** Minimal breathing dot for indeterminate wait — Dieter Rams: as little design as possible. */
 function BreathingDot({ color }: { color: string }) {
@@ -277,22 +272,6 @@ export default function RecipesScreen() {
     setRecentRecipes((prev) => prev.filter((r) => r.name !== recipeName));
   };
 
-  const handleSaveRecentRecipe = async (recentRecipe: RecentRecipe) => {
-    try {
-      await apiClient.saveRecentRecipe(recentRecipe.id);
-      Alert.alert('Success', `Saved "${recentRecipe.name}" to recipe box!`);
-      removeRecipeFromList(recentRecipe.name);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
-      if (err.response?.status === 409 || errorMessage.includes('already saved')) {
-        removeRecipeFromList(recentRecipe.name);
-        loadRecentRecipes();
-      } else {
-        Alert.alert('Error', errorMessage);
-      }
-    }
-  };
-
   const handleDeleteRecentRecipe = async (recipeId: number) => {
     try {
       await apiClient.deleteRecentRecipe(recipeId);
@@ -501,6 +480,9 @@ export default function RecipesScreen() {
             style={styles.switchRow}
             onPress={() => setAllowMissing(!allowMissing)}
             activeOpacity={0.6}
+            accessibilityLabel="Allow missing ingredients"
+            accessibilityHint={allowMissing ? 'Double tap to require all ingredients' : 'Double tap to allow recipes with missing ingredients'}
+            accessibilityRole="switch"
           >
             <Text testID="allow-missing-label" style={[styles.switchLabel, { color: ds.colors.textPrimary }]}>
               Allow Missing Ingredients
@@ -525,6 +507,9 @@ export default function RecipesScreen() {
                   onPress={() => setCuisineMenuVisible(true)}
                   style={[styles.selectField, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
                   activeOpacity={0.6}
+                  accessibilityLabel={`Cuisine: ${cuisine || 'Any'}`}
+                  accessibilityHint="Double tap to choose cuisine"
+                  accessibilityRole="button"
                 >
                   <Text style={[styles.selectFieldText, { color: cuisine ? ds.colors.textPrimary : ds.colors.textSecondary }]}>
                     {cuisine || 'Any Cuisine'}
@@ -558,6 +543,9 @@ export default function RecipesScreen() {
                   onPress={() => setDifficultyMenuVisible(true)}
                   style={[styles.selectField, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
                   activeOpacity={0.6}
+                  accessibilityLabel={`Difficulty: ${difficulty || 'Any'}`}
+                  accessibilityHint="Double tap to choose difficulty"
+                  accessibilityRole="button"
                 >
                   <Text style={[styles.selectFieldText, { color: difficulty ? ds.colors.textPrimary : ds.colors.textSecondary }]}>
                     {difficulty || 'Any Difficulty'}
@@ -590,6 +578,9 @@ export default function RecipesScreen() {
                       setDietaryRestrictions([...dietaryRestrictions, diet]);
                     }
                   }}
+                  accessibilityLabel={dietaryRestrictions.includes(diet) ? `${diet}, selected` : diet}
+                  accessibilityHint={dietaryRestrictions.includes(diet) ? 'Double tap to deselect' : 'Double tap to select'}
+                  accessibilityRole="button"
                   style={[
                     styles.optionPill,
                     { 
@@ -624,6 +615,9 @@ export default function RecipesScreen() {
             }}
             style={[styles.selectRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
             activeOpacity={0.6}
+            accessibilityLabel={`Required ingredients: ${requiredIngredients.length > 0 ? `${requiredIngredients.length} selected` : 'None'}`}
+            accessibilityHint="Double tap to choose required ingredients"
+            accessibilityRole="button"
           >
             <View style={styles.selectContent}>
               <Text style={[styles.selectLabel, { color: ds.colors.textTertiary }]}>
@@ -649,6 +643,9 @@ export default function RecipesScreen() {
             }}
             style={[styles.selectRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
             activeOpacity={0.6}
+            accessibilityLabel={`Excluded ingredients: ${excludedIngredients.length > 0 ? `${excludedIngredients.length} selected` : 'None'}`}
+            accessibilityHint="Double tap to choose excluded ingredients"
+            accessibilityRole="button"
           >
             <View style={styles.selectContent}>
               <Text style={[styles.selectLabel, { color: ds.colors.textTertiary }]}>
@@ -686,7 +683,12 @@ export default function RecipesScreen() {
               RECENT RECIPES
             </Text>
             {!loadingRecent && recentRecipes.length > 0 && (
-              <TouchableOpacity onPress={handleClearAllRecentRecipes}>
+              <TouchableOpacity
+                onPress={handleClearAllRecentRecipes}
+                accessibilityLabel="Clear all recent recipes"
+                accessibilityHint="Double tap to clear recent recipes list"
+                accessibilityRole="button"
+              >
                 <Text style={[styles.clearAllText, { color: isDark ? '#f87171' : '#ef4444' }]}>
                   Clear All
                 </Text>
@@ -713,6 +715,9 @@ export default function RecipesScreen() {
                   onPress={() => navigation.navigate('RecipeDetail', { recipe: recentRecipe } as never)}
                   style={styles.recipeContent}
                   activeOpacity={0.6}
+                  accessibilityLabel={recentRecipe.name}
+                  accessibilityHint="Double tap to open recipe"
+                  accessibilityRole="button"
                 >
                   <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>
                     {recentRecipe.name}
@@ -747,6 +752,9 @@ export default function RecipesScreen() {
                       handleSaveRecipe(recentRecipe as any);
                     }}
                     style={styles.recipeActionButton}
+                    accessibilityLabel={`Save ${recentRecipe.name} to Recipe Box`}
+                    accessibilityHint="Double tap to save recipe"
+                    accessibilityRole="button"
                   >
                     <MaterialCommunityIcons 
                       name="bookmark-outline" 
@@ -761,6 +769,9 @@ export default function RecipesScreen() {
                       handleDeleteRecentRecipe(recentRecipe.id);
                     }}
                     style={styles.recipeActionButton}
+                    accessibilityLabel={`Delete ${recentRecipe.name} from recent`}
+                    accessibilityHint="Double tap to remove from recent"
+                    accessibilityRole="button"
                   >
                     <MaterialCommunityIcons 
                       name="trash-can-outline" 
@@ -795,6 +806,9 @@ export default function RecipesScreen() {
             onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
             style={styles.recipeContent}
             activeOpacity={0.6}
+            accessibilityLabel={recipe.name}
+            accessibilityHint="Double tap to open recipe"
+            accessibilityRole="button"
           >
             <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>
               {recipe.name}
@@ -835,6 +849,9 @@ export default function RecipesScreen() {
                   instacartService.shopMissingIngredients(recipe);
                 }}
                 style={styles.recipeActionButton}
+                accessibilityLabel="Shop missing ingredients on Instacart"
+                accessibilityHint="Double tap to open Instacart"
+                accessibilityRole="button"
               >
                 <MaterialCommunityIcons 
                   name="cart-outline" 
@@ -849,6 +866,9 @@ export default function RecipesScreen() {
                 handleSaveRecipe(recipe);
               }}
               style={styles.recipeActionButton}
+              accessibilityLabel={`Save ${recipe.name} to Recipe Box`}
+              accessibilityHint="Double tap to save recipe"
+              accessibilityRole="button"
             >
               <MaterialCommunityIcons 
                 name="bookmark-outline" 
@@ -1046,6 +1066,9 @@ export default function RecipesScreen() {
               onPress={handleCancelGeneration}
               style={styles.cancelButton}
               disabled={cancelRequested}
+              accessibilityLabel={cancelRequested ? 'Cancelling' : 'Cancel generation'}
+              accessibilityHint="Double tap to cancel recipe generation"
+              accessibilityRole="button"
             >
               <Text style={[styles.cancelText, { color: cancelRequested ? ds.colors.textTertiary : ds.colors.textPrimary }]}>
                 {cancelRequested ? 'Cancelling…' : 'Cancel'}

@@ -1,18 +1,16 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { ScrollView, StyleSheet, View, Alert, RefreshControl, TouchableOpacity, FlatList, TextInput as RNTextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
-import { getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { getDesignSystem } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import apiClient, { getApiErrorMessage } from '../api/client';
 import StarRating from '../components/StarRating';
-import { SkeletonRecipeCard } from '../components/Skeleton';
-import { PremiumButton } from '../components/PremiumButton';
-import type { SavedRecipe, FlavorPairing } from '../types';
+import type { SavedRecipe } from '../types';
 
 export default function RecipeBoxScreen() {
   const navigation = useNavigation();
@@ -151,15 +149,6 @@ export default function RecipeBoxScreen() {
     );
   };
 
-  const parseJson = (str: string | null | undefined): any[] => {
-    if (!str) return [];
-    try {
-      return typeof str === 'string' ? JSON.parse(str) : str;
-    } catch {
-      return [];
-    }
-  };
-
   const keyExtractor = useCallback((item: SavedRecipe) => item.id.toString(), []);
 
   const renderItem = useCallback(
@@ -174,6 +163,9 @@ export default function RecipeBoxScreen() {
             isLast && { borderBottomWidth: 0 },
           ]}
           onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
+          accessibilityLabel={recipe.name}
+          accessibilityHint="Double tap to open recipe"
+          accessibilityRole="button"
         >
           <View style={styles.recipeContent}>
             <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>{recipe.name}</Text>
@@ -215,6 +207,9 @@ export default function RecipeBoxScreen() {
                 handleDelete(recipe.id);
               }}
               style={styles.deleteButton}
+              accessibilityLabel={`Delete ${recipe.name}`}
+              accessibilityHint="Double tap to remove recipe from box"
+              accessibilityRole="button"
             >
               <MaterialCommunityIcons
                 name="trash-can-outline"
@@ -289,6 +284,8 @@ export default function RecipeBoxScreen() {
             onPress={() => setFilterVisible(true)}
             style={[styles.filterIconBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
             accessibilityLabel="Open filters"
+            accessibilityHint="Double tap to filter recipes"
+            accessibilityRole="button"
           >
             <MaterialCommunityIcons name="filter-variant" size={22} color={ds.colors.textPrimary} />
           </TouchableOpacity>
@@ -307,9 +304,17 @@ export default function RecipeBoxScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             underlineColorAndroid="transparent"
+            accessibilityLabel="Search recipes"
+            accessibilityHint="Type to search; submit to find similar recipes"
           />
           {searchQuery !== '' && (
-            <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity
+              onPress={clearSearch}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Clear search"
+              accessibilityHint="Double tap to clear search field"
+              accessibilityRole="button"
+            >
               <MaterialCommunityIcons name="close-circle" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
             </TouchableOpacity>
           )}
@@ -323,7 +328,13 @@ export default function RecipeBoxScreen() {
                 Like: "{semanticSearchQuery}"
               </Text>
             )}
-            <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={clearSearch}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Clear semantic search"
+              accessibilityHint="Double tap to clear and show all recipes"
+              accessibilityRole="button"
+            >
               <Text style={[styles.semanticHintClear, { color: ds.colors.textPrimary }]}>Clear</Text>
             </TouchableOpacity>
           </View>
@@ -341,7 +352,13 @@ export default function RecipeBoxScreen() {
           <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
             No similar recipes for "{semanticSearchQuery}". Try different words or clear to see all your recipes.
           </Text>
-          <TouchableOpacity onPress={clearSearch} style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}>
+          <TouchableOpacity
+            onPress={clearSearch}
+            style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}
+            accessibilityLabel="Clear search"
+            accessibilityHint="Double tap to clear search"
+            accessibilityRole="button"
+          >
             <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>Clear search</Text>
           </TouchableOpacity>
         </View>
@@ -354,7 +371,13 @@ export default function RecipeBoxScreen() {
           <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
             No recipes match "{searchQuery.trim()}". Press Enter to find similar recipes.
           </Text>
-          <TouchableOpacity onPress={clearSearch} style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}>
+          <TouchableOpacity
+            onPress={clearSearch}
+            style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}
+            accessibilityLabel="Clear search"
+            accessibilityHint="Double tap to clear search"
+            accessibilityRole="button"
+          >
             <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>Clear search</Text>
           </TouchableOpacity>
         </View>
@@ -370,6 +393,9 @@ export default function RecipeBoxScreen() {
           testID="empty-recipe-box-button"
           onPress={() => navigation.navigate('Recipes' as never)}
           style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}
+          accessibilityLabel="Go to Recipes"
+          accessibilityHint="Double tap to open Recipes tab"
+          accessibilityRole="button"
         >
           <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>Go to Recipes</Text>
         </TouchableOpacity>
@@ -386,26 +412,20 @@ export default function RecipeBoxScreen() {
       style={[styles.filterOptionRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
       onPress={onPress}
       activeOpacity={0.7}
+      accessibilityLabel={label}
+      accessibilityHint={selected ? 'Double tap to deselect' : 'Double tap to select'}
+      accessibilityRole="button"
     >
       <Text style={[styles.filterOptionLabel, { color: ds.colors.textPrimary }]}>{label}</Text>
       <View style={[styles.filterOptionIndicator, selected && { backgroundColor: ds.colors.textPrimary, borderColor: ds.colors.textPrimary }]} />
     </TouchableOpacity>
   ), [isDark, ds.colors.textPrimary]);
 
-  // Check if recipe has flavor pairings
-  const hasFlavorPairings = (recipe: SavedRecipe): boolean => {
-    if (!recipe.flavor_pairings) return false;
-    const pairings = typeof recipe.flavor_pairings === 'string' 
-      ? parseJson(recipe.flavor_pairings)
-      : recipe.flavor_pairings;
-    return Array.isArray(pairings) && pairings.length > 0;
-  };
-
   // Only show skeleton on initial load when we have no data yet
   if (loading && recipes.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-        <View style={styles.content}>
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']} accessibilityRole="none">
+        <View style={styles.content} accessibilityRole="none">
           <View style={styles.header}>
             <Text testID="recipe-box-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
               Recipe Box
@@ -423,8 +443,8 @@ export default function RecipeBoxScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScreenContentWrapper style={styles.screenWrapper}>
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']} accessibilityRole="none">
+      <ScreenContentWrapper style={styles.screenWrapper} accessibilityRole="none">
         <FlatList
           data={displayList}
           keyExtractor={keyExtractor}
@@ -445,11 +465,25 @@ export default function RecipeBoxScreen() {
           style={styles.filterOverlay}
           activeOpacity={1}
           onPress={() => setFilterVisible(false)}
+          accessibilityLabel="Close filters"
+          accessibilityHint="Double tap to close filter sheet"
+          accessibilityRole="button"
         >
-          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={[styles.filterSheet, { backgroundColor: ds.colors.background }]}>
-            <View style={[styles.filterSheetHeader, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={[styles.filterSheet, { backgroundColor: ds.colors.background }]}
+            accessibilityRole="none"
+          >
+            <View style={[styles.filterSheetHeader, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} accessibilityRole="none">
               <Text style={[styles.filterSheetTitle, { color: ds.colors.textPrimary }]}>Filters</Text>
-              <TouchableOpacity onPress={() => setFilterVisible(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <TouchableOpacity
+                onPress={() => setFilterVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Close filters"
+                accessibilityHint="Double tap to close"
+                accessibilityRole="button"
+              >
                 <MaterialCommunityIcons name="close" size={24} color={ds.colors.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -518,11 +552,23 @@ export default function RecipeBoxScreen() {
                 />
               ))}
             </ScrollView>
-            <View style={[styles.filterSheetFooter, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
-              <TouchableOpacity onPress={clearFilter} style={styles.filterClearBtn}>
+            <View style={[styles.filterSheetFooter, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]} accessibilityRole="none">
+              <TouchableOpacity
+                onPress={clearFilter}
+                style={styles.filterClearBtn}
+                accessibilityLabel="Clear all filters"
+                accessibilityHint="Double tap to reset all filters"
+                accessibilityRole="button"
+              >
                 <Text style={[styles.filterClearText, { color: ds.colors.textSecondary }]}>Clear all</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={applyFilter} style={[styles.filterApplyBtn, { backgroundColor: ds.colors.textPrimary }]}>
+              <TouchableOpacity
+                onPress={applyFilter}
+                style={[styles.filterApplyBtn, { backgroundColor: ds.colors.textPrimary }]}
+                accessibilityLabel="Apply filters"
+                accessibilityHint="Double tap to apply and close"
+                accessibilityRole="button"
+              >
                 <Text style={[styles.filterApplyText, { color: ds.colors.background }]}>Apply</Text>
               </TouchableOpacity>
             </View>

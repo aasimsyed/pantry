@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, ActivityIndicator, Share } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, Keyboard, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -455,6 +455,7 @@ export default function RecipeDetailScreen() {
           onPress={handleShare}
           style={styles.headerShareButton}
           accessibilityLabel="Share recipe"
+          accessibilityHint="Double tap to share recipe"
           accessibilityRole="button"
         >
           <MaterialCommunityIcons name="share-outline" size={24} color={ds.colors.textPrimary} />
@@ -528,6 +529,9 @@ export default function RecipeDetailScreen() {
               onPress={() => setScaledServings(Math.max(1, scaledServings - 1))}
               style={[styles.scaleButton, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
               activeOpacity={0.6}
+              accessibilityLabel="Decrease servings"
+              accessibilityHint="Double tap to decrease servings"
+              accessibilityRole="button"
             >
               <Text style={[styles.scaleButtonText, { color: ds.colors.textPrimary }]}>−</Text>
             </TouchableOpacity>
@@ -544,6 +548,9 @@ export default function RecipeDetailScreen() {
               onPress={() => setScaledServings(Math.min(20, scaledServings + 1))}
               style={[styles.scaleButton, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
               activeOpacity={0.6}
+              accessibilityLabel="Increase servings"
+              accessibilityHint="Double tap to increase servings"
+              accessibilityRole="button"
             >
               <Text style={[styles.scaleButtonText, { color: ds.colors.textPrimary }]}>+</Text>
             </TouchableOpacity>
@@ -553,6 +560,9 @@ export default function RecipeDetailScreen() {
               testID="servings-reset"
               onPress={() => setScaledServings(originalServings)}
               style={styles.resetButton}
+              accessibilityLabel="Reset servings"
+              accessibilityHint={`Double tap to reset to ${originalServings} servings`}
+              accessibilityRole="button"
             >
               <Text style={[styles.resetButtonText, { color: ds.colors.textSecondary }]}>
                 Reset to {originalServings}
@@ -608,6 +618,9 @@ export default function RecipeDetailScreen() {
             }}
             style={[styles.editRow, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
             activeOpacity={0.6}
+            accessibilityLabel={('notes' in recipe && recipe.notes) || ('rating' in recipe && recipe.rating) ? 'Edit notes and rating' : 'Add notes and rating'}
+            accessibilityHint="Double tap to edit notes and rating"
+            accessibilityRole="button"
           >
             <Text style={[styles.editText, { color: ds.colors.textPrimary }]}>
               {('notes' in recipe && recipe.notes) || ('rating' in recipe && recipe.rating) 
@@ -670,6 +683,9 @@ export default function RecipeDetailScreen() {
             }
           ]}
           activeOpacity={0.7}
+          accessibilityLabel="Why this works"
+          accessibilityHint="Double tap to see flavor science"
+          accessibilityRole="button"
         >
           <View style={[styles.flavorIconContainer, { backgroundColor: `${ds.colors.accent}15` }]}>
             <MaterialCommunityIcons name="flask-outline" size={20} color={ds.colors.accent} />
@@ -728,6 +744,9 @@ export default function RecipeDetailScreen() {
                 onPress={() => instacartService.shopMissingIngredients(recipe as Recipe, setInstacartLoading)}
                 disabled={instacartLoading}
                 activeOpacity={0.7}
+                accessibilityLabel="Shop missing ingredients on Instacart"
+                accessibilityHint="Double tap to open Instacart with missing ingredients"
+                accessibilityRole="button"
               >
                 {instacartLoading ? (
                   <ActivityIndicator size="small" color={INSTACART_GREEN} />
@@ -781,6 +800,9 @@ export default function RecipeDetailScreen() {
                     }}
                     disabled={instacartLoading}
                     activeOpacity={0.7}
+                    accessibilityLabel="Shop missing ingredients on Instacart"
+                    accessibilityHint="Double tap to open Instacart with missing ingredients"
+                    accessibilityRole="button"
                   >
                     {instacartLoading ? (
                       <ActivityIndicator size="small" color={INSTACART_GREEN} />
@@ -851,6 +873,9 @@ export default function RecipeDetailScreen() {
                           onPress={Keyboard.dismiss}
                           compact
                           style={styles.doneButton}
+                          accessibilityLabel="Done"
+                          accessibilityHint="Double tap to dismiss keyboard"
+                          accessibilityRole="button"
                         >
                           Done
                         </Button>
@@ -866,6 +891,8 @@ export default function RecipeDetailScreen() {
                       blurOnSubmit={false}
                       style={styles.notesInput}
                       contentStyle={styles.notesInputContent}
+                      accessibilityLabel="Recipe notes"
+                      accessibilityHint="Type your personal notes for this recipe"
                     />
                   </View>
                   {/* Spacer to ensure buttons are accessible when keyboard is visible */}
@@ -880,6 +907,9 @@ export default function RecipeDetailScreen() {
                     setEditDialogVisible(false);
                   }}
                   style={styles.actionButton}
+                  accessibilityLabel="Cancel"
+                  accessibilityHint="Double tap to cancel without saving"
+                  accessibilityRole="button"
                 >
                   Cancel
                 </Button>
@@ -893,6 +923,9 @@ export default function RecipeDetailScreen() {
                   loading={saving}
                   disabled={saving}
                   style={styles.actionButton}
+                  accessibilityLabel="Save"
+                  accessibilityHint="Double tap to save notes and rating"
+                  accessibilityRole="button"
                 >
                   Save
                 </Button>

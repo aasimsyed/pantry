@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, ScrollView, Image, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button, Chip, Divider, ActivityIndicator } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text, TextInput, Button } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
@@ -128,6 +127,7 @@ export default function ProductConfirmScreen() {
                 style={styles.productImage}
                 resizeMode="contain"
                 accessibilityLabel={product?.product_name ?? 'Product image'}
+                accessibilityHint="Product photo"
                 accessibilityRole="image"
                 accessibilityIgnoresInvertColors
               />
@@ -166,6 +166,8 @@ export default function ProductConfirmScreen() {
               outlineColor={ds.colors.textTertiary}
               activeOutlineColor={ds.colors.primary}
               textColor={ds.colors.textPrimary}
+              accessibilityLabel="Product name"
+              accessibilityHint="Enter product name"
             />
 
             <TextInput
@@ -177,6 +179,8 @@ export default function ProductConfirmScreen() {
               outlineColor={ds.colors.textTertiary}
               activeOutlineColor={ds.colors.primary}
               textColor={ds.colors.textPrimary}
+              accessibilityLabel="Brand"
+              accessibilityHint="Enter brand"
             />
 
             <TextInput
@@ -189,6 +193,8 @@ export default function ProductConfirmScreen() {
               activeOutlineColor={ds.colors.primary}
               textColor={ds.colors.textPrimary}
               placeholder="e.g., Dairy, Produce, Snacks"
+              accessibilityLabel="Category"
+              accessibilityHint="Enter category"
             />
 
             <View style={styles.row}>
@@ -202,6 +208,8 @@ export default function ProductConfirmScreen() {
                 outlineColor={ds.colors.textTertiary}
                 activeOutlineColor={ds.colors.primary}
                 textColor={ds.colors.textPrimary}
+                accessibilityLabel="Quantity"
+                accessibilityHint="Enter quantity"
               />
               
               <View style={styles.unitContainer}>
@@ -223,6 +231,9 @@ export default function ProductConfirmScreen() {
                             : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                         }
                       ]}
+                      accessibilityLabel={u}
+                      accessibilityHint={unit === u ? 'Selected' : 'Double tap to select unit'}
+                      accessibilityRole="button"
                     >
                       <Text style={[
                         styles.unitText,
@@ -258,6 +269,9 @@ export default function ProductConfirmScreen() {
                           : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                       }
                     ]}
+                    accessibilityLabel={loc.label}
+                    accessibilityHint={storageLocation === loc.key ? 'Selected' : 'Double tap to select storage location'}
+                    accessibilityRole="button"
                   >
                     <Text style={[
                       styles.optionButtonText,

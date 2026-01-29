@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Button, Portal, Dialog, TextInput, Text, List, IconButton } from 'react-native-paper';
+import { Button, Portal, Dialog, TextInput, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
-import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { getDesignSystem } from '../utils/designSystem';
 import { PremiumButton } from './PremiumButton';
 import type { Pantry } from '../types';
 
@@ -20,7 +20,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
   const { isDark } = useTheme();
   const ds = getDesignSystem(isDark);
   const [pantries, setPantries] = useState<Pantry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [selectorDialogVisible, setSelectorDialogVisible] = useState(false);
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
   const [newPantryName, setNewPantryName] = useState('');
@@ -129,6 +129,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
         ]}
         activeOpacity={0.6}
         accessibilityLabel={selectedPantry ? `Pantry: ${selectedPantry.name}` : 'Select pantry'}
+        accessibilityHint="Double tap to select a pantry"
         accessibilityRole="button"
       >
         <View style={styles.selectorContent}>
@@ -176,6 +177,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                     ]}
                     activeOpacity={0.6}
                     accessibilityLabel={`Select pantry ${pantry.name}`}
+                    accessibilityHint="Double tap to select this pantry"
                     accessibilityRole="button"
                   >
                     <View style={styles.pantryContent}>
@@ -205,6 +207,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                           }}
                           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                           accessibilityLabel={`Delete pantry ${pantry.name}`}
+                          accessibilityHint="Double tap to delete this pantry"
                           accessibilityRole="button"
                         >
                           <MaterialCommunityIcons 
@@ -229,6 +232,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               labelStyle={styles.dialogActionLabel}
               uppercase={false}
               accessibilityLabel="Close pantry selector"
+              accessibilityHint="Double tap to close"
               accessibilityRole="button"
             >
               Close
@@ -242,6 +246,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="contained"
               style={{ elevation: 0 }}
               accessibilityLabel="Create new pantry"
+              accessibilityHint="Double tap to create a new pantry"
               accessibilityRole="button"
             >
               New Pantry
@@ -254,7 +259,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
           onDismiss={() => setCreateDialogVisible(false)}
           style={styles.dialog}
         >
-          <Dialog.Title style={styles.dialogTitle} accessibilityRole="header" accessibilityLabel="Create New Pantry">Create New Pantry</Dialog.Title>
+          <Dialog.Title style={styles.dialogTitle} accessibilityRole="header" accessibilityLabel="Create New Pantry" accessibilityHint="Dialog to create a new pantry">Create New Pantry</Dialog.Title>
           <Dialog.Content>
             <TextInput
               testID="pantry-create-name"
@@ -265,6 +270,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               placeholder="e.g., Home, Office"
               mode="outlined"
               accessibilityLabel="Pantry name"
+              accessibilityHint="Double tap to enter pantry name"
               accessibilityRole="none"
             />
             <TextInput
@@ -276,6 +282,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               placeholder="Optional description"
               mode="outlined"
               accessibilityLabel="Pantry description"
+              accessibilityHint="Double tap to enter optional description"
               accessibilityRole="none"
             />
             <TextInput
@@ -287,6 +294,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               placeholder="Optional address/location"
               mode="outlined"
               accessibilityLabel="Pantry location"
+              accessibilityHint="Double tap to enter optional location"
               accessibilityRole="none"
             />
           </Dialog.Content>
@@ -298,6 +306,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               labelStyle={styles.dialogActionLabel}
               uppercase={false}
               accessibilityLabel="Cancel create pantry"
+              accessibilityHint="Double tap to cancel"
               accessibilityRole="button"
             >
               Cancel
@@ -309,6 +318,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="contained"
               style={{ elevation: 0 }}
               accessibilityLabel="Create pantry"
+              accessibilityHint="Double tap to create pantry"
               accessibilityRole="button"
             >
               Create

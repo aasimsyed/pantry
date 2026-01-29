@@ -211,6 +211,7 @@ export default function StatisticsScreen() {
             style={[styles.timelineRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
             onPress={() => navigation.navigate('Inventory' as never)}
             accessibilityLabel={`Expiring tomorrow: ${stats.expiring_tomorrow} items`}
+            accessibilityHint="Double tap to view items expiring tomorrow"
             accessibilityRole="button"
           >
             <View style={styles.timelineLeft}>
@@ -229,6 +230,7 @@ export default function StatisticsScreen() {
             style={[styles.timelineRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
             onPress={() => navigation.navigate('Inventory' as never)}
             accessibilityLabel={`Expiring this week: ${stats.expiring_this_week} items`}
+            accessibilityHint="Double tap to view items expiring this week"
             accessibilityRole="button"
           >
             <View style={styles.timelineLeft}>
@@ -247,6 +249,7 @@ export default function StatisticsScreen() {
             style={styles.timelineRow}
             onPress={() => navigation.navigate('Inventory' as never)}
             accessibilityLabel={`Expiring this month: ${stats.expiring_this_month} items`}
+            accessibilityHint="Double tap to view items expiring this month"
             accessibilityRole="button"
           >
             <View style={styles.timelineLeft}>

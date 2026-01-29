@@ -217,6 +217,7 @@ export default function ResetPasswordScreen() {
                 style={styles.input}
                 left={<TextInput.Icon icon="lock-outline" />}
                 accessibilityLabel="New password"
+                accessibilityHint="Double tap to enter your new password"
                 accessibilityRole="none"
               />
 
@@ -233,6 +234,7 @@ export default function ResetPasswordScreen() {
                 mode="outlined"
                 style={styles.input}
                 accessibilityLabel="Confirm password"
+                accessibilityHint="Double tap to confirm your new password"
                 accessibilityRole="none"
                 left={<TextInput.Icon icon="lock-check-outline" />}
               />
@@ -241,6 +243,7 @@ export default function ResetPasswordScreen() {
                 mode="contained"
                 onPress={handleSubmit}
                 accessibilityLabel="Reset password"
+                accessibilityHint="Double tap to set your new password"
                 accessibilityRole="button"
                 loading={loading}
                 disabled={loading}

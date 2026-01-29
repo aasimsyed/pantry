@@ -4,17 +4,13 @@ import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextI
 // Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
 import {
-  Card,
   Text,
   Button,
-  Searchbar,
-  Chip,
   FAB,
   Dialog,
   Portal,
   TextInput,
   ActivityIndicator,
-  IconButton,
   Menu,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -388,6 +384,7 @@ export default function InventoryScreen() {
           onPress={() => handleEditItem(item)}
           activeOpacity={0.6}
           accessibilityLabel={`Edit ${displayName}`}
+          accessibilityHint="Double tap to edit item"
           accessibilityRole="button"
         >
           <View style={styles.itemMain}>
@@ -435,6 +432,7 @@ export default function InventoryScreen() {
                 style={styles.itemActionButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityLabel={`Delete ${displayName}`}
+                accessibilityHint="Double tap to delete item"
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons name="delete-outline" size={22} color={ds.colors.textTertiary} style={{ opacity: 0.6 }} />
@@ -462,9 +460,11 @@ export default function InventoryScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             underlineColorAndroid="transparent"
+            accessibilityLabel="Search inventory"
+            accessibilityHint="Double tap to type and search"
           />
           {searchQuery !== '' && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Clear search" accessibilityRole="button">
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Clear search" accessibilityHint="Double tap to clear search" accessibilityRole="button">
               <MaterialCommunityIcons name="close-circle" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} accessibilityElementsHidden />
             </TouchableOpacity>
           )}
@@ -484,6 +484,7 @@ export default function InventoryScreen() {
                 },
               ]}
               accessibilityLabel={`Filter by ${loc}`}
+              accessibilityHint={`Double tap to filter by ${loc}`}
               accessibilityRole="button"
             >
               <Text
@@ -511,6 +512,7 @@ export default function InventoryScreen() {
             ]}
             activeOpacity={0.7}
             accessibilityLabel={`Shop low stock on Instacart (${items.filter((i) => i.status === 'low').length} items)`}
+            accessibilityHint="Double tap to open Instacart with low stock items"
             accessibilityRole="button"
           >
             {instacartLoading ? (
@@ -649,6 +651,7 @@ export default function InventoryScreen() {
                   }
                 ]}
                 accessibilityLabel="Storage: Pantry"
+                accessibilityHint="Double tap to set storage to pantry"
                 accessibilityRole="button"
               >
                 <Text style={[
@@ -670,6 +673,7 @@ export default function InventoryScreen() {
                   }
                 ]}
                 accessibilityLabel="Storage: Fridge"
+                accessibilityHint="Double tap to set storage to fridge"
                 accessibilityRole="button"
               >
                 <Text style={[
@@ -691,6 +695,7 @@ export default function InventoryScreen() {
                   }
                 ]}
                 accessibilityLabel="Storage: Freezer"
+                accessibilityHint="Double tap to set storage to freezer"
                 accessibilityRole="button"
               >
                 <Text style={[
@@ -712,6 +717,7 @@ export default function InventoryScreen() {
               contentStyle={styles.dialogActionContent}
               uppercase={false}
               accessibilityLabel="Take photo"
+              accessibilityHint="Double tap to take a photo"
               accessibilityRole="button"
             >
               Take Photo
@@ -725,6 +731,7 @@ export default function InventoryScreen() {
               contentStyle={styles.dialogActionContent}
               uppercase={false}
               accessibilityLabel="Choose from library"
+              accessibilityHint="Double tap to choose from photo library"
               accessibilityRole="button"
             >
               Choose from Library
@@ -733,6 +740,7 @@ export default function InventoryScreen() {
               testID="add-item-manual-entry"
               mode="text"
               accessibilityLabel="Add item manually"
+              accessibilityHint="Double tap to add item without photo"
               accessibilityRole="button"
               onPress={() => {
                 setDialogVisible(false);
@@ -747,7 +755,7 @@ export default function InventoryScreen() {
             </Button>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false}>
+            <Button onPress={() => setDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false} accessibilityLabel="Cancel" accessibilityHint="Double tap to cancel" accessibilityRole="button">
               Cancel
             </Button>
           </Dialog.Actions>
@@ -788,6 +796,8 @@ export default function InventoryScreen() {
                 style={styles.input}
                 mode="outlined"
                 placeholder="e.g., Dried Chickpeas"
+                accessibilityLabel="Product name"
+                accessibilityHint="Double tap to enter product name"
               />
               <TextInput
                 testID="manual-entry-brand"
@@ -799,6 +809,8 @@ export default function InventoryScreen() {
                 style={styles.input}
                 mode="outlined"
                 placeholder="e.g., Generic"
+                accessibilityLabel="Brand"
+                accessibilityHint="Double tap to enter brand"
               />
               <TextInput
                 label="Quantity"
@@ -812,13 +824,15 @@ export default function InventoryScreen() {
                 keyboardType="numeric"
                 style={styles.input}
                 mode="outlined"
+                accessibilityLabel="Quantity"
+                accessibilityHint="Double tap to enter quantity"
               />
               <Menu
                 key={manualUnitMenuKey}
                 visible={manualUnitMenuVisible}
                 onDismiss={() => setManualUnitMenuVisible(false)}
                 anchor={
-                  <Pressable onPress={() => setManualUnitMenuVisible(true)} accessibilityLabel="Unit" accessibilityRole="button">
+                  <Pressable onPress={() => setManualUnitMenuVisible(true)} accessibilityLabel="Unit" accessibilityHint="Double tap to select unit" accessibilityRole="button">
                     <TextInput
                       label="Unit"
                       value={cookingUnits.find(u => u.value === manualEntryFormData.unit)?.label || manualEntryFormData.unit}
@@ -828,6 +842,7 @@ export default function InventoryScreen() {
                       editable={false}
                       pointerEvents="none"
                       accessibilityLabel="Unit"
+                      accessibilityHint="Double tap to select unit"
                       accessibilityRole="none"
                     />
                   </Pressable>
@@ -875,6 +890,7 @@ export default function InventoryScreen() {
                           }
                         ]}
                         accessibilityLabel={`Storage: ${label}`}
+                        accessibilityHint={`Double tap to set storage to ${label}`}
                         accessibilityRole="button"
                       >
                         <Text style={[
@@ -907,6 +923,7 @@ export default function InventoryScreen() {
                         }
                       ]}
                       accessibilityLabel={stat === 'in_stock' ? 'Status: In stock' : 'Status: Low stock'}
+                      accessibilityHint={stat === 'in_stock' ? 'Double tap to set in stock' : 'Double tap to set low stock'}
                       accessibilityRole="button"
                     >
                       <Text style={[
@@ -929,6 +946,8 @@ export default function InventoryScreen() {
                 style={styles.input}
                 mode="outlined"
                 placeholder="YYYY-MM-DD"
+                accessibilityLabel="Expiration date"
+                accessibilityHint="Double tap to enter expiration date"
               />
               <TextInput
                 label="Purchase Date (optional)"
@@ -939,6 +958,8 @@ export default function InventoryScreen() {
                 style={styles.input}
                 mode="outlined"
                 placeholder="YYYY-MM-DD"
+                accessibilityLabel="Purchase date"
+                accessibilityHint="Double tap to enter purchase date"
               />
               <TextInput
                 label="Notes (optional)"
@@ -951,11 +972,13 @@ export default function InventoryScreen() {
                 multiline
                 numberOfLines={3}
                 placeholder="Additional notes..."
+                accessibilityLabel="Notes"
+                accessibilityHint="Double tap to enter notes"
               />
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button testID="manual-entry-cancel" onPress={() => setManualEntryDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false}>
+            <Button testID="manual-entry-cancel" onPress={() => setManualEntryDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false} accessibilityLabel="Cancel" accessibilityHint="Double tap to cancel" accessibilityRole="button">
               Cancel
             </Button>
             <PremiumButton
@@ -964,6 +987,9 @@ export default function InventoryScreen() {
               onPress={handleManualEntry}
               disabled={processing || !manualEntryFormData.product_name.trim()}
               style={{ elevation: 0 }}
+              accessibilityLabel="Add item"
+              accessibilityHint="Double tap to add item"
+              accessibilityRole="button"
             >
               Add Item
             </PremiumButton>
@@ -1020,18 +1046,23 @@ export default function InventoryScreen() {
                     ]}
                     placeholderTextColor={ds.colors.textTertiary}
                     underlineColorAndroid="transparent"
+                    accessibilityLabel="Quantity"
+                    accessibilityHint="Double tap to enter quantity"
                   />
                   <Menu
                     key={editUnitMenuKey}
                     visible={editUnitMenuVisible}
                     onDismiss={() => setEditUnitMenuVisible(false)}
                     anchor={
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         onPress={() => setEditUnitMenuVisible(true)}
                         style={[
                           styles.unitSelector,
                           { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }
                         ]}
+                        accessibilityLabel="Unit"
+                        accessibilityHint="Double tap to select unit"
+                        accessibilityRole="button"
                       >
                         <Text style={[styles.unitSelectorText, { color: ds.colors.textPrimary }]}>
                           {cookingUnits.find(u => u.value === editFormData.unit)?.label || editFormData.unit}
@@ -1058,6 +1089,9 @@ export default function InventoryScreen() {
                           }}
                           title={unit.label}
                           titleStyle={{ fontSize: 15 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={unit.label}
+                          accessibilityHint="Double tap to select this unit"
                         />
                       ))}
                     </ScrollView>
@@ -1085,6 +1119,9 @@ export default function InventoryScreen() {
                               : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                           }
                         ]}
+                        accessibilityLabel={`Storage: ${label}`}
+                        accessibilityHint={`Double tap to set storage to ${label}`}
+                        accessibilityRole="button"
                       >
                         <Text style={[
                           styles.optionButtonText,
@@ -1117,6 +1154,9 @@ export default function InventoryScreen() {
                             : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                         }
                       ]}
+                      accessibilityLabel={stat === 'in_stock' ? 'Status: In stock' : 'Status: Low stock'}
+                      accessibilityHint={stat === 'in_stock' ? 'Double tap to set in stock' : 'Double tap to set low stock'}
+                      accessibilityRole="button"
                     >
                       <Text style={[
                         styles.optionButtonText,
@@ -1198,15 +1238,17 @@ export default function InventoryScreen() {
                   ]}
                   placeholderTextColor={ds.colors.textTertiary}
                   underlineColorAndroid="transparent"
+                  accessibilityLabel="Notes"
+                  accessibilityHint="Double tap to enter notes"
                 />
               </View>
             </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
-            <Button testID="edit-item-cancel" onPress={() => setEditDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false}>
+            <Button testID="edit-item-cancel" onPress={() => setEditDialogVisible(false)} labelStyle={styles.cancelLabel} uppercase={false} accessibilityLabel="Cancel" accessibilityHint="Double tap to cancel" accessibilityRole="button">
               Cancel
             </Button>
-            <Button testID="edit-item-save" mode="text" onPress={handleUpdateItem} labelStyle={[styles.cancelLabel, { fontWeight: '600' }]} uppercase={false}>
+            <Button testID="edit-item-save" mode="text" onPress={handleUpdateItem} labelStyle={[styles.cancelLabel, { fontWeight: '600' }]} uppercase={false} accessibilityLabel="Save" accessibilityHint="Double tap to save changes" accessibilityRole="button">
               Save
             </Button>
           </Dialog.Actions>

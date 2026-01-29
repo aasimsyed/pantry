@@ -136,7 +136,6 @@ export default function ForgotPasswordScreen() {
   if (step === 'totp') {
     const showChoice = resetPath === null && hasTotpPath() && hasRecoveryPath();
     const showRecoveryForm = resetPath === 'recovery' && recoveryQuestions && recoveryQuestions.length >= 2;
-    const showTotpForm = resetPath === 'totp' || (resetPath === null && hasTotpPath());
 
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
@@ -211,6 +210,7 @@ export default function ForgotPasswordScreen() {
                           autoCapitalize="none"
                           autoCorrect={false}
                           accessibilityLabel={q.text}
+                          accessibilityHint="Double tap to enter your answer"
                           accessibilityRole="none"
                         />
                       </View>
@@ -253,6 +253,7 @@ export default function ForgotPasswordScreen() {
                       style={styles.qrImage}
                       resizeMode="contain"
                       accessibilityLabel="Authenticator QR code"
+                      accessibilityHint="QR code to add Smart Pantry to your Authenticator app"
                       accessibilityRole="image"
                       accessibilityIgnoresInvertColors
                     />
@@ -266,6 +267,7 @@ export default function ForgotPasswordScreen() {
                       style={styles.openAuthenticatorButton}
                       icon="cellphone-key"
                       accessibilityLabel="Open in Authenticator app"
+                      accessibilityHint="Double tap to open in your Authenticator app"
                       accessibilityRole="button"
                     >
                       Open in Authenticator app (same device)
@@ -296,6 +298,7 @@ export default function ForgotPasswordScreen() {
                     style={styles.linkButton}
                     labelStyle={styles.linkButtonLabel}
                     accessibilityLabel="Show QR code again"
+                    accessibilityHint="Double tap to show the QR code again"
                     accessibilityRole="button"
                   >
                     Show QR code again (e.g. new device)
@@ -320,6 +323,7 @@ export default function ForgotPasswordScreen() {
                   style={styles.input}
                   left={<TextInput.Icon icon="numeric" />}
                   accessibilityLabel="6-digit authenticator code"
+                  accessibilityHint="Double tap to enter the 6-digit code from your Authenticator app"
                   accessibilityRole="none"
                 />
                 <PremiumButton
@@ -402,6 +406,7 @@ export default function ForgotPasswordScreen() {
                 mode="outlined"
                 style={styles.input}
                 accessibilityLabel="Email"
+                accessibilityHint="Double tap to enter your email"
                 accessibilityRole="none"
                 left={<TextInput.Icon icon="email-outline" />}
               />

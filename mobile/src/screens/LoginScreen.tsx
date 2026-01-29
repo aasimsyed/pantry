@@ -151,6 +151,7 @@ export default function LoginScreen() {
               style={styles.input}
               left={<TextInput.Icon icon="email-outline" />}
               accessibilityLabel="Email"
+              accessibilityHint="Double tap to enter your email"
               accessibilityRole="none"
             />
 
@@ -169,6 +170,7 @@ export default function LoginScreen() {
               style={styles.input}
               left={<TextInput.Icon icon="lock-outline" />}
               accessibilityLabel="Password"
+              accessibilityHint="Double tap to enter your password"
               accessibilityRole="none"
             />
 
