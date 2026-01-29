@@ -62,7 +62,9 @@ if command -v security &>/dev/null; then
   fi
 fi
 if [ -n "${GITHUB_ACTIONS:-}" ] && [ -z "$FOUND" ]; then
-  echo "::error::No distribution identity found for team K5A25879TB. Check BUILD_CERTIFICATE_BASE64 and P12 import."
+  echo "::error::No distribution identity found for team K5A25879TB."
+  echo "You need an Apple Distribution certificate (.p12), not Apple Development."
+  echo "Create/export the Distribution cert for team K5A25879TB, base64-encode it, and set BUILD_CERTIFICATE_BASE64."
   echo "Current codesigning identities:"
   security find-identity -v -p codesigning 2>/dev/null || true
   exit 1
