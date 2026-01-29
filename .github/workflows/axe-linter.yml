@@ -3,11 +3,13 @@
 name: axe Accessibility Linter
 
 on:
-  pull_request:
+  push:
+    branches: [main, master]
     paths:
       - 'mobile/**'
       - 'axe-linter.yml'
       - '.github/workflows/axe-linter.yml'
+  workflow_dispatch:  # Run manually from Actions tab
 
 permissions:
   contents: read
