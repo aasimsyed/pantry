@@ -474,6 +474,18 @@ def generate_single_recipe(
             else:
                 used_ingredients.append(str(ing))
 
+        # Build filterable tags: cuisine, difficulty, plus AI dietary_tags (meal type, dietary, method, etc.)
+        cuisine_val = (recipe.get("cuisine") or "").strip()
+        difficulty_val = (recipe.get("difficulty") or recipe_request.difficulty or "medium").strip().lower()
+        dietary_tags = recipe.get("dietary_tags") or []
+        tags_list = []
+        if cuisine_val:
+            tags_list.append(cuisine_val.lower())
+        if difficulty_val:
+            tags_list.append(difficulty_val)
+        for t in dietary_tags:
+            if isinstance(t, str) and t.strip():
+                tags_list.append(t.strip().lower())
         result = {
             "name": recipe.get("name", "Unnamed Recipe"),
             "description": recipe.get("description", ""),
@@ -488,6 +500,7 @@ def generate_single_recipe(
             "missing_ingredients": recipe.get("missing_ingredients", []),
             "flavor_pairings": recipe.get("flavor_pairings", []),
             "ai_model": recipe.get("ai_model"),  # Track which AI model generated this recipe
+            "tags": list(dict.fromkeys(tags_list)),  # dedupe, preserve order
         }
 
         # Save to recent recipes so user can go back and save it later
@@ -690,6 +703,17 @@ def generate_recipes(
                 else:
                     used_ingredients.append(str(ing))
 
+            cuisine_val = (recipe.get("cuisine") or "").strip()
+            difficulty_val = (recipe.get("difficulty") or recipe_request.difficulty or "medium").strip().lower()
+            dietary_tags = recipe.get("dietary_tags") or []
+            tags_list = []
+            if cuisine_val:
+                tags_list.append(cuisine_val.lower())
+            if difficulty_val:
+                tags_list.append(difficulty_val)
+            for t in dietary_tags:
+                if isinstance(t, str) and t.strip():
+                    tags_list.append(t.strip().lower())
             result.append(
                 {
                     "name": recipe.get("name", "Unnamed Recipe"),
@@ -707,6 +731,7 @@ def generate_recipes(
                     "ai_model": recipe.get(
                         "ai_model"
                     ),  # Track which AI model generated this recipe
+                    "tags": list(dict.fromkeys(tags_list)),
                 }
             )
 

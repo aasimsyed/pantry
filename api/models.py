@@ -291,6 +291,7 @@ class RecipeResponse(BaseModel):
     missing_ingredients: List[str]
     flavor_pairings: Optional[List[FlavorPairing]] = Field(None, description="Flavor pairings based on shared chemical compounds")
     ai_model: Optional[str] = Field(None, description="AI model used to generate this recipe")
+    tags: Optional[List[str]] = Field(None, description="Filterable categories: cuisine, meal type, dietary, cooking method, difficulty")
 
 
 # ============================================================================

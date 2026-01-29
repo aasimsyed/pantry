@@ -892,6 +892,7 @@ class PantryService:
         user_id: int,
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         limit: Optional[int] = None
     ) -> List[SavedRecipe]:
         """Get saved recipes with optional filtering.
@@ -900,6 +901,7 @@ class PantryService:
             user_id: User ID to filter recipes (required for data isolation)
             cuisine: Filter by cuisine type
             difficulty: Filter by difficulty
+            tags: Filter by tags (OR: recipe must have at least one; case-insensitive)
             limit: Maximum number of recipes to return
             
         Returns:
@@ -917,9 +919,25 @@ class PantryService:
         query = query.order_by(SavedRecipe.created_at.desc())
         
         if limit:
-            query = query.limit(limit)
+            query = query.limit(limit * 2 if tags else limit)  # fetch extra if we filter by tags in Python
         
-        return query.all()
+        rows = query.all()
+        
+        if tags:
+            tag_set = {t.strip().lower() for t in tags if t and str(t).strip()}
+            if tag_set:
+                filtered = []
+                for recipe in rows:
+                    try:
+                        recipe_tags = json.loads(recipe.tags) if recipe.tags else []
+                    except (TypeError, ValueError):
+                        recipe_tags = []
+                    recipe_tag_set = {str(t).strip().lower() for t in recipe_tags if t}
+                    if recipe_tag_set & tag_set:
+                        filtered.append(recipe)
+                rows = (filtered[:limit] if limit else filtered)
+        
+        return rows
     
     def get_saved_recipe(self, recipe_id: int) -> Optional[SavedRecipe]:
         """Get a specific saved recipe by ID.

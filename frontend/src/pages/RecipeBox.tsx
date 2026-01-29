@@ -3,12 +3,40 @@ import apiClient from '../api/client';
 import { shareRecipe } from '../utils/recipeShare';
 import type { SavedRecipe } from '../types';
 
+const FILTER_CUISINES = [
+  { label: 'All', value: null as string | null },
+  { label: 'Indian', value: 'indian' }, { label: 'Italian', value: 'italian' }, { label: 'Mexican', value: 'mexican' },
+  { label: 'Asian', value: 'asian' }, { label: 'American', value: 'american' }, { label: 'Mediterranean', value: 'mediterranean' },
+  { label: 'French', value: 'french' }, { label: 'Thai', value: 'thai' }, { label: 'Japanese', value: 'japanese' }, { label: 'Chinese', value: 'chinese' },
+];
+const FILTER_DIFFICULTIES = [
+  { label: 'All', value: null as string | null },
+  { label: 'Easy', value: 'easy' }, { label: 'Medium', value: 'medium' }, { label: 'Hard', value: 'hard' },
+];
+const FILTER_DIETARY = [
+  { label: 'Vegan', value: 'vegan' }, { label: 'Vegetarian', value: 'vegetarian' },
+  { label: 'Gluten-free', value: 'gluten-free' }, { label: 'Dairy-free', value: 'dairy-free' },
+];
+const FILTER_MEAL_TYPE = [
+  { label: 'Breakfast', value: 'breakfast' }, { label: 'Lunch', value: 'lunch' },
+  { label: 'Dinner', value: 'dinner' }, { label: 'Snack', value: 'snack' },
+];
+const FILTER_COOKING_METHOD = [
+  { label: 'Grilled', value: 'grilled' }, { label: 'Baked', value: 'baked' },
+  { label: 'One-pot', value: 'one-pot' }, { label: 'Quick', value: 'quick' },
+];
+
 export default function RecipeBox() {
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cuisineFilter, setCuisineFilter] = useState('All');
-  const [difficultyFilter, setDifficultyFilter] = useState('All');
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [filterCuisine, setFilterCuisine] = useState<string | null>(null);
+  const [filterDifficulty, setFilterDifficulty] = useState<string | null>(null);
+  const [filterDietary, setFilterDietary] = useState<string[]>([]);
+  const [filterMealType, setFilterMealType] = useState<string[]>([]);
+  const [filterCookingMethod, setFilterCookingMethod] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingRecipe, setEditingRecipe] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState('');
   const [editRating, setEditRating] = useState(0);
@@ -17,14 +45,17 @@ export default function RecipeBox() {
 
   useEffect(() => {
     loadRecipes();
-  }, [cuisineFilter, difficultyFilter]);
+  }, []);
 
   const loadRecipes = async () => {
     try {
       setLoading(true);
-      const cuisine = cuisineFilter === 'All' ? undefined : cuisineFilter.toLowerCase();
-      const difficulty = difficultyFilter === 'All' ? undefined : difficultyFilter.toLowerCase();
-      const data = await apiClient.getSavedRecipes(cuisine, difficulty);
+      const tags = [...filterDietary, ...filterMealType, ...filterCookingMethod];
+      const data = await apiClient.getSavedRecipes(
+        filterCuisine || undefined,
+        filterDifficulty || undefined,
+        tags.length > 0 ? tags : undefined
+      );
       setRecipes(data);
       setError(null);
     } catch (err: any) {
@@ -32,6 +63,19 @@ export default function RecipeBox() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilter = () => {
+    setFilterVisible(false);
+    loadRecipes();
+  };
+
+  const clearFilter = () => {
+    setFilterCuisine(null);
+    setFilterDifficulty(null);
+    setFilterDietary([]);
+    setFilterMealType([]);
+    setFilterCookingMethod([]);
   };
 
   const handleDelete = async (recipeId: number) => {
@@ -84,6 +128,16 @@ export default function RecipeBox() {
       return [];
     }
   };
+
+  const filteredRecipes = recipes.filter((r) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      (r.name && r.name.toLowerCase().includes(q)) ||
+      (r.description && r.description.toLowerCase().includes(q)) ||
+      (r.cuisine && r.cuisine.toLowerCase().includes(q))
+    );
+  });
 
   const difficultyEmoji = (diff: string) => {
     switch (diff?.toLowerCase()) {
@@ -242,53 +296,149 @@ export default function RecipeBox() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 Recipe Box</h1>
-        <p className="text-gray-600">Your saved favorite recipes</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 Recipe Box</h1>
+          <p className="text-gray-600">Your saved favorite recipes</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFilterVisible(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+          aria-label="Open filters"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 6.293A1 1 0 013 5.586V4z" />
+          </svg>
+          <span className="font-medium">Filter</span>
+        </button>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <div className="card mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filter by Cuisine
-            </label>
-            <select
-              value={cuisineFilter}
-              onChange={(e) => setCuisineFilter(e.target.value)}
-              className="input"
-            >
-              <option value="All">All</option>
-              <option value="Italian">Italian</option>
-              <option value="Mexican">Mexican</option>
-              <option value="Asian">Asian</option>
-              <option value="American">American</option>
-              <option value="Mediterranean">Mediterranean</option>
-              <option value="Indian">Indian</option>
-              <option value="French">French</option>
-              <option value="Thai">Thai</option>
-              <option value="Japanese">Japanese</option>
-              <option value="Chinese">Chinese</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filter by Difficulty
-            </label>
-            <select
-              value={difficultyFilter}
-              onChange={(e) => setDifficultyFilter(e.target.value)}
-              className="input"
-            >
-              <option value="All">All</option>
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
-            </select>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Search recipes</label>
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by name, description, or cuisine..."
+          className="input w-full"
+          aria-label="Search recipes"
+        />
+      </div>
+
+      {/* Filter modal */}
+      {filterVisible && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
+          onClick={() => setFilterVisible(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="filter-title"
+        >
+          <div
+            className="w-full max-w-md max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <h2 id="filter-title" className="text-xl font-semibold text-gray-900 tracking-tight">Filters</h2>
+              <button type="button" onClick={() => setFilterVisible(false)} className="p-2 -m-2 text-gray-500 hover:text-gray-700" aria-label="Close">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
+              <section>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Cuisine</p>
+                <div className="space-y-px">
+                  {FILTER_CUISINES.map(({ label, value }) => (
+                    <button
+                      key={value ?? 'all'}
+                      type="button"
+                      onClick={() => setFilterCuisine(value)}
+                      className="w-full flex items-center justify-between py-3.5 text-left border-b border-gray-50"
+                    >
+                      <span className="text-gray-900 font-normal">{label}</span>
+                      <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${filterCuisine === value ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Difficulty</p>
+                <div className="space-y-px">
+                  {FILTER_DIFFICULTIES.map(({ label, value }) => (
+                    <button
+                      key={value ?? 'all'}
+                      type="button"
+                      onClick={() => setFilterDifficulty(value)}
+                      className="w-full flex items-center justify-between py-3.5 text-left border-b border-gray-50"
+                    >
+                      <span className="text-gray-900 font-normal">{label}</span>
+                      <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${filterDifficulty === value ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Dietary</p>
+                <div className="space-y-px">
+                  {FILTER_DIETARY.map(({ label, value }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFilterDietary((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))}
+                      className="w-full flex items-center justify-between py-3.5 text-left border-b border-gray-50"
+                    >
+                      <span className="text-gray-900 font-normal">{label}</span>
+                      <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${filterDietary.includes(value) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Meal type</p>
+                <div className="space-y-px">
+                  {FILTER_MEAL_TYPE.map(({ label, value }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFilterMealType((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))}
+                      className="w-full flex items-center justify-between py-3.5 text-left border-b border-gray-50"
+                    >
+                      <span className="text-gray-900 font-normal">{label}</span>
+                      <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${filterMealType.includes(value) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Cooking method</p>
+                <div className="space-y-px">
+                  {FILTER_COOKING_METHOD.map(({ label, value }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFilterCookingMethod((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))}
+                      className="w-full flex items-center justify-between py-3.5 text-left border-b border-gray-50"
+                    >
+                      <span className="text-gray-900 font-normal">{label}</span>
+                      <span className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${filterCookingMethod.includes(value) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'}`} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+            <div className="flex items-center gap-3 px-6 py-5 border-t border-gray-100">
+              <button type="button" onClick={clearFilter} className="px-4 py-2.5 text-gray-600 font-medium hover:text-gray-900">
+                Clear all
+              </button>
+              <button type="button" onClick={applyFilter} className="flex-1 py-3 rounded-xl bg-gray-900 text-white font-semibold hover:bg-gray-800 transition-colors">
+                Apply
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {loading ? (
         <div className="card">
@@ -321,14 +471,29 @@ export default function RecipeBox() {
             </a>
           </div>
         </div>
+      ) : filteredRecipes.length === 0 ? (
+        <div className="card">
+          <div className="flex flex-col items-center justify-center py-12">
+            <p className="text-2xl font-bold text-gray-900 mb-2">No matches</p>
+            <p className="text-gray-600 text-center mb-6 max-w-md">
+              No recipes match &quot;{searchQuery.trim()}&quot;. Try a different search or clear the search box.
+            </p>
+            <button type="button" onClick={() => setSearchQuery('')} className="btn-secondary">
+              Clear search
+            </button>
+          </div>
+        </div>
       ) : (
         <>
-          <p className="text-gray-600 mb-4">Found {recipes.length} saved recipes</p>
+          <p className="text-gray-600 mb-4">
+            {filteredRecipes.length === recipes.length
+              ? `Found ${recipes.length} saved recipes`
+              : `Showing ${filteredRecipes.length} of ${recipes.length} recipes`}
+          </p>
           <div className="space-y-6">
-            {recipes.map((recipe) => {
+            {filteredRecipes.map((recipe) => {
               const ingredients = parseJson(recipe.ingredients);
               const instructions = parseJson(recipe.instructions);
-              const tags = parseJson(recipe.tags);
               const originalServings = recipe.servings || 4;
               const currentServings = getScaledServings(recipe.id, originalServings);
               const scaleFactor = currentServings / originalServings;
@@ -346,15 +511,6 @@ export default function RecipeBox() {
                       )}
                       {recipe.ai_model && (
                         <p className="text-xs text-gray-400 mt-1">🤖 Generated by {recipe.ai_model}</p>
-                      )}
-                      {tags.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {tags.map((tag, i) => (
-                            <span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              🏷️ {tag}
-                            </span>
-                          ))}
-                        </div>
                       )}
                     </div>
                     <div className="text-right ml-4">

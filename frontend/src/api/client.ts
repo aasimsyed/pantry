@@ -473,11 +473,13 @@ class APIClient {
   async getSavedRecipes(
     cuisine?: string,
     difficulty?: string,
+    tags?: string[],
     limit: number = 100
   ): Promise<SavedRecipe[]> {
     const params: Record<string, string | number> = { limit };
     if (cuisine) params.cuisine = cuisine;
     if (difficulty) params.difficulty = difficulty;
+    if (tags?.length) params.tags = tags.join(',');
     return this.request<SavedRecipe[]>('GET', '/api/recipes/saved', { params });
   }
 

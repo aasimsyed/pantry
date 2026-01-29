@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { ScrollView, StyleSheet, View, Alert, RefreshControl, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { ScrollView, StyleSheet, View, Alert, RefreshControl, TouchableOpacity, FlatList, TextInput as RNTextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,22 +20,53 @@ export default function RecipeBoxScreen() {
   const layout = useLayout();
   const ds = getDesignSystem(isDark);
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [filterCuisine, setFilterCuisine] = useState<string | null>(null);
+  const [filterDifficulty, setFilterDifficulty] = useState<string | null>(null);
+  const [filterDietary, setFilterDietary] = useState<string[]>([]);
+  const [filterMealType, setFilterMealType] = useState<string[]>([]);
+  const [filterCookingMethod, setFilterCookingMethod] = useState<string[]>([]);
+  const [filterRecipeType, setFilterRecipeType] = useState<string[]>([]);
+  const [filterMinRating, setFilterMinRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
+  const filterRef = useRef({ cuisine: null as string | null, difficulty: null as string | null, tags: [] as string[] });
+  filterRef.current = {
+    cuisine: filterCuisine,
+    difficulty: filterDifficulty,
+    tags: [...filterDietary, ...filterMealType, ...filterCookingMethod, ...filterRecipeType],
+  };
+
+  const filteredRecipes = useMemo(() => {
+    let list = recipes;
+    if (filterMinRating != null) {
+      list = list.filter((r) => (r.rating ?? 0) >= filterMinRating);
+    }
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.trim().toLowerCase();
+    return list.filter(
+      (r) =>
+        (r.name && r.name.toLowerCase().includes(q)) ||
+        (r.description && r.description.toLowerCase().includes(q)) ||
+        (r.cuisine && r.cuisine.toLowerCase().includes(q))
+    );
+  }, [recipes, searchQuery, filterMinRating]);
 
   const loadRecipes = useCallback(async (showLoading = true) => {
     try {
-      // Only show loading skeleton on first load, not on re-renders
       if (showLoading && !hasLoadedRef.current) {
         setLoading(true);
       }
-      const data = await apiClient.getSavedRecipes();
+      const { cuisine, difficulty, tags } = filterRef.current;
+      const data = await apiClient.getSavedRecipes(
+        cuisine || undefined,
+        difficulty || undefined,
+        tags.length > 0 ? tags : undefined
+      );
       if (__DEV__) {
         console.log('RecipeBoxScreen - loaded recipes:', data.length);
-        data.forEach((r, i) => {
-          console.log(`Recipe ${i}: ${r.name}, flavor_pairings:`, r.flavor_pairings?.length || 0);
-        });
       }
       setRecipes(data);
       hasLoadedRef.current = true;
@@ -91,6 +122,212 @@ export default function RecipeBoxScreen() {
     }
   };
 
+  const keyExtractor = useCallback((item: SavedRecipe) => item.id.toString(), []);
+
+  const renderItem = useCallback(
+    ({ item: recipe, index }: { item: SavedRecipe; index: number }) => {
+      const isLast = index === filteredRecipes.length - 1;
+      return (
+        <TouchableOpacity
+          testID={`recipe-box-card-${recipe.id}`}
+          style={[
+            styles.recipeItem,
+            { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' },
+            isLast && { borderBottomWidth: 0 },
+          ]}
+          onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
+        >
+          <View style={styles.recipeContent}>
+            <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>{recipe.name}</Text>
+            {recipe.description && (
+              <Text style={[styles.recipeDescription, { color: ds.colors.textSecondary }]} numberOfLines={2}>
+                {recipe.description}
+              </Text>
+            )}
+            <View style={styles.recipeMeta}>
+              {recipe.cuisine && (
+                <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}>{recipe.cuisine}</Text>
+              )}
+              {recipe.cuisine && recipe.difficulty && (
+                <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}> · </Text>
+              )}
+              {recipe.difficulty && (
+                <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}>{recipe.difficulty}</Text>
+              )}
+              {(recipe.cuisine || recipe.difficulty) && (recipe.prep_time || recipe.cook_time) && (
+                <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}> · </Text>
+              )}
+              {(recipe.prep_time || recipe.cook_time) && (
+                <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}>
+                  {(recipe.prep_time || 0) + (recipe.cook_time || 0)} min
+                </Text>
+              )}
+            </View>
+            {recipe.rating != null && recipe.rating > 0 && (
+              <View style={styles.ratingContainer}>
+                <StarRating rating={recipe.rating} readonly size={14} />
+              </View>
+            )}
+          </View>
+          <View style={styles.recipeActions}>
+            <TouchableOpacity
+              testID={`recipe-box-delete-${recipe.id}`}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDelete(recipe.id);
+              }}
+              style={styles.deleteButton}
+            >
+              <MaterialCommunityIcons
+                name="trash-can-outline"
+                size={20}
+                color={isDark ? '#f87171' : '#ef4444'}
+                style={{ opacity: 0.6 }}
+              />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [filteredRecipes.length, isDark, ds.colors, navigation]
+  );
+
+  const FILTER_CUISINES = useMemo(() => [
+    { label: 'All', value: null },
+    { label: 'Indian', value: 'indian' }, { label: 'Italian', value: 'italian' }, { label: 'Mexican', value: 'mexican' },
+    { label: 'Asian', value: 'asian' }, { label: 'American', value: 'american' }, { label: 'Mediterranean', value: 'mediterranean' },
+    { label: 'French', value: 'french' }, { label: 'Thai', value: 'thai' }, { label: 'Japanese', value: 'japanese' }, { label: 'Chinese', value: 'chinese' },
+  ], []);
+  const FILTER_DIFFICULTIES = useMemo(() => [
+    { label: 'All', value: null },
+    { label: 'Easy', value: 'easy' }, { label: 'Medium', value: 'medium' }, { label: 'Hard', value: 'hard' },
+  ], []);
+  const FILTER_DIETARY = useMemo(() => [
+    { label: 'Vegan', value: 'vegan' }, { label: 'Vegetarian', value: 'vegetarian' },
+    { label: 'Gluten-free', value: 'gluten-free' }, { label: 'Dairy-free', value: 'dairy-free' },
+  ], []);
+  const FILTER_MEAL_TYPE = useMemo(() => [
+    { label: 'Breakfast', value: 'breakfast' }, { label: 'Lunch', value: 'lunch' },
+    { label: 'Dinner', value: 'dinner' }, { label: 'Snack', value: 'snack' },
+  ], []);
+  const FILTER_COOKING_METHOD = useMemo(() => [
+    { label: 'Grilled', value: 'grilled' }, { label: 'Baked', value: 'baked' },
+    { label: 'One-pot', value: 'one-pot' }, { label: 'Quick', value: 'quick' },
+  ], []);
+  const FILTER_RECIPE_TYPE = useMemo(() => [
+    { label: 'Entree', value: 'entree' }, { label: 'Side Dish', value: 'side-dish' },
+    { label: 'Snack', value: 'snack' }, { label: 'Beverage', value: 'beverage' },
+  ], []);
+  const FILTER_STAR_RATING = useMemo(() => [
+    { label: 'All', value: null },
+    { label: '1+ stars', value: 1 }, { label: '2+ stars', value: 2 }, { label: '3+ stars', value: 3 },
+    { label: '4+ stars', value: 4 }, { label: '5 stars', value: 5 },
+  ], []);
+
+  const applyFilter = useCallback(() => {
+    setFilterVisible(false);
+    loadRecipes(false);
+  }, [loadRecipes]);
+
+  const clearFilter = useCallback(() => {
+    setFilterCuisine(null);
+    setFilterDifficulty(null);
+    setFilterDietary([]);
+    setFilterMealType([]);
+    setFilterCookingMethod([]);
+    setFilterRecipeType([]);
+    setFilterMinRating(null);
+  }, []);
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <>
+        <View style={[styles.header, styles.headerRow]}>
+          <Text testID="recipe-box-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
+            Recipe Box
+          </Text>
+          <TouchableOpacity
+            testID="recipe-box-filter"
+            onPress={() => setFilterVisible(true)}
+            style={[styles.filterIconBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
+            accessibilityLabel="Open filters"
+          >
+            <MaterialCommunityIcons name="filter-variant" size={22} color={ds.colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.searchContainer, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
+          <MaterialCommunityIcons name="magnify" size={22} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
+          <RNTextInput
+            testID="recipe-box-search"
+            placeholder="Search recipes..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={[styles.searchInput, { color: ds.colors.textPrimary, backgroundColor: 'transparent' }]}
+            placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
+            autoCapitalize="none"
+            autoCorrect={false}
+            underlineColorAndroid="transparent"
+          />
+          {searchQuery !== '' && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <MaterialCommunityIcons name="close-circle" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </>
+    ),
+    [searchQuery, isDark, ds.colors.textPrimary]
+  );
+
+  const listEmptyComponent = useMemo(() => {
+    if (searchQuery.trim()) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>No matches</Text>
+          <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
+            No recipes match "{searchQuery.trim()}". Try a different search.
+          </Text>
+          <TouchableOpacity
+            onPress={() => setSearchQuery('')}
+            style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}
+          >
+            <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>Clear search</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>No Recipes Yet</Text>
+        <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
+          Your saved recipes will appear here. Generate and save recipes from the Recipes tab!
+        </Text>
+        <TouchableOpacity
+          testID="empty-recipe-box-button"
+          onPress={() => navigation.navigate('Recipes' as never)}
+          style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}
+        >
+          <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>Go to Recipes</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }, [searchQuery, ds.colors.textPrimary, ds.colors.textSecondary, ds.colors.background, navigation]);
+
+  const filterSectionLabel = (label: string) => (
+    <Text style={[styles.filterSectionLabel, { color: ds.colors.textTertiary }]}>{label}</Text>
+  );
+
+  const FilterOptionRow = useCallback(({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) => (
+    <TouchableOpacity
+      style={[styles.filterOptionRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.filterOptionLabel, { color: ds.colors.textPrimary }]}>{label}</Text>
+      <View style={[styles.filterOptionIndicator, selected && { backgroundColor: ds.colors.textPrimary, borderColor: ds.colors.textPrimary }]} />
+    </TouchableOpacity>
+  ), [isDark, ds.colors.textPrimary]);
+
   // Check if recipe has flavor pairings
   const hasFlavorPairings = (recipe: SavedRecipe): boolean => {
     if (!recipe.flavor_pairings) return false;
@@ -123,124 +360,111 @@ export default function RecipeBoxScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-      <ScreenContentWrapper>
-      <View style={styles.header}>
-        <Text testID="recipe-box-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
-          Recipe Box
-        </Text>
-      </View>
-
-      {recipes.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>
-            No Recipes Yet
-          </Text>
-          <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
-            Your saved recipes will appear here. Generate and save recipes from the Recipes tab!
-          </Text>
-          <TouchableOpacity
-            testID="empty-recipe-box-button"
-            onPress={() => navigation.navigate('Recipes' as never)}
-            style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}
-          >
-            <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>
-              Go to Recipes
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View>
-          {recipes.map((recipe, index) => {
-            const ingredients = parseJson(recipe.ingredients);
-            const instructions = parseJson(recipe.instructions);
-            const isLast = index === recipes.length - 1;
-
-            return (
-              <TouchableOpacity
-                key={recipe.id}
-                testID={`recipe-box-card-${recipe.id}`}
-                style={[
-                  styles.recipeItem,
-                  { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' },
-                  isLast && { borderBottomWidth: 0 },
-                ]}
-                onPress={() => navigation.navigate('RecipeDetail', { recipe } as never)}
-              >
-                <View style={styles.recipeContent}>
-                  <Text style={[styles.recipeName, { color: ds.colors.textPrimary }]}>
-                    {recipe.name}
-                  </Text>
-                  
-                  {recipe.description && (
-                    <Text style={[styles.recipeDescription, { color: ds.colors.textSecondary }]} numberOfLines={2}>
-                      {recipe.description}
-                    </Text>
-                  )}
-
-                  <View style={styles.recipeMeta}>
-                    {recipe.cuisine && (
-                      <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}>
-                        {recipe.cuisine}
-                      </Text>
-                    )}
-                    {recipe.cuisine && recipe.difficulty && (
-                      <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}> · </Text>
-                    )}
-                    {recipe.difficulty && (
-                      <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}>
-                        {recipe.difficulty}
-                      </Text>
-                    )}
-                    {(recipe.cuisine || recipe.difficulty) && (recipe.prep_time || recipe.cook_time) && (
-                      <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}> · </Text>
-                    )}
-                    {(recipe.prep_time || recipe.cook_time) && (
-                      <Text style={[styles.metaText, { color: ds.colors.textTertiary }]}>
-                        {(recipe.prep_time || 0) + (recipe.cook_time || 0)} min
-                      </Text>
-                    )}
-                  </View>
-
-                  {recipe.rating != null && recipe.rating > 0 && (
-                    <View style={styles.ratingContainer}>
-                      <StarRating rating={recipe.rating} readonly size={14} />
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.recipeActions}>
-                  <TouchableOpacity
-                    testID={`recipe-box-delete-${recipe.id}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleDelete(recipe.id);
-                    }}
-                    style={styles.deleteButton}
-                  >
-                    <MaterialCommunityIcons 
-                      name="trash-can-outline" 
-                      size={20} 
-                      color={isDark ? '#f87171' : '#ef4444'} 
-                      style={{ opacity: 0.6 }}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
+      <ScreenContentWrapper style={styles.screenWrapper}>
+        <FlatList
+          data={filteredRecipes}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          ListHeaderComponent={listHeaderComponent}
+          ListEmptyComponent={listEmptyComponent}
+          contentContainerStyle={[
+            styles.listContent,
+            layout.isTablet && { paddingHorizontal: layout.horizontalPadding },
+          ]}
+          style={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        />
       </ScreenContentWrapper>
-      </ScrollView>
+
+      <Modal visible={filterVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.filterOverlay}
+          activeOpacity={1}
+          onPress={() => setFilterVisible(false)}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={[styles.filterSheet, { backgroundColor: ds.colors.background }]}>
+            <View style={[styles.filterSheetHeader, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+              <Text style={[styles.filterSheetTitle, { color: ds.colors.textPrimary }]}>Filters</Text>
+              <TouchableOpacity onPress={() => setFilterVisible(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <MaterialCommunityIcons name="close" size={24} color={ds.colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.filterScroll} showsVerticalScrollIndicator={false}>
+              {filterSectionLabel('CUISINE')}
+              {FILTER_CUISINES.map(({ label, value }) => (
+                <FilterOptionRow
+                  key={value ?? 'all'}
+                  label={label}
+                  selected={filterCuisine === value}
+                  onPress={() => setFilterCuisine(value)}
+                />
+              ))}
+              {filterSectionLabel('DIFFICULTY')}
+              {FILTER_DIFFICULTIES.map(({ label, value }) => (
+                <FilterOptionRow
+                  key={value ?? 'all'}
+                  label={label}
+                  selected={filterDifficulty === value}
+                  onPress={() => setFilterDifficulty(value)}
+                />
+              ))}
+              {filterSectionLabel('DIETARY')}
+              {FILTER_DIETARY.map(({ label, value }) => (
+                <FilterOptionRow
+                  key={value}
+                  label={label}
+                  selected={filterDietary.includes(value)}
+                  onPress={() => setFilterDietary((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))}
+                />
+              ))}
+              {filterSectionLabel('MEAL TYPE')}
+              {FILTER_MEAL_TYPE.map(({ label, value }) => (
+                <FilterOptionRow
+                  key={value}
+                  label={label}
+                  selected={filterMealType.includes(value)}
+                  onPress={() => setFilterMealType((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))}
+                />
+              ))}
+              {filterSectionLabel('COOKING METHOD')}
+              {FILTER_COOKING_METHOD.map(({ label, value }) => (
+                <FilterOptionRow
+                  key={value}
+                  label={label}
+                  selected={filterCookingMethod.includes(value)}
+                  onPress={() => setFilterCookingMethod((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))}
+                />
+              ))}
+              {filterSectionLabel('RECIPE TYPE')}
+              {FILTER_RECIPE_TYPE.map(({ label, value }) => (
+                <FilterOptionRow
+                  key={value}
+                  label={label}
+                  selected={filterRecipeType.includes(value)}
+                  onPress={() => setFilterRecipeType((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))}
+                />
+              ))}
+              {filterSectionLabel('STAR RATING')}
+              {FILTER_STAR_RATING.map(({ label, value }) => (
+                <FilterOptionRow
+                  key={value ?? 'all'}
+                  label={label}
+                  selected={filterMinRating === value}
+                  onPress={() => setFilterMinRating(value)}
+                />
+              ))}
+            </ScrollView>
+            <View style={[styles.filterSheetFooter, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+              <TouchableOpacity onPress={clearFilter} style={styles.filterClearBtn}>
+                <Text style={[styles.filterClearText, { color: ds.colors.textSecondary }]}>Clear all</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={applyFilter} style={[styles.filterApplyBtn, { backgroundColor: ds.colors.textPrimary }]}>
+                <Text style={[styles.filterApplyText, { color: ds.colors.background }]}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -249,13 +473,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  screenWrapper: {
+    flex: 1,
+  },
   content: {
+    paddingBottom: 32,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
     paddingBottom: 32,
   },
   header: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 17,
+    marginLeft: 12,
+    marginRight: 8,
+    padding: 0,
+    includeFontPadding: false,
   },
   title: {
     fontWeight: '700',
@@ -348,6 +608,89 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 8,
+  },
+  // Filter modal (Rams / Ive: restraint, clarity, space)
+  filterOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  filterSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '85%',
+  },
+  filterSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+  },
+  filterSheetTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  filterScroll: {
+    maxHeight: 400,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  filterSectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  filterOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  filterOptionLabel: {
+    fontSize: 17,
+    fontWeight: '400',
+  },
+  filterOptionIndicator: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: 'rgba(128,128,128,0.4)',
+  },
+  filterSheetFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    gap: 16,
+  },
+  filterClearBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  filterClearText: {
+    fontSize: 17,
+    fontWeight: '500',
+  },
+  filterApplyBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterApplyText: {
+    fontSize: 17,
+    fontWeight: '600',
   },
 });
 

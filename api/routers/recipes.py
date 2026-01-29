@@ -63,16 +63,19 @@ def save_recipe(
 def get_saved_recipes(
     cuisine: Optional[str] = Query(None, description="Filter by cuisine"),
     difficulty: Optional[str] = Query(None, description="Filter by difficulty"),
+    tags: Optional[str] = Query(None, description="Filter by tags: comma-separated (OR: recipe must have at least one)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum recipes to return"),
     current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service),
 ) -> List[Dict]:
     """Get all saved recipes from recipe box."""
     try:
+        tags_list = [t.strip() for t in tags.split(",")] if tags and tags.strip() else None
         recipes = service.get_saved_recipes(
             user_id=current_user.id,
             cuisine=cuisine,
             difficulty=difficulty,
+            tags=tags_list,
             limit=limit,
         )
         result = []

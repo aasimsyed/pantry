@@ -989,6 +989,8 @@ AVAILABLE PANTRY INGREDIENTS:
   "dietary_tags": []
 }
 
+- dietary_tags: array of lowercase tags for filtering (e.g. cuisine name, meal type: breakfast/lunch/dinner/snack, dietary: vegan/vegetarian/gluten-free, cooking method: grilled/baked/one-pot/quick, difficulty: easy/quick). Include all that apply.
+
 CRITICAL JSON STRUCTURE REQUIREMENTS:
 - ingredients MUST be an array of objects with "item", "amount", and optionally "notes" keys
 - missing_ingredients MUST be an array of STRINGS (just ingredient names), NOT objects
