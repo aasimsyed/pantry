@@ -29,9 +29,11 @@ interface UserSettings {
   user_id: number;
   ai_provider?: string;
   ai_model?: string;
+  default_ai_provider?: string;
+  default_ai_model?: string;
 }
 
-const AI_MODELS = {
+const AI_MODELS: Record<string, Array<{ value: string; label: string }>> = {
   openai: [
     { value: 'gpt-5', label: 'GPT-5 (Latest & Best)' },
     { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
@@ -46,6 +48,25 @@ const AI_MODELS = {
     { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
   ],
 };
+
+function getDefaultAiLabel(settings: UserSettings | null): string {
+  if (!settings?.default_ai_provider) return 'Use System Default';
+  const providerLabel = settings.default_ai_provider === 'openai' ? 'OpenAI' : 'Anthropic (Claude)';
+  const models = AI_MODELS[settings.default_ai_provider];
+  const modelEntry = models?.find((m) => m.value === settings.default_ai_model);
+  const modelLabel = modelEntry?.label ?? settings.default_ai_model ?? '';
+  return modelLabel ? `Use System Default (${providerLabel}, ${modelLabel})` : `Use System Default (${providerLabel})`;
+}
+
+/** Label for "Use Provider Default" model option: show which model the server will use. */
+function getDefaultModelLabel(settings: UserSettings | null): string {
+  if (!settings?.default_ai_model) return 'Use Provider Default';
+  const provider = settings.ai_provider ?? settings.default_ai_provider;
+  const models = provider ? AI_MODELS[provider] : undefined;
+  const modelEntry = models?.find((m) => m.value === settings.default_ai_model);
+  const modelLabel = modelEntry?.label ?? settings.default_ai_model;
+  return `Use Provider Default (${modelLabel})`;
+}
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -541,10 +562,10 @@ export default function SettingsScreen() {
               onValueChange={handleProviderChange}
               value={settings.ai_provider || ''}
             >
-              <RadioButton.Item 
-                testID="ai-provider-default" 
-                label="Use System Default" 
-                value="" 
+              <RadioButton.Item
+                testID="ai-provider-default"
+                label={getDefaultAiLabel(settings)}
+                value=""
                 labelStyle={[styles.radioLabel, { color: ds.colors.textPrimary }]}
                 color={ds.colors.primary}
                 uncheckedColor={isDark ? '#FFFFFF' : ds.colors.textSecondary}
@@ -577,10 +598,10 @@ export default function SettingsScreen() {
                   onValueChange={handleModelChange}
                   value={settings.ai_model || ''}
                 >
-                  <RadioButton.Item 
-                    testID="ai-model-default" 
-                    label="Use Provider Default" 
-                    value="" 
+                  <RadioButton.Item
+                    testID="ai-model-default"
+                    label={getDefaultModelLabel(settings)}
+                    value=""
                     labelStyle={[styles.radioLabel, { color: ds.colors.textPrimary }]}
                     color={ds.colors.primary}
                     uncheckedColor={isDark ? '#FFFFFF' : ds.colors.textSecondary}

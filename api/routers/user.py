@@ -7,12 +7,21 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.dependencies import get_current_user, get_pantry_service
 from api.models import UserSettingsResponse, UserSettingsUpdate
+from src.config import settings as app_settings
 from src.database import User
 from src.db_service import PantryService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/user", tags=["User"])
+
+
+def _settings_response(settings) -> Dict:
+    """Build settings response with system default AI provider/model."""
+    data = settings.to_dict()
+    data["default_ai_provider"] = app_settings.ai_provider
+    data["default_ai_model"] = app_settings.ai_model
+    return data
 
 
 @router.get("/settings", response_model=UserSettingsResponse)
@@ -23,7 +32,7 @@ def get_user_settings(
     """Get user settings and preferences."""
     try:
         settings = service.get_user_settings(current_user.id)
-        return settings.to_dict()
+        return _settings_response(settings)
     except Exception as e:
         logger.error("Error getting user settings: %s", e)
         raise HTTPException(
@@ -50,7 +59,7 @@ def update_user_settings(
             ai_provider=settings_data.ai_provider,
             ai_model=settings_data.ai_model,
         )
-        return settings.to_dict()
+        return _settings_response(settings)
     except HTTPException:
         raise
     except Exception as e:

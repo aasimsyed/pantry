@@ -160,6 +160,8 @@ class UserSettingsResponse(BaseModel):
     user_id: int
     ai_provider: Optional[str] = None
     ai_model: Optional[str] = None
+    default_ai_provider: Optional[str] = None
+    default_ai_model: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

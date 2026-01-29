@@ -881,11 +881,11 @@ class APIClient {
   }
 
   // User Settings
-  async getUserSettings(): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
+  async getUserSettings(): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string; default_ai_provider?: string; default_ai_model?: string }> {
     return this.request('GET', '/api/user/settings');
   }
 
-  async updateUserSettings(data: { ai_provider?: string; ai_model?: string }): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string }> {
+  async updateUserSettings(data: { ai_provider?: string; ai_model?: string }): Promise<{ id: number; user_id: number; ai_provider?: string; ai_model?: string; default_ai_provider?: string; default_ai_model?: string }> {
     return this.request('PUT', '/api/user/settings', { data });
   }
 
