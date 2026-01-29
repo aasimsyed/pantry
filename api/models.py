@@ -346,6 +346,12 @@ class SavedRecipeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SavedRecipeSearchResult(BaseModel):
+    """One semantic search hit: recipe plus similarity score (0-1)."""
+    recipe: SavedRecipeResponse
+    score: float = Field(..., ge=0, le=1, description="Cosine similarity to query (0-1)")
+
+
 # ============================================================================
 # Search Models
 # ============================================================================

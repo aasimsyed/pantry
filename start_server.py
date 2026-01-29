@@ -6,6 +6,12 @@ Reads PORT from environment; initializes DB schema on startup.
 import os
 import sys
 
+# Avoid OpenMP pthread_mutex_init / segfault when FAISS + sentence-transformers load (macOS, Python 3.14)
+if "OMP_NUM_THREADS" not in os.environ:
+    os.environ["OMP_NUM_THREADS"] = "1"
+if "OPENBLAS_NUM_THREADS" not in os.environ:
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 if __name__ == "__main__":
     # Initialize database schema (creates tables if they don't exist)
     print("🔧 Initializing database schema...", file=sys.stderr, flush=True)

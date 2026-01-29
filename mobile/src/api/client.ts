@@ -765,6 +765,18 @@ class APIClient {
     return this.request<SavedRecipe[]>('GET', '/api/recipes/saved', { params });
   }
 
+  /** Semantic search over saved recipes (by meaning). Returns recipes ordered by similarity. */
+  async searchSavedRecipesSemantic(
+    query: string,
+    limit: number = 20
+  ): Promise<{ recipe: SavedRecipe; score: number }[]> {
+    const q = query.trim();
+    if (!q) return [];
+    return this.request<{ recipe: SavedRecipe; score: number }[]>('GET', '/api/recipes/saved/search', {
+      params: { q, limit },
+    });
+  }
+
   async deleteSavedRecipe(recipeId: number): Promise<void> {
     return this.request<void>('DELETE', `/api/recipes/saved/${recipeId}`);
   }

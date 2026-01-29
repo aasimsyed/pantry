@@ -6,7 +6,13 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 
 from api.dependencies import get_current_user, get_pantry_service
-from api.models import MessageResponse, SavedRecipeCreate, SavedRecipeResponse, SavedRecipeUpdate
+from api.models import (
+    MessageResponse,
+    SavedRecipeCreate,
+    SavedRecipeResponse,
+    SavedRecipeSearchResult,
+    SavedRecipeUpdate,
+)
 from api.utils import detail_for_db_error
 from src.database import User
 from src.db_service import PantryService
@@ -95,6 +101,41 @@ def get_saved_recipes(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=detail_for_db_error(e, f"Failed to retrieve saved recipes: {e!s}"),
+        ) from e
+
+
+@router.get("/saved/search", response_model=List[SavedRecipeSearchResult])
+def search_saved_recipes(
+    q: str = Query(..., min_length=1, description="Search query (e.g. 'quick chicken dinner')"),
+    limit: int = Query(20, ge=1, le=50, description="Maximum results to return"),
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service),
+) -> List[Dict]:
+    """Semantic search over saved recipes using local embeddings. Returns recipes ordered by similarity to the query."""
+    try:
+        hits = service.search_saved_recipes_semantic(
+            user_id=current_user.id,
+            query_text=q.strip(),
+            limit=limit,
+        )
+        result = []
+        for recipe, score in hits:
+            try:
+                recipe_dict = recipe.to_dict()
+            except Exception as e:
+                logger.warning("Error serializing recipe %s: %s", recipe.id, e)
+                try:
+                    recipe_dict = SavedRecipeResponse.model_validate(recipe).model_dump()
+                except Exception:
+                    continue
+            result.append({"recipe": recipe_dict, "score": round(score, 4)})
+        logger.info("Semantic search returned %d results for user %s", len(result), current_user.id)
+        return result
+    except Exception as e:
+        logger.error("Semantic search failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail_for_db_error(e, f"Search failed: {e!s}"),
         ) from e
 
 

@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # API (server, CORS, rate limit)
     # -------------------------------------------------------------------------
     api_title: str = "Smart Pantry API"
-    api_version: str = "1.4.1"
+    api_version: str = "1.5.0"
     api_description: str = (
         "REST API for Smart Pantry Management System. "
         "Product catalog, inventory, expiration tracking, AI recipes."

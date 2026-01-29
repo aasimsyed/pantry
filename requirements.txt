@@ -40,6 +40,10 @@ rich>=13.7.0  # Rich text and beautiful formatting in terminal
 # Caching
 diskcache>=5.6.0  # Disk-based caching for OCR results
 
+# Semantic search (local embeddings)
+sentence-transformers>=2.2.0  # Local embedding model for recipe search
+faiss-cpu>=1.7.0  # In-memory ANN index for fast recipe vector search
+
 # Development Dependencies
 pytest>=7.4.0  # Testing framework
 pytest-cov>=4.1.0  # Test coverage

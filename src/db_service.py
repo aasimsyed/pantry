@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
 
 from src.database import (
@@ -884,8 +884,83 @@ class PantryService:
         self.session.commit()
         self.session.refresh(recipe)
         
+        self._upsert_recipe_embedding(recipe)
         logger.info(f"Saved recipe: {name} (ID: {recipe.id})")
         return recipe
+    
+    def _recipe_text_for_embedding(self, recipe: SavedRecipe) -> str:
+        """Build searchable text from recipe for embedding (name, description, cuisine, tags, ingredients preview)."""
+        parts = [recipe.name or ""]
+        if recipe.description:
+            parts.append(recipe.description)
+        if recipe.cuisine:
+            parts.append(f"Cuisine: {recipe.cuisine}")
+        if recipe.difficulty:
+            parts.append(f"Difficulty: {recipe.difficulty}")
+        if recipe.tags:
+            try:
+                tag_list = json.loads(recipe.tags) if isinstance(recipe.tags, str) else recipe.tags
+                if tag_list:
+                    parts.append("Tags: " + ", ".join(str(t) for t in tag_list))
+            except (TypeError, ValueError):
+                pass
+        if recipe.ingredients:
+            try:
+                ing_list = json.loads(recipe.ingredients) if isinstance(recipe.ingredients, str) else recipe.ingredients
+                if ing_list:
+                    # First 500 chars of ingredients for semantic match
+                    ing_str = " ".join(
+                        (item.get("item", item) if isinstance(item, dict) else str(item)) for item in ing_list[:30]
+                    )
+                    parts.append("Ingredients: " + ing_str[:500])
+            except (TypeError, ValueError):
+                pass
+        return " ".join(p for p in parts if p).strip() or recipe.name or ""
+    
+    def _upsert_recipe_embedding(self, recipe: SavedRecipe) -> None:
+        """Compute embedding for recipe and upsert into recipe_embeddings (lazy import)."""
+        vec = None
+        try:
+            from src.embedding_service import embed, embedding_to_json
+            recipe_text = self._recipe_text_for_embedding(recipe)
+            vec = embed(recipe_text)
+            embedding_json = embedding_to_json(vec)
+            self.session.execute(
+                text("""
+                    INSERT INTO recipe_embeddings (recipe_id, user_id, embedding)
+                    VALUES (:recipe_id, :user_id, :embedding)
+                    ON CONFLICT (recipe_id) DO UPDATE SET embedding = excluded.embedding
+                """),
+                {"recipe_id": recipe.id, "user_id": recipe.user_id, "embedding": embedding_json},
+            )
+            self.session.commit()
+        except Exception as e:
+            logger.warning("Failed to upsert recipe embedding for recipe_id=%s: %s", recipe.id, e)
+            self.session.rollback()
+            return
+        if vec is not None:
+            try:
+                from src.faiss_service import add as faiss_add
+                faiss_add(recipe.user_id, recipe.id, vec)
+            except Exception as faiss_err:
+                logger.debug("FAISS add skip: %s", faiss_err)
+    
+    def get_recipe_embedding_rows(self, user_id: int) -> List[tuple]:
+        """Return [(recipe_id, embedding_list), ...] for user for FAISS index build."""
+        try:
+            from src.embedding_service import embedding_from_json
+        except ImportError:
+            return []
+        rows = self.session.execute(
+            text("SELECT recipe_id, embedding FROM recipe_embeddings WHERE user_id = :uid"),
+            {"uid": user_id},
+        ).fetchall()
+        out = []
+        for recipe_id, embedding_json in rows:
+            vec = embedding_from_json(embedding_json)
+            if vec:
+                out.append((recipe_id, vec))
+        return out
     
     def get_saved_recipes(
         self,
@@ -987,6 +1062,8 @@ class PantryService:
         self.session.commit()
         self.session.refresh(recipe)
         
+        if tags is not None:
+            self._upsert_recipe_embedding(recipe)
         logger.info(f"Updated recipe ID {recipe_id}")
         return recipe
     
@@ -1002,12 +1079,184 @@ class PantryService:
         recipe = self.get_saved_recipe(recipe_id)
         if not recipe:
             return False
-        
+        user_id = recipe.user_id
         self.session.delete(recipe)
         self.session.commit()
-        
+        try:
+            from src.faiss_service import remove as faiss_remove
+            faiss_remove(user_id, recipe_id)
+        except Exception as e:
+            logger.debug("FAISS remove skip: %s", e)
         logger.info(f"Deleted recipe ID {recipe_id}")
         return True
+    
+    # When user says "no fish" etc., also exclude common specific ingredients in that category
+    _EXCLUSION_EXPAND: Dict[str, List[str]] = {
+        "fish": ["fish", "tuna", "salmon", "cod", "tilapia", "trout", "sardine", "mackerel", "anchovy", "seafood", "shrimp", "prawn", "crab", "lobster"],
+        "dairy": ["milk", "cream", "cheese", "butter", "yogurt", "yoghurt"],
+        "nuts": ["nuts", "peanut", "almond", "walnut", "cashew", "pecan", "pistachio"],
+    }
+
+    @classmethod
+    def _expand_exclusion_terms(cls, terms: List[str]) -> List[str]:
+        """Expand category terms (e.g. 'fish') so 'no fish' excludes tuna, salmon, etc."""
+        out = []
+        for t in terms:
+            out.append(t)
+            key = t.lower().strip()
+            if key in cls._EXCLUSION_EXPAND:
+                out.extend(cls._EXCLUSION_EXPAND[key])
+        return list(dict.fromkeys(out))
+
+    @staticmethod
+    def _parse_exclusion_terms(query: str) -> List[str]:
+        """Extract terms to exclude from natural language, e.g. 'I don't want any tuna' -> ['tuna']."""
+        import re
+        q = (query or "").strip().lower()
+        if not q:
+            return []
+        terms = []
+        # Patterns: "nothing with X", "don't want X", "don't like X", "no X", "without X", "exclude X"
+        # "nothing with" first so we don't match "no" inside "nothing"
+        for pattern in [
+            r"nothing with\s+(.+?)(?:\.|$)",
+            r"don't want (?:any\s+)?(.+?)(?:\.|$)",
+            r"don't like (?:any\s+)?(.+?)(?:\.|$)",
+            r"\bno\s+(.+?)(?:\.|$)",
+            r"\bwithout\s+(.+?)(?:\.|$)",
+            r"\bexclude\s+(.+?)(?:\.|$)",
+        ]:
+            for m in re.finditer(pattern, q, re.IGNORECASE | re.DOTALL):
+                part = m.group(1).strip()
+                for word in re.split(r"\s+or\s+|\s+and\s+|,", part):
+                    word = word.strip()
+                    if len(word) > 1 and word not in ("any", "the", "a", "an"):
+                        terms.append(word)
+        terms = list(dict.fromkeys(terms))
+        return PantryService._expand_exclusion_terms(terms)
+    
+    def _recipe_contains_term(self, recipe: SavedRecipe, term: str) -> bool:
+        """True if recipe name, description, ingredients, or instructions contain term (case-insensitive)."""
+        term_lower = term.lower()
+        if recipe.name and term_lower in recipe.name.lower():
+            return True
+        if recipe.description and term_lower in recipe.description.lower():
+            return True
+        if recipe.instructions:
+            try:
+                instr_list = json.loads(recipe.instructions) if isinstance(recipe.instructions, str) else recipe.instructions
+                instr_text = " ".join(str(s) for s in (instr_list or []))
+                if term_lower in instr_text.lower():
+                    return True
+            except (TypeError, ValueError):
+                if term_lower in (recipe.instructions or "").lower():
+                    return True
+        if recipe.ingredients:
+            try:
+                ing_list = json.loads(recipe.ingredients) if isinstance(recipe.ingredients, str) else recipe.ingredients
+                ing_text = " ".join(
+                    (str(i.get("item", i)) if isinstance(i, dict) else str(i)) for i in (ing_list or [])
+                )
+                if term_lower in ing_text.lower():
+                    return True
+            except (TypeError, ValueError):
+                if term_lower in (recipe.ingredients or "").lower():
+                    return True
+        return False
+    
+    def search_saved_recipes_semantic(
+        self,
+        user_id: int,
+        query_text: str,
+        limit: int = 20,
+        min_score: float = 0.25,
+    ) -> List[tuple]:
+        """
+        Semantic search over saved recipes using local embeddings.
+        Returns list of (SavedRecipe, similarity_score) ordered by score descending.
+        Only returns recipes with similarity >= min_score so unrelated queries get no/few results.
+        Supports natural-language exclusions: "I don't want any tuna" excludes recipes containing tuna.
+        Lazy-backfills embeddings for recipes that don't have one yet.
+        """
+        if not query_text or not str(query_text).strip():
+            return []
+        exclude_terms = self._parse_exclusion_terms(query_text)
+        # When user asks to exclude things, use a lower threshold so we get a pool to filter
+        effective_min_score = min(min_score, 0.15) if exclude_terms else min_score
+        try:
+            from src.embedding_service import embed_query, cosine_similarity
+        except ImportError as e:
+            logger.warning("Embedding service not available: %s", e)
+            return []
+        # Lazy backfill: recipes for this user without an embedding
+        recipe_ids_with_embedding = set(
+            row[0]
+            for row in self.session.execute(
+                text("SELECT recipe_id FROM recipe_embeddings WHERE user_id = :uid"),
+                {"uid": user_id},
+            ).fetchall()
+        )
+        recipes_for_user = self.session.query(SavedRecipe.id).filter(
+            SavedRecipe.user_id == user_id
+        ).all()
+        missing_ids = [r.id for r in recipes_for_user if r.id not in recipe_ids_with_embedding]
+        for rid in missing_ids:
+            recipe = self.get_saved_recipe(rid)
+            if recipe:
+                self._upsert_recipe_embedding(recipe)
+        # Load all (recipe_id, embedding) for user
+        embedding_rows = self.get_recipe_embedding_rows(user_id)
+        if not embedding_rows:
+            return []
+        query_vec = embed_query(query_text.strip())
+        fetch_limit = limit * 2 if exclude_terms else limit
+        scored = []
+        try:
+            from src.faiss_service import search as faiss_search
+            scored = faiss_search(
+                user_id, query_vec, embedding_rows, k=fetch_limit, min_score=effective_min_score
+            )
+        except Exception as e:
+            logger.debug("FAISS search fallback to in-memory: %s", e)
+        if not scored:
+            for recipe_id, vec in embedding_rows:
+                score = cosine_similarity(query_vec, vec)
+                if score >= effective_min_score:
+                    scored.append((recipe_id, score))
+            scored.sort(key=lambda x: -x[1])
+            scored = scored[:fetch_limit]
+        top_ids = [rid for rid, _ in scored]
+        if not top_ids:
+            return []
+        recipes_by_id = {
+            r.id: r
+            for r in self.session.query(SavedRecipe).filter(
+                SavedRecipe.id.in_(top_ids),
+                SavedRecipe.user_id == user_id,
+            ).all()
+        }
+        # Preserve order, apply exclusions, attach score
+        result = []
+        for rid in top_ids:
+            r = recipes_by_id.get(rid)
+            if not r:
+                continue
+            if exclude_terms and any(self._recipe_contains_term(r, t) for t in exclude_terms):
+                continue
+            score = next(s for i, s in scored if i == rid)
+            result.append((r, float(score)))
+            if len(result) >= limit:
+                break
+        # If user only asked to exclude (e.g. "no tuna") and we got nothing, return all recipes minus exclusions
+        if not result and exclude_terms:
+            all_recipes = self.get_saved_recipes(user_id=user_id, limit=limit * 2)
+            for r in all_recipes:
+                if any(self._recipe_contains_term(r, t) for t in exclude_terms):
+                    continue
+                result.append((r, 0.0))
+                if len(result) >= limit:
+                    break
+        return result
     
     # ========================================================================
     # Recent Recipe Operations

@@ -999,6 +999,58 @@ def add_totp_and_password_reset_requests():
             raise
 
 
+def add_recipe_embeddings_table():
+    """Create recipe_embeddings table for semantic recipe search (local vector store)."""
+    engine = create_database_engine()
+    inspector = inspect(engine)
+    db_url = get_database_url()
+
+    if "recipe_embeddings" in inspector.get_table_names():
+        logger.info("recipe_embeddings table already exists")
+        return
+
+    logger.info("Creating recipe_embeddings table...")
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            if db_url.startswith("sqlite"):
+                conn.execute(text("""
+                    CREATE TABLE recipe_embeddings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        recipe_id INTEGER NOT NULL UNIQUE,
+                        user_id INTEGER NOT NULL,
+                        embedding TEXT NOT NULL,
+                        FOREIGN KEY (recipe_id) REFERENCES saved_recipes(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """))
+                conn.execute(text(
+                    "CREATE INDEX ix_recipe_embeddings_user_id ON recipe_embeddings(user_id)"
+                ))
+            else:
+                conn.execute(text("""
+                    CREATE TABLE recipe_embeddings (
+                        id SERIAL PRIMARY KEY,
+                        recipe_id INTEGER NOT NULL UNIQUE,
+                        user_id INTEGER NOT NULL,
+                        embedding TEXT NOT NULL,
+                        CONSTRAINT fk_recipe_embeddings_recipe_id
+                            FOREIGN KEY (recipe_id) REFERENCES saved_recipes(id) ON DELETE CASCADE,
+                        CONSTRAINT fk_recipe_embeddings_user_id
+                            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    )
+                """))
+                conn.execute(text(
+                    "CREATE INDEX ix_recipe_embeddings_user_id ON recipe_embeddings(user_id)"
+                ))
+            trans.commit()
+            logger.info("✅ Created recipe_embeddings table")
+        except Exception as e:
+            trans.rollback()
+            logger.error("Migration failed: %s", e, exc_info=True)
+            raise
+
+
 def run_migrations():
     """Run all pending migrations."""
     logger.info("Running database migrations...")
@@ -1017,6 +1069,7 @@ def run_migrations():
     add_flavor_pairings_to_saved_recipes()  # Add flavor pairings to saved recipes
     add_totp_and_password_reset_requests()  # TOTP-based password reset
     add_user_recovery_questions_table()  # Security questions for easy password reset
+    add_recipe_embeddings_table()  # Semantic recipe search (local embeddings)
     logger.info("✅ All migrations completed")
 
 

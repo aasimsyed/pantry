@@ -31,6 +31,9 @@ export default function RecipeBoxScreen() {
   const [filterMinRating, setFilterMinRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [semanticSearchQuery, setSemanticSearchQuery] = useState<string | null>(null);
+  const [semanticResults, setSemanticResults] = useState<{ recipe: SavedRecipe; score: number }[]>([]);
+  const [semanticLoading, setSemanticLoading] = useState(false);
   const hasLoadedRef = useRef(false);
   const filterRef = useRef({ cuisine: null as string | null, difficulty: null as string | null, tags: [] as string[] });
   filterRef.current = {
@@ -53,6 +56,11 @@ export default function RecipeBoxScreen() {
         (r.cuisine && r.cuisine.toLowerCase().includes(q))
     );
   }, [recipes, searchQuery, filterMinRating]);
+
+  const displayList = useMemo(() => {
+    if (semanticSearchQuery != null) return semanticResults.map((r) => r.recipe);
+    return filteredRecipes;
+  }, [semanticSearchQuery, semanticResults, filteredRecipes]);
 
   const loadRecipes = useCallback(async (showLoading = true) => {
     try {
@@ -80,8 +88,38 @@ export default function RecipeBoxScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    setSemanticSearchQuery(null);
     loadRecipes(false);
   }, [loadRecipes]);
+
+  const runSemanticSearch = useCallback(async () => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSemanticSearchQuery(null);
+      return;
+    }
+    setSemanticSearchQuery(q);
+    setSemanticLoading(true);
+    try {
+      const data = await apiClient.searchSavedRecipesSemantic(q, 20);
+      setSemanticResults(data);
+    } catch (err: unknown) {
+      Alert.alert('Search error', getApiErrorMessage(err));
+      setSemanticResults([]);
+    } finally {
+      setSemanticLoading(false);
+    }
+  }, [searchQuery]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSemanticSearchQuery(null);
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setSemanticSearchQuery(null);
+  }, []);
 
   // Load recipes only once on mount (use pull-to-refresh for updates)
   React.useEffect(() => {
@@ -126,7 +164,7 @@ export default function RecipeBoxScreen() {
 
   const renderItem = useCallback(
     ({ item: recipe, index }: { item: SavedRecipe; index: number }) => {
-      const isLast = index === filteredRecipes.length - 1;
+      const isLast = index === displayList.length - 1;
       return (
         <TouchableOpacity
           testID={`recipe-box-card-${recipe.id}`}
@@ -189,7 +227,7 @@ export default function RecipeBoxScreen() {
         </TouchableOpacity>
       );
     },
-    [filteredRecipes.length, isDark, ds.colors, navigation]
+    [displayList.length, isDark, ds.colors, navigation]
   );
 
   const FILTER_CUISINES = useMemo(() => [
@@ -259,9 +297,11 @@ export default function RecipeBoxScreen() {
           <MaterialCommunityIcons name="magnify" size={22} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
           <RNTextInput
             testID="recipe-box-search"
-            placeholder="Search recipes..."
+            placeholder="Search recipes"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
+            onSubmitEditing={runSemanticSearch}
+            returnKeyType="search"
             style={[styles.searchInput, { color: ds.colors.textPrimary, backgroundColor: 'transparent' }]}
             placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
             autoCapitalize="none"
@@ -269,28 +309,52 @@ export default function RecipeBoxScreen() {
             underlineColorAndroid="transparent"
           />
           {searchQuery !== '' && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <MaterialCommunityIcons name="close-circle" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
             </TouchableOpacity>
           )}
         </View>
+        {semanticSearchQuery != null && (
+          <View style={[styles.semanticHint, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+            {semanticLoading ? (
+              <ActivityIndicator size="small" color={ds.colors.textPrimary} style={styles.semanticLoading} />
+            ) : (
+              <Text style={[styles.semanticHintText, { color: ds.colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
+                Like: "{semanticSearchQuery}"
+              </Text>
+            )}
+            <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.semanticHintClear, { color: ds.colors.textPrimary }]}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </>
     ),
-    [searchQuery, isDark, ds.colors.textPrimary]
+    [searchQuery, isDark, ds.colors.textPrimary, semanticSearchQuery, semanticLoading, runSemanticSearch, clearSearch]
   );
 
   const listEmptyComponent = useMemo(() => {
-    if (searchQuery.trim()) {
+    if (semanticSearchQuery != null && !semanticLoading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>No recipes like that</Text>
+          <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
+            No similar recipes for "{semanticSearchQuery}". Try different words or clear to see all your recipes.
+          </Text>
+          <TouchableOpacity onPress={clearSearch} style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}>
+            <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>Clear search</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (searchQuery.trim() && semanticSearchQuery == null) {
       return (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>No matches</Text>
           <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
-            No recipes match "{searchQuery.trim()}". Try a different search.
+            No recipes match "{searchQuery.trim()}". Press Enter to find similar recipes.
           </Text>
-          <TouchableOpacity
-            onPress={() => setSearchQuery('')}
-            style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}
-          >
+          <TouchableOpacity onPress={clearSearch} style={[styles.emptyButton, { backgroundColor: ds.colors.textPrimary }]}>
             <Text style={[styles.emptyButtonText, { color: ds.colors.background }]}>Clear search</Text>
           </TouchableOpacity>
         </View>
@@ -311,7 +375,7 @@ export default function RecipeBoxScreen() {
         </TouchableOpacity>
       </View>
     );
-  }, [searchQuery, ds.colors.textPrimary, ds.colors.textSecondary, ds.colors.background, navigation]);
+  }, [searchQuery, semanticSearchQuery, semanticLoading, ds.colors.textPrimary, ds.colors.textSecondary, ds.colors.background, navigation, clearSearch]);
 
   const filterSectionLabel = (label: string) => (
     <Text style={[styles.filterSectionLabel, { color: ds.colors.textTertiary }]}>{label}</Text>
@@ -362,7 +426,7 @@ export default function RecipeBoxScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       <ScreenContentWrapper style={styles.screenWrapper}>
         <FlatList
-          data={filteredRecipes}
+          data={displayList}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           ListHeaderComponent={listHeaderComponent}
@@ -516,6 +580,26 @@ const styles = StyleSheet.create({
     marginRight: 8,
     padding: 0,
     includeFontPadding: false,
+  },
+  semanticHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  semanticHintText: {
+    flex: 1,
+    fontSize: 14,
+    opacity: 0.8,
+    marginRight: 12,
+  },
+  semanticHintClear: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  semanticLoading: {
+    marginRight: 12,
   },
   title: {
     fontWeight: '700',

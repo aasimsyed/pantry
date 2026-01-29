@@ -243,6 +243,7 @@ export default function RecipesScreen() {
   };
 
   const handleSaveRecipe = async (recipe: Recipe) => {
+    const name = recipe.name;
     try {
       await apiClient.saveRecipe({
         name: recipe.name,
@@ -257,32 +258,35 @@ export default function RecipesScreen() {
         ai_model: recipe.ai_model, // Track which AI model generated this recipe
         flavor_pairings: recipe.flavor_pairings as any, // Flavor chemistry data
       });
-      Alert.alert('Success', `Saved "${recipe.name}" to recipe box!`);
-      // Reload recent recipes in case this was saved from recent
+      Alert.alert('Success', `Saved "${name}" to recipe box!`);
+      removeRecipeFromList(name);
       loadRecentRecipes();
     } catch (err: any) {
-      // Extract error message from API response
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
-      
-      // Check if it's a duplicate error (409 Conflict)
       if (err.response?.status === 409 || errorMessage.includes('already saved')) {
-        Alert.alert('Already Saved', errorMessage);
+        removeRecipeFromList(name);
+        loadRecentRecipes();
       } else {
         Alert.alert('Error', errorMessage);
       }
     }
   };
 
+  const removeRecipeFromList = (recipeName: string) => {
+    setRecipes((prev) => prev.filter((r) => r.name !== recipeName));
+    setRecentRecipes((prev) => prev.filter((r) => r.name !== recipeName));
+  };
+
   const handleSaveRecentRecipe = async (recentRecipe: RecentRecipe) => {
     try {
       await apiClient.saveRecentRecipe(recentRecipe.id);
       Alert.alert('Success', `Saved "${recentRecipe.name}" to recipe box!`);
-      // Remove from recent recipes list
-      setRecentRecipes(recentRecipes.filter((r) => r.id !== recentRecipe.id));
+      removeRecipeFromList(recentRecipe.name);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
       if (err.response?.status === 409 || errorMessage.includes('already saved')) {
-        Alert.alert('Already Saved', errorMessage);
+        removeRecipeFromList(recentRecipe.name);
+        loadRecentRecipes();
       } else {
         Alert.alert('Error', errorMessage);
       }

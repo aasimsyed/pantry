@@ -75,5 +75,9 @@ echo ""
 echo "─────────────────────────────────────────────────────"
 echo ""
 
+# Avoid OpenMP/FAISS segfault on macOS (pthread_mutex_init / Invalid argument)
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-1}"
+
 # Start the server
 python3 start_server.py

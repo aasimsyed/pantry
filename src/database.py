@@ -202,6 +202,7 @@ def init_database():
             add_flavor_pairings_to_saved_recipes,
             add_totp_and_password_reset_requests,
             add_user_recovery_questions_table,
+            add_recipe_embeddings_table,
         )
         add_user_id_to_saved_recipes()
         add_pantries_table_and_pantry_id()
@@ -218,6 +219,7 @@ def init_database():
         add_flavor_pairings_to_saved_recipes()  # Add flavor pairings to saved recipes
         add_totp_and_password_reset_requests()  # TOTP-based password reset
         add_user_recovery_questions_table()  # Security questions for easy password reset
+        add_recipe_embeddings_table()  # Semantic recipe search (local embeddings)
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)

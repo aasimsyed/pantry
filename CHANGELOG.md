@@ -5,6 +5,27 @@ All notable changes to Smart Pantry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-29
+
+### Added
+- **Semantic Recipe Search**: Search saved recipes by meaning (e.g. "quick chicken dinner", "no fish")
+  - Backend: Local embeddings (BAAI/bge-small-en-v1.5), FAISS index for fast search, optional in-memory fallback
+  - API: `GET /api/recipes/saved/search?q=...&limit=...` (auth required)
+  - Mobile Recipe Box: Search box runs semantic search on submit; results show "Recipes like: 'query'" with scores
+  - Supports natural-language exclusions (e.g. "nothing with tuna"); lazy backfill of embeddings on first search
+- **FAISS integration**: In-memory vector index per user for faster semantic search; rebuilds from DB when missing
+- **OpenMP/threading fix**: Set `OMP_NUM_THREADS=1` at server start to avoid segfault with FAISS + sentence-transformers on macOS (Python 3.14)
+- **FAISS integration tests**: `tests/test_faiss_service.py` (mocked embed dim, no model load)
+
+### Changed
+- Recipe Box filters: Added recipe type (entree, side, snack, beverage) and star rating filters
+- Backend: `recipe_embeddings` table and migration; embedding upsert on save/tag update; FAISS add/remove on save/delete
+
+### Fixed
+- React Native hooks error in Recipe Box (useCallback before conditional return)
+
+---
+
 ## [1.1.5] - 2026-01-25
 
 ### Added
