@@ -457,6 +457,7 @@ export default function SettingsScreen() {
                   }
                 ]}
                 accessibilityLabel="Light theme"
+                accessibilityHint="Double tap to use light theme"
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons 
@@ -485,6 +486,7 @@ export default function SettingsScreen() {
                   }
                 ]}
                 accessibilityLabel="System theme"
+                accessibilityHint="Double tap to use system theme"
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons 
@@ -513,6 +515,7 @@ export default function SettingsScreen() {
                   }
                 ]}
                 accessibilityLabel="Dark theme"
+                accessibilityHint="Double tap to use dark theme"
                 accessibilityRole="button"
               >
                 <MaterialCommunityIcons 
@@ -668,6 +671,7 @@ export default function SettingsScreen() {
                     }}
                     style={styles.saveButton}
                     accessibilityLabel={recoveryData.user_question_ids.length >= 2 ? 'Update recovery questions' : 'Set recovery questions'}
+                    accessibilityHint={recoveryData.user_question_ids.length >= 2 ? 'Double tap to update your recovery questions' : 'Double tap to set recovery questions for password reset'}
                     accessibilityRole="button"
                   >
                     {recoveryData.user_question_ids.length >= 2 ? 'Update recovery questions' : 'Set recovery questions'}
@@ -683,7 +687,7 @@ export default function SettingsScreen() {
                           visible={recoveryMenuVisible === idx}
                           onDismiss={() => setRecoveryMenuVisible(null)}
                           anchor={
-                            <Button mode="outlined" onPress={() => setRecoveryMenuVisible(idx)} style={{ marginBottom: 6 }} accessibilityLabel={`Question ${idx + 1}: ${recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}`} accessibilityRole="button">
+                            <Button mode="outlined" onPress={() => setRecoveryMenuVisible(idx)} style={{ marginBottom: 6 }} accessibilityLabel={`Question ${idx + 1}: ${recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}`} accessibilityHint="Double tap to choose a security question" accessibilityRole="button">
                               {recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}
                             </Button>
                           }
@@ -701,6 +705,9 @@ export default function SettingsScreen() {
                               }}
                               title={q.text}
                               titleStyle={{ color: ds.colors.textPrimary }}
+                              accessibilityRole="button"
+                              accessibilityLabel={q.text}
+                              accessibilityHint="Double tap to select this question"
                             />
                           ))}
                         </Menu>
@@ -718,6 +725,8 @@ export default function SettingsScreen() {
                           autoCapitalize="none"
                           autoCorrect={false}
                           style={styles.input}
+                          accessibilityLabel="Your answer"
+                          accessibilityHint="Double tap to enter your answer for this security question"
                         />
                       </View>
                     ))}
