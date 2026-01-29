@@ -51,6 +51,16 @@ echo "🔧 Step 2b: Skip Install=YES for Pods (so archive has only .app, not lib
 find ios -name "project.pbxproj" -path "*/Pods/*" -exec sed -i '' 's/SKIP_INSTALL = NO/SKIP_INSTALL = YES/g' {} \; 2>/dev/null || true
 
 # Team: Aasim S Syed (K5A25879TB)
+# Use distribution identity from keychain (name can be "Apple Distribution" or "iOS Distribution").
+CODE_SIGN_IDENTITY_NAME="Apple Distribution"
+if command -v security &>/dev/null; then
+  FOUND=$(security find-identity -v -p codesigning 2>/dev/null | grep "K5A25879TB" | grep -i distribution | head -1)
+  if [ -n "$FOUND" ]; then
+    CODE_SIGN_IDENTITY_NAME=$(echo "$FOUND" | sed -E 's/.*"([^"]+)".*/\1/')
+    echo "Using identity from keychain: $CODE_SIGN_IDENTITY_NAME"
+  fi
+fi
+
 echo "📦 Step 3: Building archive (workspace=$WORKSPACE_NAME, scheme=$SCHEME)..."
 ARCHIVE_PATH="$HOME/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/${WORKSPACE_NAME}-$(date +%H%M%S).xcarchive"
 mkdir -p "$(dirname "$ARCHIVE_PATH")"
@@ -62,7 +72,7 @@ ARCHIVE_ARGS=(
     -configuration Release
     -destination "generic/platform=iOS"
     -archivePath "$ARCHIVE_PATH"
-    CODE_SIGN_IDENTITY="Apple Distribution"
+    CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY_NAME"
     DEVELOPMENT_TEAM=K5A25879TB
 )
 if [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ]; then
