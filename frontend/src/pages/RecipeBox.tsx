@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
+import { shareRecipe } from '../utils/recipeShare';
 import type { SavedRecipe } from '../types';
 
 export default function RecipeBox() {
@@ -12,6 +13,7 @@ export default function RecipeBox() {
   const [editNotes, setEditNotes] = useState('');
   const [editRating, setEditRating] = useState(0);
   const [scaledServings, setScaledServings] = useState<Record<number, number>>({});
+  const [shareFeedback, setShareFeedback] = useState<{ id: number; message: string } | null>(null);
 
   useEffect(() => {
     loadRecipes();
@@ -63,6 +65,15 @@ export default function RecipeBox() {
     setEditingRecipe(null);
     setEditNotes('');
     setEditRating(0);
+  };
+
+  const handleShare = async (recipe: SavedRecipe) => {
+    const result = await shareRecipe(recipe);
+    if (result === 'shared') setShareFeedback({ id: recipe.id, message: 'Shared!' });
+    else if (result === 'copied') setShareFeedback({ id: recipe.id, message: 'Copied to clipboard' });
+    else if (result === 'cancelled') return;
+    else setShareFeedback({ id: recipe.id, message: 'Share not supported' });
+    setTimeout(() => setShareFeedback(null), 2000);
   };
 
   const parseJson = (str: string | null | undefined): any[] => {
@@ -525,7 +536,15 @@ export default function RecipeBox() {
                   </div>
 
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 items-center flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleShare(recipe)}
+                      className="btn-secondary"
+                      title="Share recipe"
+                    >
+                      📤 Share
+                    </button>
                     {editingRecipe !== recipe.id && (
                       <button
                         onClick={() => handleEdit(recipe)}
@@ -540,6 +559,11 @@ export default function RecipeBox() {
                     >
                       🗑️ Delete
                     </button>
+                    {shareFeedback?.id === recipe.id && (
+                      <span className="text-sm text-gray-500 animate-pulse" role="status">
+                        {shareFeedback.message}
+                      </span>
+                    )}
                   </div>
                 </div>
               );

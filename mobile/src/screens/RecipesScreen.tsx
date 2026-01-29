@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput, Animated, Easing } from 'react-native';
 
 // Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
@@ -11,7 +11,6 @@ import {
   Checkbox,
   Switch,
   ActivityIndicator,
-  ProgressBar,
   Chip,
   Menu,
   Divider,
@@ -25,7 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
-import { SkeletonRecipeCard } from '../components/Skeleton';
+import { SkeletonRecipeCard, Skeleton } from '../components/Skeleton';
 import { PremiumButton } from '../components/PremiumButton';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { useTheme } from '../contexts/ThemeContext';
@@ -33,6 +32,22 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem, getTextStyle } from '../utils/designSystem';
 import type { Recipe, RecentRecipe, InventoryItem } from '../types';
+
+/** Minimal breathing dot for indeterminate wait — Dieter Rams: as little design as possible. */
+function BreathingDot({ color }: { color: string }) {
+  const opacity = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.85, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.35, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [opacity]);
+  return <Animated.View style={[styles.breathingDot, { backgroundColor: color, opacity }]} />;
+}
 
 export default function RecipesScreen() {
   const navigation = useNavigation();
@@ -46,7 +61,6 @@ export default function RecipesScreen() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [generating, setGenerating] = useState(false);
   const [cancelRequested, setCancelRequested] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [numRecipes, setNumRecipes] = useState(5);
   const [numRecipesText, setNumRecipesText] = useState('5');
   const [requiredIngredients, setRequiredIngredients] = useState<string[]>([]);
@@ -181,7 +195,6 @@ export default function RecipesScreen() {
       setGenerating(true);
       setCancelRequested(false);
       cancelRequestedRef.current = false;
-      setProgress(0);
       setRecipes([]);
 
       const newRecipes: Recipe[] = [];
@@ -193,8 +206,6 @@ export default function RecipesScreen() {
           console.log('Recipe generation cancelled by user');
           break;
         }
-
-        setProgress(((i + 1) / numRecipes) * 100);
 
         const recipe = await apiClient.generateSingleRecipe({
           required_ingredients: requiredIngredients.length > 0 ? requiredIngredients : undefined,
@@ -212,8 +223,6 @@ export default function RecipesScreen() {
         setRecipes([...newRecipes]);
       }
 
-      setProgress(100);
-      
       // Reload recent recipes after generation completes
       // The backend automatically saves generated recipes to recent recipes
       await loadRecentRecipes();
@@ -225,7 +234,6 @@ export default function RecipesScreen() {
       setGenerating(false);
       setCancelRequested(false);
       cancelRequestedRef.current = false;
-      setProgress(0);
     }
   };
 
@@ -426,10 +434,12 @@ export default function RecipesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+      <View style={styles.scrollWrapper}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
           layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+          generating && { paddingTop: 148 },
         ]}
       >
       <ScreenContentWrapper>
@@ -661,27 +671,6 @@ export default function RecipesScreen() {
             {generating ? 'Generating...' : 'Generate Recipes'}
           </PremiumButton>
 
-          {generating && (
-            <View style={styles.progressContainer}>
-              <View style={[styles.progressBar, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }]}>
-                <View style={[styles.progressFill, { backgroundColor: ds.colors.textPrimary, width: `${progress}%` }]} />
-              </View>
-              <View style={styles.progressInfo}>
-                <Text style={[styles.progressText, { color: ds.colors.textSecondary }]}>
-                  Recipe {recipes.length + 1} of {numRecipes}
-                </Text>
-                <TouchableOpacity 
-                  onPress={handleCancelGeneration}
-                  style={styles.cancelButton}
-                  disabled={cancelRequested}
-                >
-                  <Text style={[styles.cancelText, { color: cancelRequested ? ds.colors.textTertiary : ds.colors.textPrimary }]}>
-                    {cancelRequested ? 'Cancelling...' : 'Cancel'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
       </View>
 
       {/* Recent Recipes Section */}
@@ -783,8 +772,8 @@ export default function RecipesScreen() {
         </View>
       )}
 
-      {/* Generated Recipes Section */}
-      {recipes.length > 0 && (
+      {/* Generated Recipes Section — show when generating (skeleton slots) or when we have results */}
+      {(generating || recipes.length > 0) && (
         <View style={styles.recipeSection}>
           <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
           <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
@@ -1041,6 +1030,35 @@ export default function RecipesScreen() {
       </Portal>
       </ScreenContentWrapper>
       </ScrollView>
+
+      {/* Fixed "live slot" card — always visible, shows current recipe index + shimmer (dynamic, no scroll needed) */}
+      {generating && (
+        <View style={[styles.liveSlotCard, { backgroundColor: ds.colors.surface, borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)' }]}>
+          <View style={styles.liveSlotHeader}>
+            <Text style={[styles.liveSlotTitle, { color: ds.colors.textPrimary }]}>
+              Recipe {recipes.length + 1} of {numRecipes}
+            </Text>
+            <TouchableOpacity
+              onPress={handleCancelGeneration}
+              style={styles.cancelButton}
+              disabled={cancelRequested}
+            >
+              <Text style={[styles.cancelText, { color: cancelRequested ? ds.colors.textTertiary : ds.colors.textPrimary }]}>
+                {cancelRequested ? 'Cancelling…' : 'Cancel'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.liveSlotShimmer}>
+            <View style={styles.liveSlotShimmerRow}>
+              <BreathingDot color={ds.colors.textSecondary} />
+              <Skeleton width="72%" height={14} borderRadius={6} style={{ marginLeft: 10 }} />
+            </View>
+            <Skeleton width="90%" height={12} borderRadius={6} style={{ marginTop: 10 }} />
+            <Skeleton width="55%" height={12} borderRadius={6} style={{ marginTop: 6 }} />
+          </View>
+        </View>
+      )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -1048,6 +1066,43 @@ export default function RecipesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollWrapper: {
+    flex: 1,
+  },
+  liveSlotCard: {
+    position: 'absolute',
+    top: 12,
+    left: 24,
+    right: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    zIndex: 10,
+  },
+  liveSlotHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  liveSlotTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  liveSlotShimmer: {
+    flexDirection: 'column',
+  },
+  liveSlotShimmerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   center: {
     flex: 1,
@@ -1262,27 +1317,10 @@ const styles = StyleSheet.create({
     marginTop: 24,
     elevation: 0,
   },
-  progressContainer: {
-    marginTop: 20,
-  },
-  progressBar: {
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  progressText: {
-    fontSize: 14,
-    opacity: 0.6,
+  breathingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   cancelButton: {
     paddingVertical: 4,

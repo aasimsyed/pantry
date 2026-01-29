@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { ScrollView, StyleSheet, View, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, ActivityIndicator, Share } from 'react-native';
 import { Card, Text, Divider, Button, TextInput, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -23,6 +23,69 @@ type RouteParams = {
     recipe: Recipe | RecentRecipe | SavedRecipe;
   };
 };
+
+/** Format recipe as plain text for sharing (messages, email, etc.). */
+function formatRecipeForShare(r: Recipe | RecentRecipe | SavedRecipe): string {
+  const parseJson = (val: unknown): unknown[] => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+  const ingList = 'ingredients' in r && typeof r.ingredients === 'string'
+    ? parseJson(r.ingredients)
+    : Array.isArray(r.ingredients) ? r.ingredients : [];
+  const instrList = 'instructions' in r && typeof r.instructions === 'string'
+    ? parseJson(r.instructions)
+    : Array.isArray(r.instructions) ? r.instructions : [];
+
+  const lines: string[] = [];
+  lines.push(r.name);
+  lines.push('');
+  if (r.description) {
+    lines.push(r.description);
+    lines.push('');
+  }
+  const prep = r.prep_time ?? 0;
+  const cook = r.cook_time ?? 0;
+  const serv = r.servings ?? 0;
+  lines.push(`Prep: ${prep} min · Cook: ${cook} min · Serves ${serv}`);
+  if (r.cuisine) lines.push(r.cuisine);
+  lines.push('');
+  lines.push('Ingredients');
+  lines.push('—');
+  ingList.forEach((ing: unknown) => {
+    if (typeof ing === 'string') {
+      lines.push(`• ${ing}`);
+    } else if (ing && typeof ing === 'object' && 'item' in ing) {
+      const item = (ing as { item?: string; amount?: string; notes?: string }).item ?? '';
+      const amount = (ing as { amount?: string }).amount ?? '';
+      const notes = (ing as { notes?: string }).notes ?? '';
+      let line = `• ${item}`;
+      if (amount) line += `: ${amount}`;
+      if (notes) line += ` (${notes})`;
+      lines.push(line);
+    }
+  });
+  lines.push('');
+  lines.push('Instructions');
+  lines.push('—');
+  lines.push('');
+  instrList.forEach((step: unknown, i: number) => {
+    let text = typeof step === 'string' ? step : String(step);
+    // Strip redundant "Step N - " or "Step N:" so we don't get "1. Step 1 - ..."
+    text = text.replace(/^Step\s+\d+\s*[-:]\s*/i, '').trim();
+    lines.push(`${i + 1}. ${text}`);
+    lines.push(''); // Blank line between steps for readability
+  });
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n'); // At most one blank line
+}
 
 export default function RecipeDetailScreen() {
   const route = useRoute<RouteProp<RouteParams, 'RecipeDetail'>>();
@@ -370,6 +433,35 @@ export default function RecipeDetailScreen() {
     }
     return Array.isArray(fp) ? fp : [];
   })();
+
+  const handleShare = async () => {
+    try {
+      const message = formatRecipeForShare(recipe);
+      await Share.share({
+        message,
+        title: recipe.name,
+      });
+    } catch (err) {
+      if ((err as { message?: string })?.message !== 'User did not share') {
+        Alert.alert('Share failed', (err as Error)?.message ?? 'Could not open share sheet.');
+      }
+    }
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={handleShare}
+          style={styles.headerShareButton}
+          accessibilityLabel="Share recipe"
+          accessibilityRole="button"
+        >
+          <MaterialCommunityIcons name="share-outline" size={24} color={ds.colors.textPrimary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, recipe, ds.colors.textPrimary]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
@@ -829,6 +921,10 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 40,
+  },
+  headerShareButton: {
+    padding: 8,
+    marginRight: 8,
   },
   // Hero Section - Minimal
   heroSection: {

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import { PantrySelector } from '../components/PantrySelector';
+import { shareRecipe } from '../utils/recipeShare';
 import type { Recipe, RecentRecipe } from '../types';
 
 export default function Recipes() {
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loadingIngredients, setLoadingIngredients] = useState(false);
 
@@ -24,6 +24,7 @@ export default function Recipes() {
   const [allowMissing, setAllowMissing] = useState(false);
   const [recentRecipes, setRecentRecipes] = useState<RecentRecipe[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<{ idx: number; message: string } | null>(null);
 
   useEffect(() => {
     if (selectedPantryId !== undefined) {
@@ -72,7 +73,6 @@ export default function Recipes() {
   const handleGenerateRecipes = async () => {
     try {
       setGenerating(true);
-      setProgress(0);
       setError(null);
       setRecipes([]);
 
@@ -80,8 +80,6 @@ export default function Recipes() {
       const avoidNames: string[] = [];
 
       for (let i = 0; i < numRecipes; i++) {
-        setProgress(((i + 1) / numRecipes) * 100);
-
         const recipe = await apiClient.generateSingleRecipe({
           required_ingredients: requiredIngredients.length > 0 ? requiredIngredients : undefined,
           excluded_ingredients: excludedIngredients.length > 0 ? excludedIngredients : undefined,
@@ -98,14 +96,12 @@ export default function Recipes() {
         setRecipes([...newRecipes]);
       }
 
-      setProgress(100);
       // Reload recent recipes after generation
       loadRecentRecipes();
     } catch (err: any) {
       setError(err.message || 'Failed to generate recipes');
     } finally {
       setGenerating(false);
-      setProgress(0);
     }
   };
 
@@ -161,6 +157,15 @@ export default function Recipes() {
     } catch (err: any) {
       alert(err.response?.data?.detail || err.message || 'Failed to delete recipe');
     }
+  };
+
+  const handleShare = async (recipe: Recipe, idx: number) => {
+    const result = await shareRecipe(recipe);
+    if (result === 'shared') setShareFeedback({ idx, message: 'Shared!' });
+    else if (result === 'copied') setShareFeedback({ idx, message: 'Copied to clipboard' });
+    else if (result === 'cancelled') return;
+    else setShareFeedback({ idx, message: 'Share not supported' });
+    setTimeout(() => setShareFeedback(null), 2000);
   };
 
   const difficultyEmoji = (diff: string) => {
@@ -379,24 +384,8 @@ export default function Recipes() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="lg:col-span-3">
-          {generating && (
-            <div className="card mb-6">
-              <div className="mb-2">
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div
-                    className="bg-primary-600 h-2.5 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-gray-600">
-                🍳 Generating recipe {recipes.length + 1} of {numRecipes}...
-              </p>
-            </div>
-          )}
-
+        {/* Main Content — reserve top space when fixed live-slot card is visible */}
+        <div className={`lg:col-span-3 relative ${generating ? 'pt-40' : ''}`}>
           {error && (
             <div className="card mb-6 border-2 border-red-300 bg-red-50">
               <p className="text-red-600">❌ {error}</p>
@@ -503,8 +492,8 @@ export default function Recipes() {
             </div>
           )}
 
-          {/* Generated Recipes Section */}
-          {recipes.length > 0 && (
+          {/* Generated Recipes Section — show when generating (skeleton slots) or when we have results */}
+          {(generating || recipes.length > 0) && (
             <div className="mb-6">
               <h2 className="text-xl font-bold mb-4">🍳 Generated Recipes</h2>
             </div>
@@ -640,15 +629,51 @@ export default function Recipes() {
                 </div>
               )}
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2 items-center flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleShare(recipe, idx)}
+                  className="btn-secondary"
+                  title="Share recipe"
+                >
+                  📤 Share
+                </button>
                 <button onClick={() => handleSaveRecipe(recipe)} className="btn-primary">
                   💾 Save Recipe
                 </button>
+                {shareFeedback?.idx === idx && (
+                  <span className="text-sm text-gray-500 animate-pulse" role="status">
+                    {shareFeedback.message}
+                  </span>
+                )}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Fixed "live slot" card — always visible, shows current recipe index + shimmer (dynamic, no scroll needed) */}
+      {generating && (
+        <div
+          className="fixed top-24 left-4 right-4 md:left-auto md:right-8 md:w-96 z-50 rounded-2xl border border-gray-200 bg-white p-4 shadow-lg"
+          role="status"
+          aria-live="polite"
+          aria-label={`Generating recipe ${recipes.length + 1} of ${numRecipes}`}
+        >
+          <p className="text-sm font-semibold text-gray-800 mb-3">
+            Recipe {recipes.length + 1} of {numRecipes}
+          </p>
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className="w-2 h-2 rounded-full bg-primary-600 animate-breathe flex-shrink-0"
+              aria-hidden
+            />
+            <div className="h-3.5 w-3/4 rounded bg-gray-200 animate-pulse" />
+          </div>
+          <div className="h-3 w-full rounded bg-gray-100 animate-pulse mb-1.5" />
+          <div className="h-3 w-2/3 rounded bg-gray-100 animate-pulse" />
+        </div>
+      )}
     </div>
   );
 }
