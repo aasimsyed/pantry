@@ -109,6 +109,8 @@ export default function SetRecoveryQuestionsPromptScreen() {
                           opacity: pressed ? 0.7 : 1,
                         },
                       ]}
+                      accessibilityLabel={`Question ${idx + 1}: ${recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}`}
+                      accessibilityRole="button"
                     >
                       <Text style={[styles.menuButtonText, { color: ds.colors.primary }]}>
                         {recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}
@@ -146,10 +148,12 @@ export default function SetRecoveryQuestionsPromptScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   style={styles.input}
+                  accessibilityLabel={`Answer for question ${idx + 1}`}
+                  accessibilityRole="none"
                 />
               </View>
             ))}
-            <PremiumButton mode="contained" onPress={handleSave} loading={saving} disabled={saving} style={styles.button}>
+            <PremiumButton mode="contained" onPress={handleSave} loading={saving} disabled={saving} style={styles.button} accessibilityLabel="Save recovery questions" accessibilityRole="button">
               Save and continue
             </PremiumButton>
             <Button mode="text" onPress={completeRecoveryQuestions} style={styles.linkButton} labelStyle={styles.linkButtonLabel}>

@@ -118,6 +118,8 @@ export default function BarcodeScannerScreen() {
           <TouchableOpacity
             style={[styles.permissionButton, { backgroundColor: ds.colors.primary }]}
             onPress={requestPermission}
+            accessibilityLabel="Grant camera permission"
+            accessibilityRole="button"
           >
             <Text style={[styles.permissionButtonText, { color: ds.colors.textInverse }]}>
               Grant Permission
@@ -126,6 +128,8 @@ export default function BarcodeScannerScreen() {
           <TouchableOpacity
             style={styles.cancelLink}
             onPress={() => navigation.goBack()}
+            accessibilityLabel="Cancel"
+            accessibilityRole="button"
           >
             <Text style={{ color: ds.colors.primary, fontSize: 16 }}>Cancel</Text>
           </TouchableOpacity>
@@ -187,6 +191,8 @@ export default function BarcodeScannerScreen() {
             style={styles.controlButton}
             onPress={() => setTorch(!torch)}
             activeOpacity={0.7}
+            accessibilityLabel={torch ? 'Turn flashlight off' : 'Turn flashlight on'}
+            accessibilityRole="button"
           >
             <View style={[styles.controlButtonInner, torch && styles.controlButtonActive]}>
               <MaterialCommunityIcons 
@@ -203,6 +209,8 @@ export default function BarcodeScannerScreen() {
             style={styles.cancelButton}
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
+            accessibilityLabel="Cancel scan"
+            accessibilityRole="button"
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -213,6 +221,8 @@ export default function BarcodeScannerScreen() {
               style={styles.controlButton}
               onPress={resetScanner}
               activeOpacity={0.7}
+              accessibilityLabel="Rescan barcode"
+              accessibilityRole="button"
             >
               <View style={styles.controlButtonInner}>
                 <MaterialCommunityIcons name="refresh" size={28} color="#FFF" />

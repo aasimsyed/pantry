@@ -75,7 +75,7 @@ function MainTabs() {
             <MaterialCommunityIcons name="home" size={size} color={color} />
           ),
           tabBarButton: (props) => (
-            <TouchableOpacity {...props} testID="tab-home" accessibilityLabel="Home" />
+            <TouchableOpacity {...props} testID="tab-home" accessibilityLabel="Home" accessibilityRole="tab" accessibilityHint="Switch to Home tab" />
           ),
         }}
       />
@@ -87,7 +87,7 @@ function MainTabs() {
             <MaterialCommunityIcons name="package-variant" size={size} color={color} />
           ),
           tabBarButton: (props) => (
-            <TouchableOpacity {...props} testID="tab-inventory" accessibilityLabel="Inventory" />
+            <TouchableOpacity {...props} testID="tab-inventory" accessibilityLabel="Inventory" accessibilityRole="tab" accessibilityHint="Switch to Inventory tab" />
           ),
         }}
       />
@@ -99,7 +99,7 @@ function MainTabs() {
             <MaterialCommunityIcons name="chef-hat" size={size} color={color} />
           ),
           tabBarButton: (props) => (
-            <TouchableOpacity {...props} testID="tab-recipes" accessibilityLabel="Recipes" />
+            <TouchableOpacity {...props} testID="tab-recipes" accessibilityLabel="Recipes" accessibilityRole="tab" accessibilityHint="Switch to Recipes tab" />
           ),
         }}
       />
@@ -112,7 +112,7 @@ function MainTabs() {
             <MaterialCommunityIcons name="book-open-variant" size={size} color={color} />
           ),
           tabBarButton: (props) => (
-            <TouchableOpacity {...props} testID="tab-recipe-box" accessibilityLabel="Recipe Box" />
+            <TouchableOpacity {...props} testID="tab-recipe-box" accessibilityLabel="Recipe Box" accessibilityRole="tab" accessibilityHint="Switch to Recipe Box tab" />
           ),
         }}
       />
@@ -259,7 +259,7 @@ export default function AppNavigator() {
                 name="Legal"
                 component={LegalScreen}
                 options={({ route }) => ({
-                  // @ts-ignore
+                  // @ts-expect-error - tab param type
                   title: route.params?.type === 'terms' ? 'Terms of Service' : 'Privacy Policy',
                   headerShown: true,
                   headerStyle: { backgroundColor: ds.colors.surface },

@@ -216,6 +216,8 @@ export default function ResetPasswordScreen() {
                 mode="outlined"
                 style={styles.input}
                 left={<TextInput.Icon icon="lock-outline" />}
+                accessibilityLabel="New password"
+                accessibilityRole="none"
               />
 
               <TextInput
@@ -230,12 +232,16 @@ export default function ResetPasswordScreen() {
                 autoComplete="password-new"
                 mode="outlined"
                 style={styles.input}
+                accessibilityLabel="Confirm password"
+                accessibilityRole="none"
                 left={<TextInput.Icon icon="lock-check-outline" />}
               />
 
               <PremiumButton
                 mode="contained"
                 onPress={handleSubmit}
+                accessibilityLabel="Reset password"
+                accessibilityRole="button"
                 loading={loading}
                 disabled={loading}
                 style={styles.button}

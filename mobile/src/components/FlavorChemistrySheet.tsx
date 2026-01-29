@@ -69,7 +69,7 @@ export function FlavorChemistrySheet({
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
-        <TouchableWithoutFeedback onPress={onDismiss}>
+        <TouchableWithoutFeedback onPress={onDismiss} accessibilityLabel="Dismiss sheet" accessibilityRole="button">
           <View style={styles.dismissArea} />
         </TouchableWithoutFeedback>
         <View
@@ -132,11 +132,14 @@ export function FlavorChemistrySheet({
                       { backgroundColor: ds.colors.surfaceHover },
                     ]}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Close"
+                    accessibilityRole="button"
                   >
                     <MaterialCommunityIcons
                       name="close"
                       size={20}
                       color={ds.colors.textSecondary}
+                      accessibilityElementsHidden
                     />
                   </TouchableOpacity>
                 </View>

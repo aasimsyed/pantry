@@ -128,6 +128,8 @@ export default function RegisterScreen() {
               mode="outlined"
               style={styles.input}
               left={<TextInput.Icon icon="account-outline" />}
+              accessibilityLabel="Full name"
+              accessibilityRole="none"
             />
 
             <TextInput
@@ -147,6 +149,8 @@ export default function RegisterScreen() {
               style={styles.input}
               error={errorType === 'email'}
               left={<TextInput.Icon icon="email-outline" />}
+              accessibilityLabel="Email"
+              accessibilityRole="none"
             />
             {errorType === 'email' && error && (
               <View style={styles.errorContainer}>
@@ -161,6 +165,8 @@ export default function RegisterScreen() {
                     style={styles.errorButton}
                     labelStyle={styles.errorButtonLabel}
                     compact
+                    accessibilityLabel="Sign in instead"
+                    accessibilityRole="button"
                   >
                     Sign in instead
                   </Button>
@@ -185,6 +191,8 @@ export default function RegisterScreen() {
               style={styles.input}
               error={errorType === 'password'}
               left={<TextInput.Icon icon="lock-outline" />}
+              accessibilityLabel="Password"
+              accessibilityRole="none"
             />
             <Text style={[styles.helperText, { color: ds.colors.textTertiary }]}>
               Must be at least 8 characters
@@ -205,6 +213,8 @@ export default function RegisterScreen() {
               loading={loading}
               disabled={loading}
               style={styles.button}
+              accessibilityLabel="Create account"
+              accessibilityRole="button"
             >
               Create Account
             </PremiumButton>
@@ -212,6 +222,8 @@ export default function RegisterScreen() {
             <Button
               testID="login-link"
               mode="text"
+              accessibilityLabel="Sign in"
+              accessibilityRole="button"
               onPress={() => navigation.navigate('Login')}
               style={styles.linkButton}
               labelStyle={styles.linkButtonLabel}

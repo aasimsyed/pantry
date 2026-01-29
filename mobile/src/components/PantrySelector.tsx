@@ -128,6 +128,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
           { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }
         ]}
         activeOpacity={0.6}
+        accessibilityLabel={selectedPantry ? `Pantry: ${selectedPantry.name}` : 'Select pantry'}
+        accessibilityRole="button"
       >
         <View style={styles.selectorContent}>
           <View style={styles.selectorText}>
@@ -173,6 +175,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                       }
                     ]}
                     activeOpacity={0.6}
+                    accessibilityLabel={`Select pantry ${pantry.name}`}
+                    accessibilityRole="button"
                   >
                     <View style={styles.pantryContent}>
                       <Text style={[styles.pantryName, { color: ds.colors.textPrimary }]}>
@@ -200,6 +204,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
                             handleDeletePantry(pantry);
                           }}
                           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          accessibilityLabel={`Delete pantry ${pantry.name}`}
+                          accessibilityRole="button"
                         >
                           <MaterialCommunityIcons 
                             name="delete-outline" 
@@ -222,6 +228,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="text"
               labelStyle={styles.dialogActionLabel}
               uppercase={false}
+              accessibilityLabel="Close pantry selector"
+              accessibilityRole="button"
             >
               Close
             </Button>
@@ -233,6 +241,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               }}
               mode="contained"
               style={{ elevation: 0 }}
+              accessibilityLabel="Create new pantry"
+              accessibilityRole="button"
             >
               New Pantry
             </PremiumButton>
@@ -244,7 +254,7 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
           onDismiss={() => setCreateDialogVisible(false)}
           style={styles.dialog}
         >
-          <Dialog.Title style={styles.dialogTitle}>Create New Pantry</Dialog.Title>
+          <Dialog.Title style={styles.dialogTitle} accessibilityRole="header" accessibilityLabel="Create New Pantry">Create New Pantry</Dialog.Title>
           <Dialog.Content>
             <TextInput
               testID="pantry-create-name"
@@ -254,6 +264,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               style={styles.input}
               placeholder="e.g., Home, Office"
               mode="outlined"
+              accessibilityLabel="Pantry name"
+              accessibilityRole="none"
             />
             <TextInput
               testID="pantry-create-description"
@@ -263,6 +275,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               style={styles.input}
               placeholder="Optional description"
               mode="outlined"
+              accessibilityLabel="Pantry description"
+              accessibilityRole="none"
             />
             <TextInput
               testID="pantry-create-location"
@@ -272,6 +286,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               style={styles.input}
               placeholder="Optional address/location"
               mode="outlined"
+              accessibilityLabel="Pantry location"
+              accessibilityRole="none"
             />
           </Dialog.Content>
           <Dialog.Actions style={styles.dialogActions}>
@@ -281,6 +297,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               mode="text"
               labelStyle={styles.dialogActionLabel}
               uppercase={false}
+              accessibilityLabel="Cancel create pantry"
+              accessibilityRole="button"
             >
               Cancel
             </Button>
@@ -290,6 +308,8 @@ export const PantrySelector: React.FC<PantrySelectorProps> = ({
               disabled={!newPantryName.trim()}
               mode="contained"
               style={{ elevation: 0 }}
+              accessibilityLabel="Create pantry"
+              accessibilityRole="button"
             >
               Create
             </PremiumButton>

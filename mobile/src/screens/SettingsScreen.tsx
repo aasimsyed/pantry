@@ -435,6 +435,8 @@ export default function SettingsScreen() {
                     borderColor: themeMode === 'light' ? ds.colors.primary : 'transparent',
                   }
                 ]}
+                accessibilityLabel="Light theme"
+                accessibilityRole="button"
               >
                 <MaterialCommunityIcons 
                   name="weather-sunny" 
@@ -461,6 +463,8 @@ export default function SettingsScreen() {
                     borderColor: themeMode === 'system' ? ds.colors.primary : 'transparent',
                   }
                 ]}
+                accessibilityLabel="System theme"
+                accessibilityRole="button"
               >
                 <MaterialCommunityIcons 
                   name="cellphone" 
@@ -487,6 +491,8 @@ export default function SettingsScreen() {
                     borderColor: themeMode === 'dark' ? ds.colors.primary : 'transparent',
                   }
                 ]}
+                accessibilityLabel="Dark theme"
+                accessibilityRole="button"
               >
                 <MaterialCommunityIcons 
                   name="weather-night" 
@@ -640,6 +646,8 @@ export default function SettingsScreen() {
                       setShowRecoveryForm(true);
                     }}
                     style={styles.saveButton}
+                    accessibilityLabel={recoveryData.user_question_ids.length >= 2 ? 'Update recovery questions' : 'Set recovery questions'}
+                    accessibilityRole="button"
                   >
                     {recoveryData.user_question_ids.length >= 2 ? 'Update recovery questions' : 'Set recovery questions'}
                   </Button>
@@ -654,7 +662,7 @@ export default function SettingsScreen() {
                           visible={recoveryMenuVisible === idx}
                           onDismiss={() => setRecoveryMenuVisible(null)}
                           anchor={
-                            <Button mode="outlined" onPress={() => setRecoveryMenuVisible(idx)} style={{ marginBottom: 6 }}>
+                            <Button mode="outlined" onPress={() => setRecoveryMenuVisible(idx)} style={{ marginBottom: 6 }} accessibilityLabel={`Question ${idx + 1}: ${recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}`} accessibilityRole="button">
                               {recoveryData.all_questions.find((q) => q.id === recoveryForm[idx].question_id)?.text ?? 'Pick question'}
                             </Button>
                           }

@@ -41,7 +41,8 @@
     "test:e2e:statistics": "maestro test .maestro/statistics.yml",
     "test:e2e:statistics:expo": "maestro test .maestro/statistics-expo-go.yml",
     "test:e2e:expiring": "maestro test .maestro/expiring.yml",
-    "test:e2e:expiring:expo": "maestro test .maestro/expiring-expo-go.yml"
+    "test:e2e:expiring:expo": "maestro test .maestro/expiring-expo-go.yml",
+    "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -71,6 +72,10 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react-native-a11y": "^3.5.1",
     "typescript": "~5.9.2"
   },
   "private": true

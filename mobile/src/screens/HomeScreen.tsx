@@ -102,6 +102,8 @@ export default function HomeScreen() {
                 ]}
                 onPress={() => navigation.navigate(action.screen as never)}
                 activeOpacity={0.6}
+                accessibilityLabel={action.title}
+                accessibilityRole="button"
               >
                 <View style={[styles.actionIcon, layout.isTablet && styles.actionIconTablet]}>
                   <MaterialCommunityIcons 
@@ -185,6 +187,8 @@ export default function HomeScreen() {
                 onPress={handleLogout}
                 style={styles.logoutButton}
                 activeOpacity={0.6}
+                accessibilityLabel="Sign out"
+                accessibilityRole="button"
               >
                 <Text style={[styles.logoutText, layout.isTablet && styles.logoutTextTablet, { color: ds.colors.textSecondary }]}>
                   Sign Out

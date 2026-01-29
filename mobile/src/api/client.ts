@@ -707,7 +707,7 @@ class APIClient {
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : 'image/jpeg';
     
-    // @ts-ignore - React Native FormData format
+    // @ts-expect-error - React Native FormData format
     formData.append('file', {
       uri,
       type,

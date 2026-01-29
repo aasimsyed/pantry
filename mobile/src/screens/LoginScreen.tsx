@@ -150,6 +150,8 @@ export default function LoginScreen() {
               mode="outlined"
               style={styles.input}
               left={<TextInput.Icon icon="email-outline" />}
+              accessibilityLabel="Email"
+              accessibilityRole="none"
             />
 
             <TextInput
@@ -166,6 +168,8 @@ export default function LoginScreen() {
               mode="outlined"
               style={styles.input}
               left={<TextInput.Icon icon="lock-outline" />}
+              accessibilityLabel="Password"
+              accessibilityRole="none"
             />
 
             {biometricCtaVisible && (

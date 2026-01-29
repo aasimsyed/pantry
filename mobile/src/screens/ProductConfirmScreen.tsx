@@ -127,6 +127,9 @@ export default function ProductConfirmScreen() {
                 source={{ uri: product.image_url }}
                 style={styles.productImage}
                 resizeMode="contain"
+                accessibilityLabel={product?.product_name ?? 'Product image'}
+                accessibilityRole="image"
+                accessibilityIgnoresInvertColors
               />
             </View>
           )}

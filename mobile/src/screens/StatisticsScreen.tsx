@@ -210,6 +210,8 @@ export default function StatisticsScreen() {
           <TouchableOpacity 
             style={[styles.timelineRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
             onPress={() => navigation.navigate('Inventory' as never)}
+            accessibilityLabel={`Expiring tomorrow: ${stats.expiring_tomorrow} items`}
+            accessibilityRole="button"
           >
             <View style={styles.timelineLeft}>
               <View style={[styles.timelineDot, { backgroundColor: ds.colors.error }]} />
@@ -226,6 +228,8 @@ export default function StatisticsScreen() {
           <TouchableOpacity 
             style={[styles.timelineRow, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}
             onPress={() => navigation.navigate('Inventory' as never)}
+            accessibilityLabel={`Expiring this week: ${stats.expiring_this_week} items`}
+            accessibilityRole="button"
           >
             <View style={styles.timelineLeft}>
               <View style={[styles.timelineDot, { backgroundColor: ds.colors.warning }]} />
@@ -242,6 +246,8 @@ export default function StatisticsScreen() {
           <TouchableOpacity 
             style={styles.timelineRow}
             onPress={() => navigation.navigate('Inventory' as never)}
+            accessibilityLabel={`Expiring this month: ${stats.expiring_this_month} items`}
+            accessibilityRole="button"
           >
             <View style={styles.timelineLeft}>
               <View style={[styles.timelineDot, { backgroundColor: '#F59E0B' }]} />

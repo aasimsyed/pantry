@@ -47,6 +47,9 @@ export const InstacartLogo: React.FC<InstacartLogoProps> = ({
           },
         ]}
         resizeMode="contain"
+        accessibilityLabel="Instacart"
+        accessibilityRole="image"
+        accessibilityIgnoresInvertColors
       />
     </View>
   );

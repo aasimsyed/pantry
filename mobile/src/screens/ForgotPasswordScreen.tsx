@@ -210,6 +210,8 @@ export default function ForgotPasswordScreen() {
                           style={styles.input}
                           autoCapitalize="none"
                           autoCorrect={false}
+                          accessibilityLabel={q.text}
+                          accessibilityRole="none"
                         />
                       </View>
                     ))}
@@ -250,6 +252,9 @@ export default function ForgotPasswordScreen() {
                       source={{ uri: `data:image/png;base64,${qrImageBase64}` }}
                       style={styles.qrImage}
                       resizeMode="contain"
+                      accessibilityLabel="Authenticator QR code"
+                      accessibilityRole="image"
+                      accessibilityIgnoresInvertColors
                     />
                   </View>
                 ) : null}
@@ -260,6 +265,8 @@ export default function ForgotPasswordScreen() {
                       onPress={() => Linking.openURL(totpUri)}
                       style={styles.openAuthenticatorButton}
                       icon="cellphone-key"
+                      accessibilityLabel="Open in Authenticator app"
+                      accessibilityRole="button"
                     >
                       Open in Authenticator app (same device)
                     </Button>
@@ -288,6 +295,8 @@ export default function ForgotPasswordScreen() {
                     disabled={verifyLoading}
                     style={styles.linkButton}
                     labelStyle={styles.linkButtonLabel}
+                    accessibilityLabel="Show QR code again"
+                    accessibilityRole="button"
                   >
                     Show QR code again (e.g. new device)
                   </Button>
@@ -310,6 +319,8 @@ export default function ForgotPasswordScreen() {
                   mode="outlined"
                   style={styles.input}
                   left={<TextInput.Icon icon="numeric" />}
+                  accessibilityLabel="6-digit authenticator code"
+                  accessibilityRole="none"
                 />
                 <PremiumButton
                   mode="contained"
@@ -390,6 +401,8 @@ export default function ForgotPasswordScreen() {
                 autoFocus
                 mode="outlined"
                 style={styles.input}
+                accessibilityLabel="Email"
+                accessibilityRole="none"
                 left={<TextInput.Icon icon="email-outline" />}
               />
 

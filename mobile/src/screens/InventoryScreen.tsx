@@ -387,6 +387,8 @@ export default function InventoryScreen() {
           ]}
           onPress={() => handleEditItem(item)}
           activeOpacity={0.6}
+          accessibilityLabel={`Edit ${displayName}`}
+          accessibilityRole="button"
         >
           <View style={styles.itemMain}>
             <View style={styles.itemContent}>
@@ -432,6 +434,8 @@ export default function InventoryScreen() {
                 }}
                 style={styles.itemActionButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel={`Delete ${displayName}`}
+                accessibilityRole="button"
               >
                 <MaterialCommunityIcons name="delete-outline" size={22} color={ds.colors.textTertiary} style={{ opacity: 0.6 }} />
               </TouchableOpacity>
@@ -460,8 +464,8 @@ export default function InventoryScreen() {
             underlineColorAndroid="transparent"
           />
           {searchQuery !== '' && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <MaterialCommunityIcons name="close-circle" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Clear search" accessibilityRole="button">
+              <MaterialCommunityIcons name="close-circle" size={20} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} accessibilityElementsHidden />
             </TouchableOpacity>
           )}
         </View>
@@ -479,6 +483,8 @@ export default function InventoryScreen() {
                     locationFilter === loc ? ds.colors.textPrimary : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
                 },
               ]}
+              accessibilityLabel={`Filter by ${loc}`}
+              accessibilityRole="button"
             >
               <Text
                 style={[
@@ -504,6 +510,8 @@ export default function InventoryScreen() {
               },
             ]}
             activeOpacity={0.7}
+            accessibilityLabel={`Shop low stock on Instacart (${items.filter((i) => i.status === 'low').length} items)`}
+            accessibilityRole="button"
           >
             {instacartLoading ? (
               <ActivityIndicator size="small" color={INSTACART_GREEN} />
@@ -640,6 +648,8 @@ export default function InventoryScreen() {
                       : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                   }
                 ]}
+                accessibilityLabel="Storage: Pantry"
+                accessibilityRole="button"
               >
                 <Text style={[
                   styles.locationOptionText,
@@ -659,6 +669,8 @@ export default function InventoryScreen() {
                       : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                   }
                 ]}
+                accessibilityLabel="Storage: Fridge"
+                accessibilityRole="button"
               >
                 <Text style={[
                   styles.locationOptionText,
@@ -678,6 +690,8 @@ export default function InventoryScreen() {
                       : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                   }
                 ]}
+                accessibilityLabel="Storage: Freezer"
+                accessibilityRole="button"
               >
                 <Text style={[
                   styles.locationOptionText,
@@ -697,6 +711,8 @@ export default function InventoryScreen() {
               labelStyle={styles.dialogActionLabel}
               contentStyle={styles.dialogActionContent}
               uppercase={false}
+              accessibilityLabel="Take photo"
+              accessibilityRole="button"
             >
               Take Photo
             </Button>
@@ -708,12 +724,16 @@ export default function InventoryScreen() {
               labelStyle={styles.dialogActionLabel}
               contentStyle={styles.dialogActionContent}
               uppercase={false}
+              accessibilityLabel="Choose from library"
+              accessibilityRole="button"
             >
               Choose from Library
             </Button>
             <Button
               testID="add-item-manual-entry"
               mode="text"
+              accessibilityLabel="Add item manually"
+              accessibilityRole="button"
               onPress={() => {
                 setDialogVisible(false);
                 setManualEntryDialogVisible(true);
@@ -798,7 +818,7 @@ export default function InventoryScreen() {
                 visible={manualUnitMenuVisible}
                 onDismiss={() => setManualUnitMenuVisible(false)}
                 anchor={
-                  <Pressable onPress={() => setManualUnitMenuVisible(true)}>
+                  <Pressable onPress={() => setManualUnitMenuVisible(true)} accessibilityLabel="Unit" accessibilityRole="button">
                     <TextInput
                       label="Unit"
                       value={cookingUnits.find(u => u.value === manualEntryFormData.unit)?.label || manualEntryFormData.unit}
@@ -807,6 +827,8 @@ export default function InventoryScreen() {
                       right={<TextInput.Icon icon="menu-down" />}
                       editable={false}
                       pointerEvents="none"
+                      accessibilityLabel="Unit"
+                      accessibilityRole="none"
                     />
                   </Pressable>
                 }
@@ -852,6 +874,8 @@ export default function InventoryScreen() {
                               : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                           }
                         ]}
+                        accessibilityLabel={`Storage: ${label}`}
+                        accessibilityRole="button"
                       >
                         <Text style={[
                           styles.optionButtonText,
@@ -882,6 +906,8 @@ export default function InventoryScreen() {
                             : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
                         }
                       ]}
+                      accessibilityLabel={stat === 'in_stock' ? 'Status: In stock' : 'Status: Low stock'}
+                      accessibilityRole="button"
                     >
                       <Text style={[
                         styles.optionButtonText,

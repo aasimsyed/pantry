@@ -245,7 +245,7 @@ export default function LegalScreen() {
   const { isDark } = useTheme();
   const ds = getDesignSystem(isDark);
   
-  // @ts-ignore - route params
+  // @ts-expect-error - route params
   const docType: LegalDocType = route.params?.type || 'privacy';
   
   const content = docType === 'privacy' ? PRIVACY_POLICY : TERMS_OF_SERVICE;
