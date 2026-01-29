@@ -59,11 +59,13 @@ rm -rf "$EXPORT_PATH"
 # Bundle ID for provisioningProfiles key
 BUNDLE_ID="com.aasimsyed.smartpantry"
 
-# Build ExportOptions.plist: app-store-connect + manual signing + provisioningProfiles when profile UUID set (CI)
+# Build ExportOptions.plist: manual signing + provisioningProfiles (profile NAME for export, per Apple Developer Portal)
+# Export expects profile name (as in portal), not UUID; archive step can use UUID via PROVISIONING_PROFILE_SPECIFIER.
 rm -f /tmp/ExportOptions.plist
-/usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :method string app-store-connect" -c "Add :teamID string K5A25879TB" -c "Add :uploadSymbols bool true"
-if [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ]; then
-  /usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :signingStyle string manual" -c "Add :provisioningProfiles dict" -c "Add :provisioningProfiles:${BUNDLE_ID} string $PROVISIONING_PROFILE_SPECIFIER"
+/usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :method string app-store" -c "Add :teamID string K5A25879TB" -c "Add :uploadSymbols bool true"
+if [ -n "${PROVISIONING_PROFILE_NAME:-}" ] || [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ]; then
+  PROFILE_VALUE="${PROVISIONING_PROFILE_NAME:-$PROVISIONING_PROFILE_SPECIFIER}"
+  /usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :signingStyle string manual" -c "Add :provisioningProfiles dict" -c "Add :provisioningProfiles:${BUNDLE_ID} string $PROFILE_VALUE"
 else
   /usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :signingStyle string automatic"
 fi
