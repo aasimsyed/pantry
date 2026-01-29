@@ -10,9 +10,7 @@ import type {
   RecentRecipe,
   SavedRecipe,
   Statistics,
-  SourceDirectory,
   ProcessImageResult,
-  RefreshInventoryResult,
   TokenResponse,
   RegisterRequest,
   LoginRequest,
@@ -670,6 +668,10 @@ class APIClient {
       cuisine?: string;
       difficulty?: string;
       dietary_restrictions?: string[];
+      meal_type?: string[];
+      recipe_type?: string[];
+      cooking_method?: string[];
+      user_preference?: string;
       avoid_names?: string[];
       allow_missing_ingredients?: boolean;
       pantry_id?: number;
@@ -683,6 +685,10 @@ class APIClient {
     if (options.cuisine) data.cuisine = options.cuisine;
     if (options.difficulty) data.difficulty = options.difficulty;
     if (options.dietary_restrictions) data.dietary_restrictions = options.dietary_restrictions;
+    if (options.meal_type?.length) data.meal_type = options.meal_type;
+    if (options.recipe_type?.length) data.recipe_type = options.recipe_type;
+    if (options.cooking_method?.length) data.cooking_method = options.cooking_method;
+    if (options.user_preference?.trim()) data.user_preference = options.user_preference.trim();
     if (options.avoid_names) data.avoid_names = options.avoid_names;
     if (options.pantry_id) data.pantry_id = options.pantry_id;
 

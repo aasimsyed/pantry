@@ -44,6 +44,40 @@ function BreathingDot({ color }: { color: string }) {
   return <Animated.View style={[styles.breathingDot, { backgroundColor: color, opacity }]} />;
 }
 
+/** Parse user preference text for count override and ingredient hints (e.g. "give me 2 recipes with cauliflower" → count 2, ingredients ["cauliflower"]). */
+function parseUserPreference(preference: string): { countOverride?: number; ingredientsFromPreference: string[] } {
+  const trimmed = preference.trim();
+  if (!trimmed) return { ingredientsFromPreference: [] };
+
+  let countOverride: number | undefined;
+  const countMatch =
+    trimmed.match(/\b(\d+)\s*recipes?\b/i) ??
+    trimmed.match(/\brecipes?\s*(\d+)\b/i) ??
+    trimmed.match(/\b(?:give me|I want|want)\s+(\d+)\b/i) ??
+    trimmed.match(/\b(\d+)\s+(?:recipes?|with)\b/i);
+  if (countMatch) {
+    const n = parseInt(countMatch[1], 10);
+    if (n >= 1 && n <= 20) countOverride = n;
+  }
+
+  const rawIngredients: string[] = [];
+  const phraseRe = /(?:with|that have|containing|using)\s+([^.,]+?)(?=\s+recipes?|\s*$|\.|,|$)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = phraseRe.exec(trimmed)) !== null) {
+    const after = m[1].trim();
+    const parts = after.split(/\s+and\s+|\s*,\s*/).map((p) => p.trim().toLowerCase()).filter((p) => p.length >= 2 && p !== 'recipes');
+    rawIngredients.push(...parts);
+  }
+  const seen = new Set<string>();
+  const ingredientsFromPreference = rawIngredients.filter((ing) => {
+    const key = ing.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { countOverride, ingredientsFromPreference };
+}
+
 export default function RecipesScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
@@ -56,6 +90,7 @@ export default function RecipesScreen() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [generating, setGenerating] = useState(false);
   const [cancelRequested, setCancelRequested] = useState(false);
+  const [generationCount, setGenerationCount] = useState(5); // effective count for "x of y" during generation
   const [numRecipes, setNumRecipes] = useState(5);
   const [numRecipesText, setNumRecipesText] = useState('5');
   const [requiredIngredients, setRequiredIngredients] = useState<string[]>([]);
@@ -64,6 +99,10 @@ export default function RecipesScreen() {
   const [cuisine, setCuisine] = useState('');
   const [difficulty, setDifficulty] = useState('');
   const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
+  const [mealType, setMealType] = useState<string[]>([]);
+  const [recipeType, setRecipeType] = useState<string[]>([]);
+  const [cookingMethod, setCookingMethod] = useState<string[]>([]);
+  const [userPreference, setUserPreference] = useState('');
   const [cuisineMenuVisible, setCuisineMenuVisible] = useState(false);
   const [difficultyMenuVisible, setDifficultyMenuVisible] = useState(false);
   const [requiredIngredientsDialogVisible, setRequiredIngredientsDialogVisible] = useState(false);
@@ -192,10 +231,20 @@ export default function RecipesScreen() {
       cancelRequestedRef.current = false;
       setRecipes([]);
 
+      const { countOverride, ingredientsFromPreference } = parseUserPreference(userPreference);
+      const effectiveNumRecipes = countOverride ?? numRecipes;
+      setGenerationCount(effectiveNumRecipes);
+      const effectiveRequired = [...requiredIngredients];
+      for (const ing of ingredientsFromPreference) {
+        if (!effectiveRequired.some((r) => r.toLowerCase() === ing)) {
+          effectiveRequired.push(ing);
+        }
+      }
+
       const newRecipes: Recipe[] = [];
       const avoidNames: string[] = [];
 
-      for (let i = 0; i < numRecipes; i++) {
+      for (let i = 0; i < effectiveNumRecipes; i++) {
         // Check if cancel was requested using ref
         if (cancelRequestedRef.current) {
           console.log('Recipe generation cancelled by user');
@@ -203,11 +252,15 @@ export default function RecipesScreen() {
         }
 
         const recipe = await apiClient.generateSingleRecipe({
-          required_ingredients: requiredIngredients.length > 0 ? requiredIngredients : undefined,
+          required_ingredients: effectiveRequired.length > 0 ? effectiveRequired : undefined,
           excluded_ingredients: excludedIngredients.length > 0 ? excludedIngredients : undefined,
           cuisine: cuisine || undefined,
           difficulty: difficulty ? difficulty.toLowerCase() : undefined,
           dietary_restrictions: dietaryRestrictions.length > 0 ? dietaryRestrictions : undefined,
+          meal_type: mealType.length > 0 ? mealType : undefined,
+          recipe_type: recipeType.length > 0 ? recipeType : undefined,
+          cooking_method: cookingMethod.length > 0 ? cookingMethod : undefined,
+          user_preference: userPreference.trim() || undefined,
           avoid_names: avoidNames,
           allow_missing_ingredients: allowMissing,
           pantry_id: selectedPantryId,
@@ -513,6 +566,23 @@ export default function RecipesScreen() {
           </TouchableOpacity>
 
           <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>
+              WHAT ARE YOU IN THE MOOD FOR?
+            </Text>
+            <RNTextInput
+              testID="user-preference-input"
+              value={userPreference}
+              onChangeText={setUserPreference}
+              style={[styles.textInput, { color: ds.colors.textPrimary, borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)' }]}
+              placeholder="e.g. recipes with cauliflower, quick weeknight dinner"
+              placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
+              underlineColorAndroid="transparent"
+              accessibilityLabel="What are you in the mood for"
+              accessibilityHint="Optional. Describe what you want, e.g. recipes with cauliflower"
+            />
+          </View>
+
+          <View style={styles.formField}>
             <Menu
               visible={cuisineMenuVisible}
               onDismiss={() => setCuisineMenuVisible(false)}
@@ -611,6 +681,144 @@ export default function RecipesScreen() {
                     dietaryRestrictions.includes(diet) && { fontWeight: '500' }
                   ]}>
                     {diet}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>
+              MEAL TYPE
+            </Text>
+            <View style={styles.optionPills}>
+              {[
+                { label: 'Breakfast', value: 'breakfast' },
+                { label: 'Lunch', value: 'lunch' },
+                { label: 'Dinner', value: 'dinner' },
+                { label: 'Snack', value: 'snack' },
+              ].map(({ label, value }) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => {
+                    if (mealType.includes(value)) {
+                      setMealType(mealType.filter((v) => v !== value));
+                    } else {
+                      setMealType([...mealType, value]);
+                    }
+                  }}
+                  accessibilityLabel={mealType.includes(value) ? `${label}, selected` : label}
+                  accessibilityHint={mealType.includes(value) ? 'Double tap to deselect' : 'Double tap to select'}
+                  accessibilityRole="button"
+                  style={[
+                    styles.optionPill,
+                    {
+                      borderColor: mealType.includes(value)
+                        ? ds.colors.textPrimary
+                        : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionPillText,
+                      { color: mealType.includes(value) ? ds.colors.textPrimary : ds.colors.textSecondary },
+                      mealType.includes(value) && { fontWeight: '500' },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>
+              RECIPE TYPE
+            </Text>
+            <View style={styles.optionPills}>
+              {[
+                { label: 'Entree', value: 'entree' },
+                { label: 'Side Dish', value: 'side-dish' },
+                { label: 'Snack', value: 'snack' },
+                { label: 'Beverage', value: 'beverage' },
+              ].map(({ label, value }) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => {
+                    if (recipeType.includes(value)) {
+                      setRecipeType(recipeType.filter((v) => v !== value));
+                    } else {
+                      setRecipeType([...recipeType, value]);
+                    }
+                  }}
+                  accessibilityLabel={recipeType.includes(value) ? `${label}, selected` : label}
+                  accessibilityHint={recipeType.includes(value) ? 'Double tap to deselect' : 'Double tap to select'}
+                  accessibilityRole="button"
+                  style={[
+                    styles.optionPill,
+                    {
+                      borderColor: recipeType.includes(value)
+                        ? ds.colors.textPrimary
+                        : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionPillText,
+                      { color: recipeType.includes(value) ? ds.colors.textPrimary : ds.colors.textSecondary },
+                      recipeType.includes(value) && { fontWeight: '500' },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.formField}>
+            <Text style={[styles.fieldLabel, { color: ds.colors.textTertiary }]}>
+              COOKING METHOD
+            </Text>
+            <View style={styles.optionPills}>
+              {[
+                { label: 'Grilled', value: 'grilled' },
+                { label: 'Baked', value: 'baked' },
+                { label: 'One-pot', value: 'one-pot' },
+                { label: 'Quick', value: 'quick' },
+              ].map(({ label, value }) => (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => {
+                    if (cookingMethod.includes(value)) {
+                      setCookingMethod(cookingMethod.filter((v) => v !== value));
+                    } else {
+                      setCookingMethod([...cookingMethod, value]);
+                    }
+                  }}
+                  accessibilityLabel={cookingMethod.includes(value) ? `${label}, selected` : label}
+                  accessibilityHint={cookingMethod.includes(value) ? 'Double tap to deselect' : 'Double tap to select'}
+                  accessibilityRole="button"
+                  style={[
+                    styles.optionPill,
+                    {
+                      borderColor: cookingMethod.includes(value)
+                        ? ds.colors.textPrimary
+                        : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionPillText,
+                      { color: cookingMethod.includes(value) ? ds.colors.textPrimary : ds.colors.textSecondary },
+                      cookingMethod.includes(value) && { fontWeight: '500' },
+                    ]}
+                  >
+                    {label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -1075,7 +1283,7 @@ export default function RecipesScreen() {
         <View style={[styles.liveSlotCard, { backgroundColor: ds.colors.surface, borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)' }]}>
           <View style={styles.liveSlotHeader}>
             <Text style={[styles.liveSlotTitle, { color: ds.colors.textPrimary }]}>
-              Recipe {recipes.length + 1} of {numRecipes}
+              Recipe {recipes.length + 1} of {generationCount}
             </Text>
             <TouchableOpacity
               onPress={handleCancelGeneration}

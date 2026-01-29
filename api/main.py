@@ -89,7 +89,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from api.utils import _SCHEMA_ERROR_MSG, detail_for_db_error, enrich_inventory_item
+from api.utils import (
+    _SCHEMA_ERROR_MSG,
+    best_pantry_match_for_required,
+    detail_for_db_error,
+    enrich_inventory_item,
+)
 
 # Optional Sentry error tracking (set SENTRY_DSN to enable)
 if config.sentry_dsn_stripped:
@@ -368,18 +373,6 @@ def generate_single_recipe(
                 detail="No available ingredients after applying exclusions.",
             )
 
-        # Verify required ingredients are available
-        if recipe_request.required_ingredients:
-            required_names = set(recipe_request.required_ingredients)
-            available_names = {item.product.product_name for item in filtered_items if item.product}
-            missing_required = required_names - available_names
-
-            if missing_required:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Required ingredients not available: {', '.join(missing_required)}",
-                )
-
         # Convert to format expected by RecipeGenerator
         pantry_items = []
         for item in filtered_items:
@@ -399,19 +392,34 @@ def generate_single_recipe(
             else:
                 ingredient_list.append(name)
 
-        # Extract required ingredient names (for prompt)
+        # Verify required ingredients are available (case-insensitive + substring match)
+        available_lower_to_name = {}
+        for item in filtered_items:
+            if item.product and item.product.product_name:
+                available_lower_to_name[item.product.product_name.lower()] = item.product.product_name
+
         required_ingredient_names = None
+        required_not_in_pantry: List[str] = []
         if recipe_request.required_ingredients:
             required_ingredient_names = []
-            for item in pantry_items:
-                product = item["product"]
-                name = product["product_name"]
-                if name in recipe_request.required_ingredients:
-                    brand = product.get("brand")
-                    if brand:
-                        required_ingredient_names.append(f"{brand} {name}")
-                    else:
-                        required_ingredient_names.append(name)
+            for req in recipe_request.required_ingredients:
+                req_stripped = req.strip()
+                req_lower = req_stripped.lower()
+                if not req_lower:
+                    continue
+                matched_name = best_pantry_match_for_required(req_lower, available_lower_to_name)
+                if matched_name:
+                    for item in pantry_items:
+                        product = item["product"]
+                        if product["product_name"] == matched_name:
+                            brand = product.get("brand")
+                            if brand:
+                                required_ingredient_names.append(f"{brand} {matched_name}")
+                            else:
+                                required_ingredient_names.append(matched_name)
+                            break
+                else:
+                    required_not_in_pantry.append(req_stripped)
 
         # Initialize AI analyzer with user's preferred model
         try:
@@ -454,8 +462,13 @@ def generate_single_recipe(
             cuisine=recipe_request.cuisine,
             difficulty=recipe_request.difficulty,
             dietary_restrictions=recipe_request.dietary_restrictions,
+            meal_type=recipe_request.meal_type,
+            recipe_type=recipe_request.recipe_type,
+            cooking_method=recipe_request.cooking_method,
+            user_preference=recipe_request.user_preference,
             avoid_previous=recipe_request.avoid_names or [],
             required_ingredients=required_ingredient_names,
+            required_ingredients_not_in_pantry=required_not_in_pantry or None,
             excluded_ingredients=recipe_request.excluded_ingredients,
             allow_missing_ingredients=recipe_request.allow_missing_ingredients,
         )
@@ -603,18 +616,6 @@ def generate_recipes(
                 detail="No available ingredients after applying exclusions.",
             )
 
-        # Verify required ingredients are available
-        if recipe_request.required_ingredients:
-            required_names = set(recipe_request.required_ingredients)
-            available_names = {item.product.product_name for item in filtered_items if item.product}
-            missing_required = required_names - available_names
-
-            if missing_required:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Required ingredients not available: {', '.join(missing_required)}",
-                )
-
         # Convert to format expected by RecipeGenerator
         pantry_items = []
         for item in filtered_items:
@@ -623,19 +624,34 @@ def generate_recipes(
 
             pantry_items.append({"product": {"product_name": product_name, "brand": brand}})
 
-        # Extract required ingredient names (for prompt)
+        # Verify required ingredients are available (case-insensitive match)
+        available_lower_to_name = {}
+        for item in filtered_items:
+            if item.product and item.product.product_name:
+                available_lower_to_name[item.product.product_name.lower()] = item.product.product_name
+
         required_ingredient_names = None
+        required_not_in_pantry_batch: List[str] = []
         if recipe_request.required_ingredients:
             required_ingredient_names = []
-            for item in pantry_items:
-                product = item["product"]
-                name = product["product_name"]
-                if name in recipe_request.required_ingredients:
-                    brand = product.get("brand")
-                    if brand:
-                        required_ingredient_names.append(f"{brand} {name}")
-                    else:
-                        required_ingredient_names.append(name)
+            for req in recipe_request.required_ingredients:
+                req_stripped = req.strip()
+                req_lower = req_stripped.lower()
+                if not req_lower:
+                    continue
+                matched_name = best_pantry_match_for_required(req_lower, available_lower_to_name)
+                if matched_name:
+                    for item in pantry_items:
+                        product = item["product"]
+                        if product["product_name"] == matched_name:
+                            brand = product.get("brand")
+                            if brand:
+                                required_ingredient_names.append(f"{brand} {matched_name}")
+                            else:
+                                required_ingredient_names.append(matched_name)
+                            break
+                else:
+                    required_not_in_pantry_batch.append(req_stripped)
 
         # Initialize AI analyzer with user's preferred model
         try:
@@ -683,7 +699,12 @@ def generate_recipes(
                 cuisine=recipe_request.cuisine,
                 difficulty=recipe_request.difficulty,
                 dietary_restrictions=recipe_request.dietary_restrictions,
+                meal_type=recipe_request.meal_type,
+                recipe_type=recipe_request.recipe_type,
+                cooking_method=recipe_request.cooking_method,
+                user_preference=recipe_request.user_preference,
                 required_ingredients=required_ingredient_names,
+                required_ingredients_not_in_pantry=required_not_in_pantry_batch or None,
                 excluded_ingredients=recipe_request.excluded_ingredients,
                 allow_missing_ingredients=recipe_request.allow_missing_ingredients,
             )
@@ -840,19 +861,6 @@ async def generate_recipes_stream(
                 yield f"data: {json.dumps({'error': 'No available ingredients after applying exclusions.'})}\n\n"
                 return
 
-            # Verify required ingredients are available
-            if recipe_request.required_ingredients:
-                required_names = set(recipe_request.required_ingredients)
-                available_names = {
-                    item.product.product_name for item in filtered_items if item.product
-                }
-                missing_required = required_names - available_names
-
-                if missing_required:
-                    missing_list = ", ".join(missing_required)
-                    yield f"data: {json.dumps({'error': f'Required ingredients not available: {missing_list}'})}\n\n"
-                    return
-
             # Convert to format expected by RecipeGenerator
             pantry_items = []
             for item in filtered_items:
@@ -861,19 +869,34 @@ async def generate_recipes_stream(
 
                 pantry_items.append({"product": {"product_name": product_name, "brand": brand}})
 
-            # Extract required ingredient names (for prompt)
+            # Verify required ingredients are available (case-insensitive + substring match)
+            available_lower_to_name = {}
+            for item in filtered_items:
+                if item.product and item.product.product_name:
+                    available_lower_to_name[item.product.product_name.lower()] = item.product.product_name
+
             required_ingredient_names = None
+            required_not_in_pantry_stream: List[str] = []
             if recipe_request.required_ingredients:
                 required_ingredient_names = []
-                for item in pantry_items:
-                    product = item["product"]
-                    name = product["product_name"]
-                    if name in recipe_request.required_ingredients:
-                        brand = product.get("brand")
-                        if brand:
-                            required_ingredient_names.append(f"{brand} {name}")
-                        else:
-                            required_ingredient_names.append(name)
+                for req in recipe_request.required_ingredients:
+                    req_stripped = req.strip()
+                    req_lower = req_stripped.lower()
+                    if not req_lower:
+                        continue
+                    matched_name = best_pantry_match_for_required(req_lower, available_lower_to_name)
+                    if matched_name:
+                        for item in pantry_items:
+                            product = item["product"]
+                            if product["product_name"] == matched_name:
+                                brand = product.get("brand")
+                                if brand:
+                                    required_ingredient_names.append(f"{brand} {matched_name}")
+                                else:
+                                    required_ingredient_names.append(matched_name)
+                                break
+                    else:
+                        required_not_in_pantry_stream.append(req_stripped)
 
             # Initialize AI analyzer with user's preferred model
             try:
@@ -922,7 +945,12 @@ async def generate_recipes_stream(
                 cuisine=recipe_request.cuisine,
                 difficulty=recipe_request.difficulty,
                 dietary_restrictions=recipe_request.dietary_restrictions,
+                meal_type=recipe_request.meal_type,
+                recipe_type=recipe_request.recipe_type,
+                cooking_method=recipe_request.cooking_method,
+                user_preference=recipe_request.user_preference,
                 required_ingredients=required_ingredient_names,
+                required_ingredients_not_in_pantry=required_not_in_pantry_stream or None,
                 excluded_ingredients=recipe_request.excluded_ingredients,
                 allow_missing_ingredients=recipe_request.allow_missing_ingredients,
                 stream=True,  # Enable streaming

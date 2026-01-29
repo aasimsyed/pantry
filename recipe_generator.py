@@ -168,7 +168,12 @@ class RecipeGenerator:
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
         dietary_restrictions: Optional[List[str]] = None,
+        meal_type: Optional[List[str]] = None,
+        recipe_type: Optional[List[str]] = None,
+        cooking_method: Optional[List[str]] = None,
+        user_preference: Optional[str] = None,
         required_ingredients: Optional[List[str]] = None,
+        required_ingredients_not_in_pantry: Optional[List[str]] = None,
         excluded_ingredients: Optional[List[str]] = None,
         allow_missing_ingredients: bool = False,
         stream: bool = False,
@@ -181,6 +186,9 @@ class RecipeGenerator:
             cuisine: Cuisine type (italian, mexican, asian, etc.)
             difficulty: Difficulty level (easy, medium, hard)
             dietary_restrictions: List of dietary restrictions
+            meal_type: Meal type(s): breakfast, lunch, dinner, snack
+            recipe_type: Recipe type(s): entree, side-dish, snack, beverage
+            cooking_method: Cooking method(s): grilled, baked, one-pot, quick
             required_ingredients: Ingredients that must be included in recipes
             excluded_ingredients: Ingredients that must NOT be included in recipes
             allow_missing_ingredients: If True, allow recipes to include 2-4 ingredients not in pantry
@@ -218,6 +226,14 @@ class RecipeGenerator:
             print(f"📊 Difficulty: {difficulty}")
         if dietary_restrictions:
             print(f"🌱 Dietary: {', '.join(dietary_restrictions)}")
+        if meal_type:
+            print(f"🍽 Meal type: {', '.join(meal_type)}")
+        if recipe_type:
+            print(f"📋 Recipe type: {', '.join(recipe_type)}")
+        if cooking_method:
+            print(f"🔥 Cooking method: {', '.join(cooking_method)}")
+        if user_preference:
+            print(f"💬 User preference: {user_preference}")
         print(f"{'='*70}\n")
         
         recipes = []
@@ -269,8 +285,13 @@ class RecipeGenerator:
                     cuisine=cuisine,
                     difficulty=difficulty,
                     dietary_restrictions=dietary_restrictions,
+                    meal_type=meal_type,
+                    recipe_type=recipe_type,
+                    cooking_method=cooking_method,
+                    user_preference=user_preference,
                     avoid_previous=[r.get('name') for r in recipes],
                     required_ingredients=required_ingredients,
+                    required_ingredients_not_in_pantry=required_ingredients_not_in_pantry,
                     excluded_ingredients=excluded_ingredients,
                     allow_missing_ingredients=allow_missing_ingredients
                 )
@@ -304,23 +325,33 @@ class RecipeGenerator:
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
         dietary_restrictions: Optional[List[str]] = None,
+        meal_type: Optional[List[str]] = None,
+        recipe_type: Optional[List[str]] = None,
+        cooking_method: Optional[List[str]] = None,
+        user_preference: Optional[str] = None,
         avoid_previous: Optional[List[str]] = None,
         required_ingredients: Optional[List[str]] = None,
+        required_ingredients_not_in_pantry: Optional[List[str]] = None,
         excluded_ingredients: Optional[List[str]] = None,
         allow_missing_ingredients: bool = False,
     ) -> Dict:
         """Generate a single recipe using AI.
-        
+
         Args:
             ingredients: Available ingredients
             cuisine: Cuisine type
             difficulty: Difficulty level
             dietary_restrictions: Dietary restrictions
+            meal_type: Meal type(s): breakfast, lunch, dinner, snack
+            recipe_type: Recipe type(s): entree, side-dish, snack, beverage
+            cooking_method: Cooking method(s): grilled, baked, one-pot, quick
+            user_preference: Free-text hint (e.g. "recipes with cauliflower")
             avoid_previous: Recipe names to avoid (for variety)
-            required_ingredients: Ingredients that must be included in the recipe
+            required_ingredients: Ingredients (from pantry) that must be included
+            required_ingredients_not_in_pantry: Ingredients user requested that are not in pantry; must still appear in recipe
             excluded_ingredients: Ingredients that must NOT be included in the recipe
             allow_missing_ingredients: If True, allow recipes to include 2-4 ingredients not in pantry
-            
+
         Returns:
             Recipe dictionary
         """
@@ -330,8 +361,13 @@ class RecipeGenerator:
             cuisine,
             difficulty,
             dietary_restrictions,
+            meal_type,
+            recipe_type,
+            cooking_method,
+            user_preference,
             avoid_previous,
             required_ingredients,
+            required_ingredients_not_in_pantry,
             excluded_ingredients,
             allow_missing_ingredients
         )
@@ -851,8 +887,13 @@ class RecipeGenerator:
         cuisine: Optional[str] = None,
         difficulty: Optional[str] = None,
         dietary_restrictions: Optional[List[str]] = None,
+        meal_type: Optional[List[str]] = None,
+        recipe_type: Optional[List[str]] = None,
+        cooking_method: Optional[List[str]] = None,
+        user_preference: Optional[str] = None,
         avoid_previous: Optional[List[str]] = None,
         required_ingredients: Optional[List[str]] = None,
+        required_ingredients_not_in_pantry: Optional[List[str]] = None,
         excluded_ingredients: Optional[List[str]] = None,
         allow_missing_ingredients: bool = False,
     ) -> str:
@@ -933,9 +974,13 @@ AVAILABLE PANTRY INGREDIENTS:
             prompt += "CONSTRAINTS: Use ONLY listed ingredients (assume water, salt, pepper). Create complete, detailed recipe.\n\n"
         
         if required_ingredients:
-            prompt += f"REQUIRED INGREDIENTS (must include these, but can also use others):\n"
+            prompt += "REQUIRED INGREDIENTS (from pantry — must include in recipe):\n"
             prompt += f"{chr(10).join(f'- {ing}' for ing in required_ingredients)}\n\n"
-        
+        if required_ingredients_not_in_pantry:
+            prompt += (
+                "REQUIRED INGREDIENTS (not in pantry — must still include in recipe; list as missing ingredients to purchase, same as other missing ingredients):\n"
+                f"{chr(10).join(f'- {ing}' for ing in required_ingredients_not_in_pantry)}\n\n"
+            )
         if excluded_ingredients:
             prompt += f"EXCLUDED INGREDIENTS (must NOT use these):\n"
             prompt += f"{chr(10).join(f'- {ing}' for ing in excluded_ingredients)}\n\n"
@@ -956,6 +1001,15 @@ AVAILABLE PANTRY INGREDIENTS:
         
         if dietary_restrictions:
             prompt += f"- Dietary requirements: {', '.join(dietary_restrictions)}\n"
+        
+        if meal_type:
+            prompt += f"- Meal type(s): {', '.join(meal_type)}\n"
+        if recipe_type:
+            prompt += f"- Recipe type(s): {', '.join(recipe_type)} (e.g. entree, side dish, snack, beverage)\n"
+        if cooking_method:
+            prompt += f"- Cooking method(s): {', '.join(cooking_method)}\n"
+        if user_preference and user_preference.strip():
+            prompt += f"- User preference (prioritize this): {user_preference.strip()}\n"
         
         if avoid_previous:
             prompt += f"- DO NOT create these recipes (already made): {', '.join(avoid_previous)}\n"
