@@ -20,6 +20,7 @@ from api.models import (
     InventoryItemResponse,
     InventoryItemUpdate,
     MessageResponse,
+    ProcessFromTextRequest,
 )
 from api.utils import _SCHEMA_ERROR_MSG, detail_for_db_error, enrich_inventory_item
 from src.ai_analyzer import create_ai_analyzer
@@ -217,6 +218,7 @@ def process_single_image(
                 "message": f"Successfully processed {product_data.product_name}",
                 "item": result,
                 "confidence": {"ocr": ocr_confidence, "ai": ai_confidence, "combined": (ocr_confidence + ai_confidence) / 2},
+                "ocr_source": "cloud",
             }
         finally:
             if tmp_path and tmp_path.exists():
@@ -256,6 +258,109 @@ def process_single_image(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=detail_for_db_error(e, "Failed to process image. Please try again."),
         ) from e
+
+
+@router.post("/inventory/process-from-text", include_in_schema=True)
+@router.post("/inventory/process-from-text/", include_in_schema=False)
+@limiter.limit("10/minute")
+def process_from_text(
+    request: Request,
+    body: ProcessFromTextRequest,
+    current_user: User = Depends(get_current_user),
+    service: PantryService = Depends(get_pantry_service),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Process OCR text extracted on-device (e.g. ML Kit). Skips server-side OCR; runs AI extraction only."""
+    ip_address = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    if body.storage_location not in ("pantry", "fridge", "freezer"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="storage_location must be one of: pantry, fridge, freezer",
+        )
+    ocr_result = {"raw_text": body.raw_text.strip(), "confidence": 1.0}
+    try:
+        ai_analyzer = create_ai_analyzer()
+    except Exception as e:
+        logger.error("Failed to initialize AI analyzer: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI analyzer unavailable",
+        ) from e
+    try:
+        product_data = ai_analyzer.analyze_product(ocr_result)
+        ai_confidence = product_data.confidence
+    except Exception as e:
+        logger.error("AI analysis failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI analysis failed: {str(e)}",
+        ) from e
+    if not product_data.product_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not identify product from text. Try clearer text or use cloud OCR.",
+        )
+    product = service.add_product(
+        product_name=product_data.product_name,
+        brand=product_data.brand,
+        category=product_data.category or "Other",
+        subcategory=product_data.subcategory,
+    )
+    exp_date = None
+    if product_data.expiration_date:
+        try:
+            date_str = str(product_data.expiration_date).replace("Z", "+00:00")
+            exp_date = datetime.fromisoformat(date_str).date()
+        except (ValueError, AttributeError, TypeError):
+            exp_date = None
+    if body.pantry_id is not None:
+        pantry = service.get_pantry(body.pantry_id, current_user.id)
+        if not pantry:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pantry not found or access denied")
+        target_pantry_id = pantry.id
+    else:
+        default_pantry = service.get_or_create_default_pantry(current_user.id)
+        target_pantry_id = default_pantry.id
+    item = service.add_inventory_item(
+        product_id=product.id,
+        quantity=1.0,
+        unit="count",
+        storage_location=body.storage_location,
+        expiration_date=exp_date,
+        image_path="device-ocr",
+        notes="Processed from on-device OCR text",
+        user_id=current_user.id,
+        pantry_id=target_pantry_id,
+    )
+    service.add_processing_log(
+        image_path="device-ocr",
+        ocr_confidence=1.0,
+        ai_confidence=ai_confidence,
+        status="success" if ai_confidence >= 0.6 else "manual_review",
+        raw_ocr_data=ocr_result,
+        raw_ai_data=product_data.to_dict(),
+        inventory_item_id=item.id,
+    )
+    service.session.refresh(item)
+    result = enrich_inventory_item(item)
+    logger.info("Processed from device OCR: %s", product_data.product_name)
+    log_security_event(
+        db=db,
+        event_type="process_from_text_success",
+        user_id=current_user.id,
+        ip_address=ip_address,
+        details={"product_name": product_data.product_name, "ai_confidence": ai_confidence},
+        severity="info",
+        user_agent=user_agent,
+    )
+    return {
+        "success": True,
+        "message": f"Processed: {product_data.product_name}",
+        "item": result,
+        "confidence": {"ocr": 1.0, "ai": ai_confidence, "combined": (1.0 + ai_confidence) / 2},
+        "ocr_source": "device",
+    }
 
 
 @router.post("/inventory/refresh")

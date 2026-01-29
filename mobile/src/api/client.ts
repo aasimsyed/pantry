@@ -747,6 +747,28 @@ class APIClient {
     }
   }
 
+  /** Process OCR text extracted on-device (e.g. ML Kit). Same response shape as processImage. */
+  async processFromText(
+    rawText: string,
+    storageLocation: string = 'pantry',
+    pantryId?: number
+  ): Promise<ProcessImageResult> {
+    try {
+      const response = await this.client.post<ProcessImageResult>(
+        '/api/inventory/process-from-text',
+        { raw_text: rawText.trim(), storage_location: storageLocation, pantry_id: pantryId },
+        { timeout: 60000 }
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        const message = error.response.data?.detail || error.response.data?.message || 'Failed to process text';
+        throw new Error(message);
+      }
+      throw error;
+    }
+  }
+
   // Saved Recipes
   async saveRecipe(recipeData: Partial<SavedRecipe>): Promise<SavedRecipe> {
     return this.request<SavedRecipe>('POST', '/api/recipes/save', { data: recipeData });

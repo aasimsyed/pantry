@@ -216,10 +216,11 @@ try {
 ### Network Errors ("API request failed: Network Error")
 
 1. **Start the backend** (from project root): `./scripts/kill-and-restart-backend.sh`
-2. **Check API URL**: In dev, the app logs `[API] Base URL: ...` — confirm it matches your backend.
+2. **Check API URL**: In dev, the app logs `[API] Base URL: ...` — confirm it matches your backend (port **8000**, not 8081 — 8081 is Metro).
 3. **Physical device**: Use your Mac's IP, not `localhost`. Example: `EXPO_PUBLIC_API_URL=http://192.168.x.x:8000 ./run-local.sh`
-4. **iOS**: `app.json` includes `NSAllowsLocalNetworking` so HTTP to local IP works.
-5. **Clear cache** after changing API URL: `npx expo start --clear`
+4. **Development build** (`npx expo run:ios --device`): Set the API URL or the app uses **production** (Cloud Run). Example: `EXPO_PUBLIC_API_URL=http://$(ipconfig getifaddr en0):8000 npx expo run:ios --device`
+5. **iOS**: `app.json` includes `NSAllowsLocalNetworking` so HTTP to local IP works.
+6. **Clear cache** after changing API URL: `npx expo start --clear`
 
 ### View Detailed Errors
 

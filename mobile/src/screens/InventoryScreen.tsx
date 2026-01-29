@@ -22,6 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import apiClient from '../api/client';
+import { getUseCloudOcr, recognizeTextFromUri } from '../services/ocrService';
 import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { PremiumButton } from '../components/PremiumButton';
@@ -176,9 +177,21 @@ export default function InventoryScreen() {
     try {
       setProcessing(true);
       setDialogVisible(false);
-      const result = await apiClient.processImage(uri, photoStorageLocation, selectedPantryId);
+      const useCloudOcr = await getUseCloudOcr();
+      let result;
+      if (useCloudOcr) {
+        result = await apiClient.processImage(uri, photoStorageLocation, selectedPantryId);
+      } else {
+        const text = await recognizeTextFromUri(uri);
+        if (text) {
+          result = await apiClient.processFromText(text, photoStorageLocation, selectedPantryId);
+        } else {
+          result = await apiClient.processImage(uri, photoStorageLocation, selectedPantryId);
+        }
+      }
       if (result.success) {
-        Alert.alert('Success', `Processed: ${result.item.product_name || 'Unknown'}`);
+        const ocrHint = result.ocr_source === 'device' ? ' (read on device)' : result.ocr_source === 'cloud' ? ' (read on server)' : '';
+        Alert.alert('Success', `Processed: ${result.item.product_name || 'Unknown'}${ocrHint}`);
         await loadInventory();
       } else {
         Alert.alert('Error', 'Failed to process image');

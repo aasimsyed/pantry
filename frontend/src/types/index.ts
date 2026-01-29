@@ -139,6 +139,8 @@ export interface ProcessImageResult {
     ai: number;
     combined: number;
   };
+  /** 'device' = ML Kit on-device; 'cloud' = Google Vision on server */
+  ocr_source?: 'device' | 'cloud';
 }
 
 export interface RefreshInventoryResult {

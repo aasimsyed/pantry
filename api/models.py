@@ -112,6 +112,13 @@ class ConsumeRequest(BaseModel):
     quantity: Optional[float] = Field(None, gt=0, description="Quantity to consume (if partial)")
 
 
+class ProcessFromTextRequest(BaseModel):
+    """Request model for processing OCR text from device (e.g. ML Kit) without server-side OCR."""
+    raw_text: str = Field(..., min_length=1, description="Text extracted on-device from label/receipt image")
+    storage_location: str = Field(default="pantry", description="pantry, fridge, or freezer")
+    pantry_id: Optional[int] = Field(None, description="Pantry ID (optional)")
+
+
 # ============================================================================
 # Pantry Models
 # ============================================================================

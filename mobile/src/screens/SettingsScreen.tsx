@@ -17,6 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
+import { getUseCloudOcr, setUseCloudOcr } from '../services/ocrService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
@@ -63,6 +64,7 @@ export default function SettingsScreen() {
   const [recoveryMenuVisible, setRecoveryMenuVisible] = useState<0 | 1 | null>(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [useCloudOcr, setUseCloudOcrState] = useState(false);
   const ds = getDesignSystem(isDark);
 
   useEffect(() => {
@@ -94,12 +96,14 @@ export default function SettingsScreen() {
       setSettings(data);
       const recovery = await apiClient.getRecoveryQuestions().catch(() => null);
       if (recovery) setRecoveryData(recovery);
-      const [available, enabled] = await Promise.all([
+      const [available, enabled, cloudOcr] = await Promise.all([
         apiClient.isBiometricAvailable(),
         apiClient.getBiometricEnabled(),
+        getUseCloudOcr(),
       ]);
       setBiometricAvailable(available);
       setBiometricEnabled(enabled);
+      setUseCloudOcrState(cloudOcr);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to load settings');
     } finally {
@@ -331,7 +335,9 @@ export default function SettingsScreen() {
               <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
               <List.Item
                 title="Use Face ID / Touch ID"
+                titleNumberOfLines={2}
                 description={biometricEnabled ? 'On — you will be prompted when opening the app' : 'Off — sign in with email and password'}
+                descriptionNumberOfLines={3}
                 left={(props) => <List.Icon {...props} icon="fingerprint" color={ds.colors.primary} />}
                 right={() => (
                   <Switch
@@ -354,6 +360,46 @@ export default function SettingsScreen() {
             </Card.Content>
           </Card>
         )}
+
+        {/* Label scanning: ML Kit vs Cloud Vision */}
+        <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
+                <MaterialCommunityIcons name="camera-enhance" size={24} color={ds.colors.primary} />
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                  Label scanning
+                </Text>
+                <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                  How to read text from product labels
+                </Text>
+              </View>
+            </View>
+            <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+            <List.Item
+              title="Use cloud OCR (Google Vision)"
+              titleNumberOfLines={2}
+              description={useCloudOcr ? 'On — photos are sent to the server for OCR' : 'Off — text is read on-device (ML Kit); only text is sent'}
+              descriptionNumberOfLines={3}
+              left={(props) => <List.Icon {...props} icon="cloud-upload" color={ds.colors.primary} />}
+              right={() => (
+                <Switch
+                  value={useCloudOcr}
+                  onValueChange={async (value) => {
+                    await setUseCloudOcr(value);
+                    setUseCloudOcrState(value);
+                  }}
+                  color={ds.colors.primary}
+                />
+              )}
+              titleStyle={{ color: ds.colors.textPrimary }}
+              descriptionStyle={{ color: ds.colors.textSecondary }}
+              style={styles.listItem}
+            />
+          </Card.Content>
+        </Card>
 
         {/* Appearance Settings */}
         <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
@@ -744,7 +790,9 @@ export default function SettingsScreen() {
 
             <List.Item
               title="Privacy Policy"
+              titleNumberOfLines={2}
               description="How we handle your data"
+              descriptionNumberOfLines={2}
               left={(props) => <List.Icon {...props} icon="shield-lock" color={ds.colors.primary} />}
               right={(props) => <List.Icon {...props} icon="chevron-right" color={ds.colors.textTertiary} />}
               onPress={() => navigation.navigate('Legal' as never, { type: 'privacy' } as never)}
@@ -755,7 +803,9 @@ export default function SettingsScreen() {
 
             <List.Item
               title="Terms of Service"
+              titleNumberOfLines={2}
               description="Usage terms and conditions"
+              descriptionNumberOfLines={2}
               left={(props) => <List.Icon {...props} icon="file-document" color={ds.colors.primary} />}
               right={(props) => <List.Icon {...props} icon="chevron-right" color={ds.colors.textTertiary} />}
               onPress={() => navigation.navigate('Legal' as never, { type: 'terms' } as never)}
