@@ -10,6 +10,9 @@ cd "$(dirname "$0")"
 echo "🔧 Step 1: Running expo prebuild..."
 npx expo prebuild --platform ios --clean
 
+echo "🔧 Step 1b: Pod install..."
+(cd ios && pod install)
+
 WORKSPACE_PATH=$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)
 if [ -z "$WORKSPACE_PATH" ]; then
     echo "❌ No .xcworkspace found in ios/"
@@ -29,11 +32,17 @@ if [ -f "$PROJECT_PATH" ]; then
     sed -i '' 's/ENABLE_USER_SCRIPT_SANDBOXING = YES/ENABLE_USER_SCRIPT_SANDBOXING = NO/g' "$PROJECT_PATH" 2>/dev/null || true
 fi
 
+# Option C (SO): Only the .app should be in the archive; libs/frameworks must have Skip Install=YES
+# so Xcode produces an "app archive" not a "generic archive" (expected one of {}).
+echo "🔧 Step 2b: Skip Install=YES for Pods (so archive has only .app, not libs)..."
+find ios -name "project.pbxproj" -path "*/Pods/*" -exec sed -i '' 's/SKIP_INSTALL = NO/SKIP_INSTALL = YES/g' {} \; 2>/dev/null || true
+
 # Team: Aasim S Syed (K5A25879TB)
 echo "📦 Step 3: Building archive (workspace=$WORKSPACE_NAME, scheme=$SCHEME)..."
 ARCHIVE_PATH="$HOME/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/${WORKSPACE_NAME}-$(date +%H%M%S).xcarchive"
 mkdir -p "$(dirname "$ARCHIVE_PATH")"
 
+# Do not pass SKIP_INSTALL=NO (SO: can pull libs into archive → generic archive → expected one of {})
 ARCHIVE_ARGS=(
     -workspace "$WORKSPACE_PATH"
     -scheme "$SCHEME"
@@ -52,6 +61,15 @@ xcodebuild archive "${ARCHIVE_ARGS[@]}"
 
 echo "✅ Archive created: $ARCHIVE_PATH"
 
+# Option B: Inspect archive (Products/Applications + Info.plist) to verify app archive vs generic
+echo "--- Archive contents (Option B: verify app archive) ---"
+ls -la "$ARCHIVE_PATH/Products/Applications/" 2>/dev/null || echo "No Products/Applications"
+plutil -p "$ARCHIVE_PATH/Info.plist" 2>/dev/null | head -40 || true
+if [ -f "$ARCHIVE_PATH/Info.plist" ]; then
+  echo "ApplicationProperties: $(plutil -extract ApplicationProperties raw "$ARCHIVE_PATH/Info.plist" 2>/dev/null || echo 'missing')"
+fi
+echo "---"
+
 echo "📤 Step 4: Exporting for App Store..."
 EXPORT_PATH="/tmp/${WORKSPACE_NAME}-export"
 rm -rf "$EXPORT_PATH"
@@ -59,16 +77,17 @@ rm -rf "$EXPORT_PATH"
 # Bundle ID for provisioningProfiles key
 BUNDLE_ID="com.aasimsyed.smartpantry"
 
-# Build ExportOptions.plist: manual signing + provisioningProfiles (profile NAME for export, per Apple Developer Portal)
-# Export expects profile name (as in portal), not UUID; archive step can use UUID via PROVISIONING_PROFILE_SPECIFIER.
+# Build ExportOptions.plist: method app-store, manual + provisioningProfiles when set.
+# SO: some setups fail when teamID is in plist; we try without teamID first (add back if export fails for other reason).
 rm -f /tmp/ExportOptions.plist
-/usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :method string app-store" -c "Add :teamID string K5A25879TB" -c "Add :uploadSymbols bool true"
+/usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :method string app-store" -c "Add :uploadSymbols bool true"
 if [ -n "${PROVISIONING_PROFILE_NAME:-}" ] || [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ]; then
   PROFILE_VALUE="${PROVISIONING_PROFILE_NAME:-$PROVISIONING_PROFILE_SPECIFIER}"
   /usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :signingStyle string manual" -c "Add :provisioningProfiles dict" -c "Add :provisioningProfiles:${BUNDLE_ID} string $PROFILE_VALUE"
 else
   /usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :signingStyle string automatic"
 fi
+# SO: some xcodebuild versions fail when teamID is in plist; omit teamID unless export fails for other reason
 
 xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
