@@ -56,16 +56,14 @@ echo "📤 Step 4: Exporting for App Store..."
 EXPORT_PATH="/tmp/${WORKSPACE_NAME}-export"
 rm -rf "$EXPORT_PATH"
 
-# Create export options plist
+# Create export options plist (method: app-store for older Xcode on CI; app-store-connect is newer)
 cat > /tmp/ExportOptions.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>app-store-connect</string>
-    <key>destination</key>
-    <string>upload</string>
+    <string>app-store</string>
     <key>signingStyle</key>
     <string>automatic</string>
     <key>teamID</key>
