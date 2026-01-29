@@ -9,6 +9,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getDesignSystem } from '../utils/designSystem';
 import apiClient from '../api/client';
 
+/** Barcode types for product scanning. On iOS, omit barcodeScannerSettings to avoid AVCaptureSession crash (use defaults). */
+const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'] as const;
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.75;
 
@@ -29,6 +32,8 @@ export default function BarcodeScannerScreen() {
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [torch, setTorch] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [mountError, setMountError] = useState<string | null>(null);
   const lastScannedRef = useRef<string | null>(null);
 
   const { pantryId, storageLocation = 'pantry' } = route.params || {};
@@ -39,9 +44,23 @@ export default function BarcodeScannerScreen() {
     }
   }, [permission, requestPermission]);
 
-  const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
-    if (scanned || loading || data === lastScannedRef.current) return;
-    
+  // On iOS, delay mounting CameraView to avoid AVCaptureSession "startRunning between beginConfiguration and commitConfiguration" crash
+  useEffect(() => {
+    if (!permission?.granted) {
+      setCameraReady(false);
+      return;
+    }
+    if (Platform.OS === 'ios') {
+      const t = setTimeout(() => setCameraReady(true), 150);
+      return () => clearTimeout(t);
+    }
+    setCameraReady(true);
+  }, [permission?.granted]);
+
+  const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
+    const data = result?.data;
+    if (typeof data !== 'string' || !data.trim() || scanned || loading || data === lastScannedRef.current) return;
+
     lastScannedRef.current = data;
     setScanned(true);
     setLoading(true);
@@ -140,16 +159,62 @@ export default function BarcodeScannerScreen() {
     );
   }
 
+  // Camera mount error (e.g. iOS AVCaptureSession crash) — show message instead of crashing
+  if (mountError) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]}>
+        <View style={styles.center}>
+          <MaterialCommunityIcons name="camera-off" size={64} color={ds.colors.textSecondary} />
+          <Text style={[styles.permissionTitle, { color: ds.colors.textPrimary }]}>
+            Camera unavailable
+          </Text>
+          <Text style={[styles.permissionText, { color: ds.colors.textSecondary }]}>
+            {mountError}
+          </Text>
+          <TouchableOpacity
+            style={[styles.permissionButton, { backgroundColor: ds.colors.primary }]}
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back"
+            accessibilityHint="Double tap to exit and return to inventory"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.permissionButtonText, { color: ds.colors.textInverse }]}>
+              Go back
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Delay showing CameraView on iOS to avoid native session config race
+  if (!cameraReady) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={ds.colors.primary} />
+          <Text style={{ color: ds.colors.textPrimary, marginTop: 16 }}>
+            Starting camera...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // On iOS, omit barcodeScannerSettings to avoid "startRunning between beginConfiguration and commitConfiguration" crash; defaults still scan common types
+  const barcodeSettings = Platform.OS === 'ios'
+    ? undefined
+    : { barcodeTypes: [...BARCODE_TYPES] };
+
   return (
     <View style={styles.container}>
       <CameraView
         style={StyleSheet.absoluteFillObject}
         facing="back"
         enableTorch={torch}
-        barcodeScannerSettings={{
-          barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39'],
-        }}
+        barcodeScannerSettings={barcodeSettings}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onMountError={({ message }) => setMountError(message || 'Camera could not start')}
       />
       
       {/* Scan Frame Overlay */}

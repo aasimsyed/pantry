@@ -3,11 +3,12 @@ name: Build and Deploy iOS App
 # On push to main/master (when mobile changes): build with Xcode and upload to TestFlight.
 # Required GitHub secrets:
 #   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD — for altool upload
-#   Team: Aasim S Syed (K5A25879TB)
 #   BUILD_CERTIFICATE_BASE64 — .p12 (distribution) cert, base64-encoded
 #   P12_PASSWORD — password for the .p12
 #   BUILD_PROVISION_PROFILE_BASE64 — App Store provisioning profile, base64-encoded
 #   KEYCHAIN_PASSWORD — password for the temporary keychain (e.g. "secret")
+# Optional: EXPO_PUBLIC_SENTRY_DSN — Sentry DSN for crash reporting (mobile app)
+# Optional: SENTRY_AUTH_TOKEN — Sentry org auth token (for source map upload = readable stack traces)
 # See: https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications
 on:
   push:
@@ -93,6 +94,8 @@ jobs:
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"

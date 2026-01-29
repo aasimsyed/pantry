@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aasimsyed.smartpantry",
-      "buildNumber": "99",
+      "buildNumber": "100",
       "deploymentTarget": "15.5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -51,7 +51,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.aasimsyed.smartpantry",
-      "versionCode": 84,
+      "versionCode": 85,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -87,6 +87,14 @@
           "ios": {
             "deploymentTarget": "15.5"
           }
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "organization": "aasim-syed",
+          "project": "react-native"
         }
       ]
     ]
