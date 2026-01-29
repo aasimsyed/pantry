@@ -20,11 +20,24 @@ if [ -z "$WORKSPACE_PATH" ]; then
 fi
 WORKSPACE_NAME=$(basename "$WORKSPACE_PATH" .xcworkspace)
 
-# Scheme: use first scheme in workspace (prebuild scheme name matches workspace, not app.json slug)
+# Scheme: must be the APP scheme (builds .app), not a lib like EXConstants. Exclude Pod/dependency schemes.
 if command -v jq &>/dev/null; then
-  SCHEME=$(xcodebuild -list -workspace "$WORKSPACE_PATH" -json 2>/dev/null | jq -r '.workspace.schemes[0] // .project.schemes[0] // empty')
+  SCHEMES_JSON=$(xcodebuild -list -workspace "$WORKSPACE_PATH" -json 2>/dev/null)
+  # Schemes that are targets inside Pods — must not archive these (they produce generic archive, no .app).
+  EXCLUDE_SCHEMES='EXConstants|^Pods-|^React|^RCT|^DoubleConversion|^glog|^Folly|^hermes|^libevent'
+  ALL_SCHEMES=$(echo "$SCHEMES_JSON" | jq -r '.workspace.schemes[]? // .project.schemes[]? // empty' 2>/dev/null)
+  # Prefer scheme that exactly matches workspace name (e.g. SmartPantryAI), else first scheme not in exclude list.
+  SCHEME=$(echo "$ALL_SCHEMES" | grep -Fx "$WORKSPACE_NAME" 2>/dev/null | head -1)
+  if [ -z "$SCHEME" ]; then
+    SCHEME=$(echo "$ALL_SCHEMES" | grep -vE "$EXCLUDE_SCHEMES" 2>/dev/null | head -1)
+  fi
+  if [ -z "$SCHEME" ]; then
+    SCHEME="$WORKSPACE_NAME"
+  fi
+else
+  SCHEME="$WORKSPACE_NAME"
 fi
-[ -z "$SCHEME" ] && SCHEME="$WORKSPACE_NAME"
+echo "Using scheme: $SCHEME (workspace: $WORKSPACE_NAME)"
 
 echo "🔧 Step 2: Disabling User Script Sandboxing..."
 PROJECT_PATH="ios/${WORKSPACE_NAME}.xcodeproj/project.pbxproj"
