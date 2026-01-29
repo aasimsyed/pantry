@@ -27,6 +27,8 @@ on:
 jobs:
   build-and-submit:
     name: Build iOS (Xcode) and Submit to TestFlight
+    # macos-latest = macOS 15 + Xcode 16.x (iOS 18.5 SDK). SDK warning will go away when GitHub
+    # updates macos-latest to Xcode 26, or switch to macos-26 once generally available (April 2026).
     runs-on: macos-latest
 
     steps:
