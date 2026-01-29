@@ -56,23 +56,17 @@ echo "📤 Step 4: Exporting for App Store..."
 EXPORT_PATH="/tmp/${WORKSPACE_NAME}-export"
 rm -rf "$EXPORT_PATH"
 
-# Create export options plist (method: app-store for older Xcode on CI; app-store-connect is newer)
-cat > /tmp/ExportOptions.plist << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>app-store</string>
-    <key>signingStyle</key>
-    <string>automatic</string>
-    <key>teamID</key>
-    <string>K5A25879TB</string>
-    <key>uploadSymbols</key>
-    <true/>
-</dict>
-</plist>
-EOF
+# Bundle ID for provisioningProfiles key
+BUNDLE_ID="com.aasimsyed.smartpantry"
+
+# Build ExportOptions.plist: app-store-connect + manual signing + provisioningProfiles when profile UUID set (CI)
+rm -f /tmp/ExportOptions.plist
+/usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :method string app-store-connect" -c "Add :teamID string K5A25879TB" -c "Add :uploadSymbols bool true"
+if [ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ]; then
+  /usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :signingStyle string manual" -c "Add :provisioningProfiles dict" -c "Add :provisioningProfiles:${BUNDLE_ID} string $PROVISIONING_PROFILE_SPECIFIER"
+else
+  /usr/libexec/PlistBuddy /tmp/ExportOptions.plist -c "Add :signingStyle string automatic"
+fi
 
 xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
