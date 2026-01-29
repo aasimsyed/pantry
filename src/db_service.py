@@ -287,7 +287,35 @@ class PantryService:
             q = q.filter(InventoryItem.status != "consumed")
         
         return q.all()
-    
+
+    def get_inventory_paginated(
+        self,
+        user_id: Optional[int] = None,
+        pantry_id: Optional[int] = None,
+        skip: int = 0,
+        limit: int = 100,
+        location: Optional[str] = None,
+        item_status: Optional[str] = None,
+        include_consumed: bool = False,
+    ) -> List[InventoryItem]:
+        """Get inventory items with DB-level filtering and pagination.
+
+        Use this instead of get_all_inventory + slice for large pantries.
+        """
+        q = self.session.query(InventoryItem)
+        if user_id is not None:
+            q = q.filter(InventoryItem.user_id == user_id)
+        if pantry_id is not None:
+            q = q.filter(InventoryItem.pantry_id == pantry_id)
+        if not include_consumed:
+            q = q.filter(InventoryItem.status != "consumed")
+        if location is not None:
+            q = q.filter(InventoryItem.storage_location == location)
+        if item_status is not None:
+            q = q.filter(InventoryItem.status == item_status)
+        q = q.order_by(InventoryItem.id)
+        return q.offset(skip).limit(limit).all()
+
     def update_inventory_quantity(
         self,
         item_id: int,

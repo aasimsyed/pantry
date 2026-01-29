@@ -46,20 +46,19 @@ def get_inventory(
     current_user: User = Depends(get_current_user),
     service: PantryService = Depends(get_pantry_service),
 ) -> List[Dict[str, Any]]:
-    """Get all inventory items with optional filtering."""
+    """Get inventory items with optional filtering and pagination (DB-level)."""
     try:
         if pantry_id is None and current_user:
             default_pantry = service.get_or_create_default_pantry(current_user.id)
             pantry_id = default_pantry.id
-        items = service.get_all_inventory(
+        items = service.get_inventory_paginated(
             user_id=current_user.id if current_user else None,
             pantry_id=pantry_id,
+            skip=skip,
+            limit=limit,
+            location=location,
+            item_status=item_status,
         )
-        if location:
-            items = [i for i in items if i.storage_location == location]
-        if item_status:
-            items = [i for i in items if i.status == item_status]
-        items = items[skip : skip + limit]
         result = [enrich_inventory_item(i) for i in items]
         logger.info("Retrieved %d inventory items", len(result))
         return result

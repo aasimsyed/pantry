@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput, FlatList } from 'react-native';
 
 // Instacart branding - using approved green color
 const INSTACART_GREEN = '#43B02A';
@@ -320,34 +320,119 @@ export default function InventoryScreen() {
     }
   };
 
-  const filteredItems = items.filter((item) => {
-    if (searchQuery) {
-      const name = item.product_name?.toLowerCase() || '';
-      return name.includes(searchQuery.toLowerCase());
-    }
-    return true;
-  });
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (searchQuery) {
+          const name = item.product_name?.toLowerCase() || '';
+          return name.includes(searchQuery.toLowerCase());
+        }
+        return true;
+      }),
+    [items, searchQuery]
+  );
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
-        ]}
-      >
-        <PantrySelector
-          selectedPantryId={selectedPantryId}
-          onPantryChange={setSelectedPantryId}
-        />
-        <ScreenContentWrapper>
-        {loading && (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" />
+  const keyExtractor = useCallback((item: InventoryItem) => item.id.toString(), []);
+
+  const getItemDisplayName = useCallback((item: InventoryItem): string => {
+    let displayName = item.product_name || 'Unknown';
+    if (item.brand && item.product_name) {
+      const brand = item.brand.trim();
+      let name = item.product_name;
+      const brandLower = brand.toLowerCase();
+      const nameLower = name.toLowerCase();
+      if (nameLower.startsWith(brandLower)) {
+        const afterBrand = name.substring(brand.length);
+        name = afterBrand.replace(/^[\s-]+/, '').trim();
+      }
+      const escapedBrand = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const brandRegex = new RegExp(`(^|\\s)${escapedBrand}(\\s|$)`, 'gi');
+      name = name.replace(brandRegex, (_m, before) => before || '').trim();
+      const words = name.split(/\s+/).filter((w) => w.toLowerCase() !== brandLower);
+      name = words.join(' ').replace(/\s+/g, ' ').trim();
+      if (name.length > 0) displayName = name;
+    }
+    return displayName;
+  }, []);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: InventoryItem; index: number }) => {
+      const displayName = getItemDisplayName(item);
+      const isLowStock = item.status === 'low';
+      const isLast = index === filteredItems.length - 1;
+      return (
+        <TouchableOpacity
+          testID={`inventory-item-${item.id}`}
+          style={[
+            styles.inventoryItem,
+            {
+              borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+              borderBottomWidth: isLast ? 0 : 1,
+              borderLeftWidth: isLowStock ? 2 : 0,
+              borderLeftColor: isLowStock ? (isDark ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.3)') : 'transparent',
+            },
+          ]}
+          onPress={() => handleEditItem(item)}
+          activeOpacity={0.6}
+        >
+          <View style={styles.itemMain}>
+            <View style={styles.itemContent}>
+              <Text
+                style={[styles.itemName, { color: ds.colors.textPrimary, fontWeight: isLowStock ? '600' : '500' }]}
+                numberOfLines={2}
+              >
+                {displayName}
+              </Text>
+              <View style={styles.itemMeta}>
+                {item.brand && (
+                  <Text style={[styles.itemBrand, { color: ds.colors.textSecondary }]}>{item.brand}</Text>
+                )}
+                <Text
+                  style={[
+                    styles.itemQuantity,
+                    {
+                      color: isLowStock
+                        ? isDark
+                          ? 'rgba(249, 115, 22, 0.9)'
+                          : 'rgba(249, 115, 22, 0.8)'
+                        : ds.colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {item.quantity} {item.unit}
+                </Text>
+                <Text style={[styles.itemLocation, { color: ds.colors.textTertiary }]}>
+                  · {item.storage_location}
+                </Text>
+              </View>
+              {item.expiration_date && (
+                <Text style={[styles.itemExpiration, { color: ds.colors.warning }]}>
+                  Expires {new Date(item.expiration_date).toLocaleDateString()}
+                </Text>
+              )}
+            </View>
+            <View style={styles.itemActions}>
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDeleteItem(item);
+                }}
+                style={styles.itemActionButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="delete-outline" size={22} color={ds.colors.textTertiary} style={{ opacity: 0.6 }} />
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-        
-        {/* Search - Minimal, no background */}
+        </TouchableOpacity>
+      );
+    },
+    [filteredItems.length, getItemDisplayName, isDark, ds.colors, handleEditItem, handleDeleteItem]
+  );
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <ScreenContentWrapper>
         <View style={[styles.searchContainer, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}>
           <MaterialCommunityIcons name="magnify" size={22} color={ds.colors.textPrimary} style={{ opacity: 0.5 }} />
           <RNTextInput
@@ -367,8 +452,6 @@ export default function InventoryScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Location Filters - Minimal */}
         <View style={styles.filterContainer}>
           {['All', 'pantry', 'fridge', 'freezer'].map((loc) => (
             <TouchableOpacity
@@ -378,35 +461,34 @@ export default function InventoryScreen() {
               style={[
                 styles.filterButton,
                 locationFilter === loc && styles.filterButtonActive,
-                { 
-                  borderColor: locationFilter === loc 
-                    ? ds.colors.textPrimary 
-                    : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'
-                }
+                {
+                  borderColor:
+                    locationFilter === loc ? ds.colors.textPrimary : isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                },
               ]}
             >
-              <Text style={[
-                styles.filterText,
-                { color: locationFilter === loc ? ds.colors.textPrimary : ds.colors.textSecondary },
-                locationFilter === loc && { fontWeight: '500' }
-              ]}>
+              <Text
+                style={[
+                  styles.filterText,
+                  { color: locationFilter === loc ? ds.colors.textPrimary : ds.colors.textSecondary },
+                  locationFilter === loc && { fontWeight: '500' },
+                ]}
+              >
                 {loc.charAt(0).toUpperCase() + loc.slice(1)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Shop Low Stock - Only show when there are low stock items */}
-        {items.filter(item => item.status === 'low').length > 0 && (
+        {items.filter((i) => i.status === 'low').length > 0 && (
           <TouchableOpacity
             onPress={() => instacartService.shopLowStockItems(items, setInstacartLoading)}
             disabled={instacartLoading}
             style={[
               styles.instacartButton,
-              { 
-                backgroundColor: '#F5E6D3', // Cashew - approved Instacart background color
-                borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)'
-              }
+              {
+                backgroundColor: '#F5E6D3',
+                borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)',
+              },
             ]}
             activeOpacity={0.7}
           >
@@ -416,135 +498,61 @@ export default function InventoryScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <InstacartLogo width={100} height={18} />
                 <Text style={[styles.instacartButtonText, { color: ds.colors.textSecondary, fontSize: 13 }]}>
-                  ({items.filter(item => item.status === 'low').length} items)
+                  ({items.filter((i) => i.status === 'low').length} items)
                 </Text>
               </View>
             )}
           </TouchableOpacity>
         )}
+        <Text style={[styles.countLabel, { color: ds.colors.textTertiary }]}>{filteredItems.length} ITEMS</Text>
+      </ScreenContentWrapper>
+    ),
+    [
+      searchQuery,
+      locationFilter,
+      items,
+      instacartLoading,
+      filteredItems.length,
+      isDark,
+      ds.colors.textPrimary,
+      ds.colors.textSecondary,
+      ds.colors.textTertiary,
+    ]
+  );
 
-        {/* Count - Minimal label */}
-        <Text style={[styles.countLabel, { color: ds.colors.textTertiary }]}>
-          {filteredItems.length} ITEMS
-        </Text>
-
-        {/* Inventory List - Minimal, clean list items */}
-        {filteredItems.map((item, index) => {
-          // Clean up product name to remove duplicate brand names
-          let displayName = item.product_name || 'Unknown';
-          if (item.brand && item.product_name) {
-            const brand = item.brand.trim();
-            let name = item.product_name;
-            
-            const brandLower = brand.toLowerCase();
-            const nameLower = name.toLowerCase();
-            
-            if (nameLower.startsWith(brandLower)) {
-              const afterBrand = name.substring(brand.length);
-              name = afterBrand.replace(/^[\s-]+/, '').trim();
-            }
-            
-            const escapedBrand = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const brandRegex = new RegExp(`(^|\\s)${escapedBrand}(\\s|$)`, 'gi');
-            name = name.replace(brandRegex, (match, before, after) => {
-              return before || '';
-            }).trim();
-            
-            const words = name.split(/\s+/);
-            const filteredWords = words.filter(word => 
-              word.toLowerCase() !== brandLower
-            );
-            name = filteredWords.join(' ');
-            name = name.replace(/\s+/g, ' ').trim();
-            
-            if (name.length === 0) {
-              name = item.product_name;
-            }
-            
-            displayName = name;
-          }
-
-          const isLowStock = item.status === 'low';
-
-          return (
-            <TouchableOpacity
-              key={item.id}
-              testID={`inventory-item-${item.id}`}
-              style={[
-                styles.inventoryItem,
-                { 
-                  borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-                  borderBottomWidth: index < filteredItems.length - 1 ? 1 : 0,
-                  // Rams/Ive: Subtle left accent - refined, minimal, purposeful
-                  borderLeftWidth: isLowStock ? 2 : 0,
-                  borderLeftColor: isLowStock 
-                    ? (isDark ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.3)')
-                    : 'transparent',
-                }
-              ]}
-              onPress={() => handleEditItem(item)}
-              activeOpacity={0.6}
-            >
-              <View style={styles.itemMain}>
-                <View style={styles.itemContent}>
-                  <Text 
-                    style={[
-                      styles.itemName, 
-                      { 
-                        color: ds.colors.textPrimary,
-                        // Rams/Ive: Typography-based indication - subtle weight change
-                        fontWeight: isLowStock ? '600' : '500',
-                      }
-                    ]}
-                  >
-                    {displayName}
-                  </Text>
-                  <View style={styles.itemMeta}>
-                    {item.brand && (
-                      <Text style={[styles.itemBrand, { color: ds.colors.textSecondary }]}>
-                        {item.brand}
-                      </Text>
-                    )}
-                    <Text 
-                      style={[
-                        styles.itemQuantity, 
-                        { 
-                          color: isLowStock 
-                            ? (isDark ? 'rgba(249, 115, 22, 0.9)' : 'rgba(249, 115, 22, 0.8)')
-                            : ds.colors.textSecondary 
-                        }
-                      ]}
-                    >
-                      {item.quantity} {item.unit}
-                    </Text>
-                    <Text style={[styles.itemLocation, { color: ds.colors.textTertiary }]}>
-                      · {item.storage_location}
-                    </Text>
-                  </View>
-                  {item.expiration_date && (
-                    <Text style={[styles.itemExpiration, { color: ds.colors.warning }]}>
-                      Expires {new Date(item.expiration_date).toLocaleDateString()}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.itemActions}>
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleDeleteItem(item);
-                    }}
-                    style={styles.itemActionButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <MaterialCommunityIcons name="delete-outline" size={22} color={ds.colors.textTertiary} style={{ opacity: 0.6 }} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-        </ScreenContentWrapper>
-      </ScrollView>
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
+      {loading ? (
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
+          ]}
+        >
+          <PantrySelector selectedPantryId={selectedPantryId} onPantryChange={setSelectedPantryId} />
+          <ScreenContentWrapper>
+            <View style={styles.center}>
+              <ActivityIndicator size="large" />
+            </View>
+          </ScreenContentWrapper>
+        </ScrollView>
+      ) : (
+        <View style={styles.listWrapper}>
+          <PantrySelector selectedPantryId={selectedPantryId} onPantryChange={setSelectedPantryId} />
+          <FlatList
+            data={filteredItems}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            ListHeaderComponent={listHeaderComponent}
+            contentContainerStyle={[
+              styles.listContent,
+              layout.isTablet && { paddingHorizontal: layout.horizontalPadding },
+            ]}
+            style={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      )}
 
       {/* Add Button - Minimal FAB */}
       <FAB.Group
@@ -1179,6 +1187,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
+    paddingBottom: 100, // Space for FAB
+  },
+  listWrapper: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
     paddingBottom: 100, // Space for FAB
   },
   // Search - Minimal, no background, pure text
