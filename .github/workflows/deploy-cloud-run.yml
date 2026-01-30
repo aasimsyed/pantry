@@ -57,7 +57,7 @@ jobs:
             --region $REGION \
             --allow-unauthenticated \
             --port 8080 \
-            --memory 512Mi \
+            --memory 2Gi \
             --cpu 1 \
             --timeout 300 \
             --max-instances 10 \

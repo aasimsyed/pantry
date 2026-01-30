@@ -41,5 +41,5 @@ spec:
         resources:
           limits:
             cpu: "1"  # CPU units (1 = 1 vCPU)
-            memory: "512Mi"  # Memory limit
+            memory: "2Gi"  # Required for sentence-transformers (semantic search); 512Mi OOMs on model load
       serviceAccountName: pantry-api@PROJECT_ID.iam.gserviceaccount.com  # Update PROJECT_ID

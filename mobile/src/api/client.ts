@@ -800,9 +800,23 @@ class APIClient {
   ): Promise<{ recipe: SavedRecipe; score: number }[]> {
     const q = query.trim();
     if (!q) return [];
-    return this.request<{ recipe: SavedRecipe; score: number }[]>('GET', '/api/recipes/saved/search', {
-      params: { q, limit },
-    });
+    const config = { params: { q, limit }, timeout: 90000 };
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this.request<{ recipe: SavedRecipe; score: number }[]>(
+          'GET',
+          '/api/recipes/saved/search',
+          config
+        );
+      } catch (err: any) {
+        const status = err.response?.status;
+        const isRetryable = status === 502 || status === 503 || status === 504;
+        if (!isRetryable || attempt === maxAttempts) throw err;
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+    }
+    return [];
   }
 
   async deleteSavedRecipe(recipeId: number): Promise<void> {
