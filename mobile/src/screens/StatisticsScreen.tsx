@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
+import { Skeleton } from '../components/Skeleton';
 import type { Statistics } from '../types';
 
 // Health score ring component
@@ -131,9 +132,12 @@ export default function StatisticsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={ds.colors.textPrimary} />
-          <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading insights...</Text>
+        <View style={[styles.content, layout.isTablet && { paddingHorizontal: layout.horizontalPadding }]}>
+          <Skeleton width="30%" height={36} borderRadius={8} style={{ marginBottom: 24 }} />
+          <Skeleton width="100%" height={140} borderRadius={20} style={{ marginBottom: 24 }} />
+          <Skeleton width="90%" height={24} borderRadius={6} style={{ marginBottom: 12 }} />
+          <Skeleton width="100%" height={80} borderRadius={12} style={{ marginBottom: 12 }} />
+          <Skeleton width="100%" height={80} borderRadius={12} />
         </View>
       </SafeAreaView>
     );
@@ -143,7 +147,10 @@ export default function StatisticsScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
         <View style={styles.center}>
-          <Text style={{ color: ds.colors.textSecondary }}>No statistics available</Text>
+          <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>No insights yet</Text>
+          <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
+            Add items to your pantry to see health score, storage breakdown, and usage stats.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -430,6 +437,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   loadingText: {
     marginTop: 16,

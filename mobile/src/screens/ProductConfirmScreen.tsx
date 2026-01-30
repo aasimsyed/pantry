@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { getDesignSystem } from '../utils/designSystem';
 import apiClient from '../api/client';
+import { triggerHapticSuccess } from '../utils/haptics';
 import { BarcodeProduct } from '../types';
 
 type RouteParams = {
@@ -97,6 +98,7 @@ export default function ProductConfirmScreen() {
         status: 'in_stock',
       });
 
+      triggerHapticSuccess();
       // BarcodeScanner used replace(), so stack is [Main, ProductConfirm]; one goBack() returns to Inventory
       navigation.goBack();
     } catch (error: any) {

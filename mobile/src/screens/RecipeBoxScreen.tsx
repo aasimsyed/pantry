@@ -11,6 +11,8 @@ import { getDesignSystem } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import apiClient, { getApiErrorMessage } from '../api/client';
 import StarRating from '../components/StarRating';
+import { SkeletonRecipeCard } from '../components/Skeleton';
+import { triggerHapticLight } from '../utils/haptics';
 import type { SavedRecipe } from '../types';
 
 export default function RecipeBoxScreen() {
@@ -145,6 +147,7 @@ export default function RecipeBoxScreen() {
           onPress: async () => {
             try {
               await apiClient.deleteSavedRecipe(recipeId);
+              triggerHapticLight();
               await loadRecipes();
             } catch (err: unknown) {
               Alert.alert('Error', getApiErrorMessage(err));
@@ -437,12 +440,9 @@ export default function RecipeBoxScreen() {
               Recipe Box
             </Text>
           </View>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={ds.colors.textPrimary} />
-            <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>
-              Loading recipes...
-            </Text>
-          </View>
+          <SkeletonRecipeCard />
+          <SkeletonRecipeCard />
+          <SkeletonRecipeCard />
         </View>
       </SafeAreaView>
     );

@@ -17,7 +17,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import Constants from 'expo-constants';
 import apiClient from '../api/client';
 import { getUseCloudOcr, recognizeTextFromUri } from '../services/ocrService';
 import { instacartService } from '../services/instacartService';
@@ -25,10 +24,12 @@ import { PantrySelector } from '../components/PantrySelector';
 import { PremiumButton } from '../components/PremiumButton';
 import { InstacartLogo } from '../components/InstacartLogo';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
+import { SkeletonInventoryRow } from '../components/Skeleton';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { getDesignSystem } from '../utils/designSystem';
+import { triggerHapticLight, triggerHapticSuccess } from '../utils/haptics';
 import type { InventoryItem } from '../types';
 
 export default function InventoryScreen() {
@@ -135,6 +136,7 @@ export default function InventoryScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
+        await triggerHapticLight();
         await processImage(result.assets[0].uri);
       } else if (result.canceled) {
         // User canceled - do nothing
@@ -161,6 +163,7 @@ export default function InventoryScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
+        await triggerHapticLight();
         await processImage(result.assets[0].uri);
       } else if (result.canceled) {
         // User canceled - do nothing
@@ -193,6 +196,7 @@ export default function InventoryScreen() {
         }
       }
       if (result.success) {
+        await triggerHapticSuccess();
         const ocrHint = result.ocr_source === 'device' ? ' (read on device)' : result.ocr_source === 'cloud' ? ' (read on server)' : '';
         Alert.alert('Success', `Processed: ${result.item.product_name || 'Unknown'}${ocrHint}`);
         await loadInventory();
@@ -222,6 +226,7 @@ export default function InventoryScreen() {
           onPress: async () => {
             try {
               await apiClient.deleteInventoryItem(item.id);
+              triggerHapticLight();
               Alert.alert('Success', 'Item deleted successfully');
               await loadInventory();
             } catch (err: any) {
@@ -262,8 +267,9 @@ export default function InventoryScreen() {
         expiration_date: editFormData.expiration_date || undefined,
         purchase_date: editFormData.purchase_date || undefined,
         notes: editFormData.notes || undefined,
-      });
+      }      );
 
+      triggerHapticSuccess();
       Alert.alert('Success', 'Item updated successfully!');
       setEditDialogVisible(false);
       setEditingItem(null);
@@ -324,6 +330,7 @@ export default function InventoryScreen() {
         pantry_id: selectedPantryId,
       });
 
+      triggerHapticSuccess();
       Alert.alert('Success', `Added ${manualEntryFormData.product_name} to inventory!`);
       setManualEntryDialogVisible(false);
       setManualEntryFormData({
@@ -559,6 +566,22 @@ export default function InventoryScreen() {
     ]
   );
 
+  const listEmptyComponent = useMemo(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>
+          {searchQuery.trim() ? 'No items match your search' : 'Add your first item'}
+        </Text>
+        <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
+          {searchQuery.trim()
+            ? 'Try a different term or clear search to see all items.'
+            : 'Use the + button to scan a barcode, scan a label, or add manually.'}
+        </Text>
+      </View>
+    ),
+    [searchQuery, ds.colors.textPrimary, ds.colors.textSecondary]
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top', 'bottom']}>
       {loading ? (
@@ -570,9 +593,12 @@ export default function InventoryScreen() {
         >
           <PantrySelector selectedPantryId={selectedPantryId} onPantryChange={setSelectedPantryId} />
           <ScreenContentWrapper>
-            <View style={styles.center}>
-              <ActivityIndicator size="large" />
-            </View>
+            <SkeletonInventoryRow />
+            <SkeletonInventoryRow />
+            <SkeletonInventoryRow />
+            <SkeletonInventoryRow />
+            <SkeletonInventoryRow />
+            <SkeletonInventoryRow />
           </ScreenContentWrapper>
         </ScrollView>
       ) : (
@@ -583,6 +609,7 @@ export default function InventoryScreen() {
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             ListHeaderComponent={listHeaderComponent}
+            ListEmptyComponent={listEmptyComponent}
             contentContainerStyle={[
               styles.listContent,
               layout.isTablet && { paddingHorizontal: layout.horizontalPadding },
@@ -644,10 +671,6 @@ export default function InventoryScreen() {
             label: 'Scan Label',
             onPress: () => {
               setFabOpen(false);
-              if (!Constants.isDevice) {
-                setTimeout(() => Alert.alert('Scan Label', 'Label scanning requires a physical device.'), 200);
-                return;
-              }
               setTimeout(() => setDialogVisible(true), 200);
             },
             style: {
@@ -1372,6 +1395,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginBottom: 12,
     opacity: 0.55,
+  },
+  emptyContainer: {
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   // Inventory Items - Clean list
   inventoryItem: {

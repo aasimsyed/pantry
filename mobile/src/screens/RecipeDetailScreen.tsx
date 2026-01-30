@@ -14,6 +14,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
+import { triggerHapticSuccess } from '../utils/haptics';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { FlavorChemistrySheet } from '../components/FlavorChemistrySheet';
 import { InstacartLogo } from '../components/InstacartLogo';
@@ -242,6 +243,7 @@ export default function RecipeDetailScreen() {
       );
       setRecipe(updated);
       setEditDialogVisible(false);
+      triggerHapticSuccess();
       Alert.alert('Success', 'Recipe updated successfully');
     } catch (err: any) {
       console.error('Error updating recipe:', err);

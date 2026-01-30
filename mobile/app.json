@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Pantry AI",
     "slug": "smart-pantry",
-    "version": "2.3.2",
+    "version": "2.3.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aasimsyed.smartpantry",
-      "buildNumber": "109",
+      "buildNumber": "110",
       "deploymentTarget": "15.5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -51,7 +51,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.aasimsyed.smartpantry",
-      "versionCode": 94,
+      "versionCode": 95,
       "intentFilters": [
         {
           "action": "VIEW",

@@ -5,6 +5,18 @@ All notable changes to Smart Pantry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.3] - 2026-01-30
+
+### Added
+- **Haptic feedback**: Light impact or success haptic on key actions (save recipe, delete item, add to inventory, process image, barcode add, save notes/rating, delete recipe, settings save). Uses `expo-haptics`; safe on simulator.
+- **Skeleton loading**: Inventory, Recipe Box, Expiring, and Statistics screens now show skeleton placeholders instead of spinners during initial load for a more consistent loading experience.
+- **Empty states**: Inventory shows "Add your first item" or "No items match your search" with clear copy; Statistics shows "No insights yet" with explanation to add items.
+
+### Changed
+- New `SkeletonInventoryRow` component for inventory list loading; Expiring and Statistics use generic `Skeleton` blocks.
+
+---
+
 ## [2.3.2] - 2026-01-30
 
 ### Changed

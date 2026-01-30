@@ -1,6 +1,6 @@
 {
   "name": "mobile",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -60,6 +60,7 @@
     "expo-camera": "^17.0.9",
     "expo-dev-client": "^6.0.20",
     "expo-font": "~14.0.9",
+    "expo-haptics": "~15.0.8",
     "expo-image-picker": "^17.0.8",
     "expo-local-authentication": "~17.0.8",
     "expo-secure-store": "^15.0.7",

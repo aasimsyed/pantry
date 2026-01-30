@@ -22,6 +22,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { getDesignSystem } from '../utils/designSystem';
+import { triggerHapticSuccess } from '../utils/haptics';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { PremiumButton } from '../components/PremiumButton';
 
@@ -143,6 +144,7 @@ export default function SettingsScreen() {
         ai_provider: settings.ai_provider || undefined,
         ai_model: settings.ai_model || undefined,
       });
+      triggerHapticSuccess();
       Alert.alert('Success', 'Settings saved successfully!');
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to save settings');

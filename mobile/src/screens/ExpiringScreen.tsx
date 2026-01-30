@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { SectionList, StyleSheet, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Text, ActivityIndicator } from 'react-native-paper';
+import { Card, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import apiClient from '../api/client';
@@ -9,6 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
+import { Skeleton } from '../components/Skeleton';
 import type { InventoryItem } from '../types';
 
 type ExpiringSection = { id: string; title: string; isError: boolean; data: (InventoryItem & { _empty?: boolean })[] };
@@ -188,9 +189,13 @@ export default function ExpiringScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={ds.colors.primary} />
-          <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading items...</Text>
+        <View style={[styles.content, layout.isTablet && { paddingHorizontal: layout.horizontalPadding }]}>
+          <Skeleton width="40%" height={32} borderRadius={8} style={{ marginBottom: 20 }} />
+          <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 24 }} />
+          <Skeleton width="60%" height={20} borderRadius={6} style={{ marginBottom: 12 }} />
+          <Skeleton width="100%" height={72} borderRadius={12} style={{ marginBottom: 12 }} />
+          <Skeleton width="100%" height={72} borderRadius={12} style={{ marginBottom: 12 }} />
+          <Skeleton width="100%" height={72} borderRadius={12} />
         </View>
       </SafeAreaView>
     );

@@ -27,6 +27,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLayout } from '../hooks/useLayout';
 import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { getDesignSystem } from '../utils/designSystem';
+import { triggerHapticLight, triggerHapticSuccess } from '../utils/haptics';
 import type { Recipe, RecentRecipe } from '../types';
 
 /** Minimal breathing dot for indeterminate wait — Dieter Rams: as little design as possible. */
@@ -321,6 +322,7 @@ export default function RecipesScreen() {
           flavor_pairings: recipe.flavor_pairings as any, // Flavor chemistry data
         });
       }
+      triggerHapticSuccess();
       Alert.alert('Success', `Saved "${name}" to recipe box!`);
       loadRecentRecipes();
     } catch (err: any) {
@@ -353,6 +355,7 @@ export default function RecipesScreen() {
     }
     try {
       await apiClient.deleteRecentRecipe(recipeId);
+      triggerHapticLight();
       setRecentRecipes(recentRecipes.filter((r) => r.id !== recipeId));
       Alert.alert('Success', 'Recent recipe deleted');
     } catch (err: any) {
@@ -380,6 +383,7 @@ export default function RecipesScreen() {
           onPress: async () => {
             try {
               await apiClient.deleteAllRecentRecipes();
+              triggerHapticLight();
               setRecentRecipes([]);
               Alert.alert('Success', 'All recent recipes deleted');
             } catch (err: any) {

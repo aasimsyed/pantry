@@ -12,7 +12,6 @@ interface SkeletonProps {
 
 export function Skeleton({ width = '100%', height = 20, borderRadius = 8, style }: SkeletonProps) {
   const { isDark } = useTheme();
-  const ds = getDesignSystem(isDark);
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -145,4 +144,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  inventoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+  },
 });
+
+/** Skeleton row for inventory list loading state. */
+export function SkeletonInventoryRow() {
+  const { isDark } = useTheme();
+  const ds = getDesignSystem(isDark);
+
+  return (
+    <View style={[styles.inventoryRow, { backgroundColor: ds.colors.surface }]}>
+      <View style={{ flex: 1, marginRight: 12 }}>
+        <Skeleton width="70%" height={16} borderRadius={6} />
+        <Skeleton width="40%" height={12} borderRadius={4} style={{ marginTop: 8 }} />
+      </View>
+      <Skeleton width={48} height={24} borderRadius={8} />
+    </View>
+  );
+}
