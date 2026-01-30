@@ -1,15 +1,18 @@
 /**
  * On-device OCR using ML Kit Text Recognition.
- * Returns extracted text or null if unavailable/failed (e.g. Expo Go, no native module).
+ * Returns extracted text or null if unavailable/failed (e.g. Expo Go, no native module, simulator).
  * Use-cloud-OCR preference stored in AsyncStorage (default: false = use ML Kit first).
+ * ML Kit is excluded in simulator builds (MLImage.framework is device-only).
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 const MIN_TEXT_LENGTH = 15;
 const USE_CLOUD_OCR_KEY = 'useCloudOcr';
 
 export async function recognizeTextFromUri(uri: string): Promise<string | null> {
+  if (!Constants.isDevice) return null;
   try {
     const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
     const result = await TextRecognition.recognize(uri);

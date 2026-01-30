@@ -27,15 +27,22 @@ fi
 echo "Booted simulator: $BOOTED"
 echo "UDID: $UDID"
 
+# Install pods without ML Kit so simulator build can link (MLImage.framework is device-only).
+# For device builds, run: cd ios && pod install (no SIMULATOR_BUILD) so Scan Label works.
+echo "Installing pods for simulator (ML Kit excluded)..."
+(cd ios && SIMULATOR_BUILD=1 pod install)
+
 # Clean build products only; keep ios/build/generated (codegen outputs from pod install)
 echo "Cleaning previous build products..."
 rm -rf "${BUILD_DIR}/Build"
 
 echo "Building for iOS Simulator (arm64 for Apple Silicon)..."
-xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
+# EXCLUDED_ARCHS= clears project/pod exclusion of arm64 so ARCHS=arm64 is valid for simulator
+# SENTRY_ALLOW_FAILURE=true so Sentry upload (blocked by sandbox reading sentry.properties) does not fail the build
+SENTRY_ALLOW_FAILURE=true xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
   -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath "$BUILD_DIR" \
-  ARCHS=arm64 \
+  ARCHS=arm64 EXCLUDED_ARCHS= \
   -quiet
 
 if [ ! -d "$APP_PATH" ]; then

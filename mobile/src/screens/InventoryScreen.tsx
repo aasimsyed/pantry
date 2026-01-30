@@ -17,6 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 import apiClient from '../api/client';
 import { getUseCloudOcr, recognizeTextFromUri } from '../services/ocrService';
 import { instacartService } from '../services/instacartService';
@@ -628,6 +629,10 @@ export default function InventoryScreen() {
             label: 'Scan Label',
             onPress: () => {
               setFabOpen(false);
+              if (!Constants.isDevice) {
+                setTimeout(() => Alert.alert('Scan Label', 'Label scanning requires a physical device.'), 200);
+                return;
+              }
               setTimeout(() => setDialogVisible(true), 200);
             },
             style: {
