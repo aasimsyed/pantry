@@ -73,7 +73,7 @@ export default function BarcodeScannerScreen() {
 
     try {
       const product = await apiClient.lookupBarcode(data);
-      navigation.navigate('ProductConfirm' as never, {
+      navigation.replace('ProductConfirm' as never, {
         product,
         barcode: data,
         pantryId,
@@ -81,7 +81,7 @@ export default function BarcodeScannerScreen() {
       } as never);
     } catch (error: any) {
       if (error.response?.status === 404) {
-        navigation.navigate('ProductConfirm' as never, {
+        navigation.replace('ProductConfirm' as never, {
           product: null,
           barcode: data,
           pantryId,
@@ -94,7 +94,7 @@ export default function BarcodeScannerScreen() {
           [
             { text: 'Try Again', onPress: () => resetScanner() },
             { text: 'Enter Manually', onPress: () => {
-              navigation.navigate('ProductConfirm' as never, {
+              navigation.replace('ProductConfirm' as never, {
                 product: null,
                 barcode: data,
                 pantryId,
