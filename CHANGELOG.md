@@ -5,6 +5,28 @@ All notable changes to Smart Pantry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-01-30
+
+### Changed
+- **Smaller initial inventory load**: Inventory and recipe-ingredient flows now request 100 items instead of 1000 for faster first load (InventoryScreen, RecipesScreen, RecipeDetailScreen).
+- **Expiring screen virtualization**: Expiring screen now uses `SectionList` for Expired and Expiring Soon sections so long lists scroll smoothly and use less memory.
+
+---
+
+## [2.3.1] - 2026-01-30
+
+### Added
+- **Proactive offline detection**: Uses `@react-native-community/netinfo` so the app knows you're offline before any request; banner and messaging stay in sync with network state.
+- **Offline guard on critical actions**: Save, delete, and process-image flows (Inventory, Recipe Box, Recipe Detail, Recipes, Settings) now check connectivity first and show a clear "You're offline. Please check your connection and try again." alert instead of a generic error.
+
+### Changed
+- `useOfflineStatus` now derives from NetInfo (and treats `isInternetReachable === null` as online). Exported `OFFLINE_ACTION_MESSAGE` for consistent copy.
+
+### Note
+- Token refresh on 401 and retry with backoff for network/5xx were already implemented in the API client; no code change in this release.
+
+---
+
 ## [1.2.0] - 2026-01-29
 
 ### Added

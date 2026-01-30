@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
+import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { getDesignSystem } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import apiClient, { getApiErrorMessage } from '../api/client';
@@ -16,6 +17,7 @@ export default function RecipeBoxScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const layout = useLayout();
+  const { isOnline } = useOfflineStatus();
   const ds = getDesignSystem(isDark);
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -128,6 +130,10 @@ export default function RecipeBoxScreen() {
 
 
   const handleDelete = async (recipeId: number) => {
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     Alert.alert(
       'Delete Recipe',
       'Are you sure you want to delete this recipe?',

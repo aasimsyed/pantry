@@ -12,6 +12,7 @@ import { instacartService } from '../services/instacartService';
 const INSTACART_GREEN = '#43B02A';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
+import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { FlavorChemistrySheet } from '../components/FlavorChemistrySheet';
@@ -92,6 +93,7 @@ export default function RecipeDetailScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const layout = useLayout();
+  const { isOnline } = useOfflineStatus();
   const ds = getDesignSystem(isDark);
   const { recipe: initialRecipe } = route.params;
   const [recipe, setRecipe] = useState(initialRecipe);
@@ -147,7 +149,7 @@ export default function RecipeDetailScreen() {
       setLoadingMissing(true);
       try {
         // Get current inventory
-        const inventory = await apiClient.getInventory(0, 1000);
+        const inventory = await apiClient.getInventory(0, 100);
         
         // Get recipe ingredients
         let recipeIngredients: string[] = [];
@@ -223,7 +225,10 @@ export default function RecipeDetailScreen() {
 
   const handleSaveNotesRating = async () => {
     if (!isSavedRecipe) return;
-    
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     setSaving(true);
     try {
       // Always send notes (even if empty string) to allow clearing notes

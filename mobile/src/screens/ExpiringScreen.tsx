@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { SectionList, StyleSheet, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,6 +10,8 @@ import { useLayout } from '../hooks/useLayout';
 import { getDesignSystem } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import type { InventoryItem } from '../types';
+
+type ExpiringSection = { id: string; title: string; isError: boolean; data: (InventoryItem & { _empty?: boolean })[] };
 
 export default function ExpiringScreen() {
   const { isDark } = useTheme();
@@ -46,30 +48,113 @@ export default function ExpiringScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={ds.colors.primary} />
-          <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading items...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const sections = useMemo<ExpiringSection[]>(() => {
+    const result: ExpiringSection[] = [];
+    if (expiredItems.length > 0) {
+      result.push({ id: 'expired', title: 'Expired', isError: true, data: expiredItems });
+    }
+    result.push({
+      id: 'expiring',
+      title: 'Expiring Soon',
+      isError: false,
+      data: expiringItems.length === 0 ? [{ id: -1, product_name: '', _empty: true } as InventoryItem & { _empty?: boolean }] : expiringItems,
+    });
+    return result;
+  }, [expiredItems, expiringItems]);
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          layout.isTablet && { paddingHorizontal: layout.horizontalPadding, alignItems: 'center' },
-        ]}
-      >
-        <ScreenContentWrapper>
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: ExpiringSection }) => (
+      <View style={styles.sectionHeader}>
+        <View
+          style={[
+            styles.sectionBadge,
+            {
+              backgroundColor: section.isError
+                ? isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2'
+                : isDark ? 'rgba(249, 115, 22, 0.2)' : '#fff7ed',
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={section.isError ? 'alert-circle' : 'clock-alert'}
+            size={20}
+            color={section.isError ? ds.colors.error : ds.colors.warning}
+          />
+          <Text style={[styles.sectionBadgeText, { color: section.isError ? ds.colors.error : ds.colors.warning }]}>
+            {section.title}
+          </Text>
+          <View style={[styles.countBadge, { backgroundColor: section.isError ? ds.colors.error : ds.colors.warning }]}>
+            <Text style={styles.countText}>
+              {section.data[0]?._empty ? 0 : section.data.length}
+            </Text>
+          </View>
+        </View>
+      </View>
+    ),
+    [isDark, ds.colors]
+  );
+
+  const renderItem = useCallback(
+    ({ item, section }: { item: InventoryItem & { _empty?: boolean }; section: ExpiringSection }) => {
+      if (item._empty) {
+        return (
+          <Card style={[styles.successCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5', ...ds.shadows.sm }]}>
+            <Card.Content style={styles.successContent}>
+              <MaterialCommunityIcons name="check-circle" size={48} color={ds.colors.success} />
+              <Text style={[styles.successTitle, { color: ds.colors.success }]}>All Clear!</Text>
+              <Text style={[styles.successText, { color: ds.colors.textSecondary }]}>
+                No items expiring in the next {days} days
+              </Text>
+            </Card.Content>
+          </Card>
+        );
+      }
+      const isErrorSection = section.isError;
+      return (
+        <Card
+          style={[
+            styles.itemCard,
+            {
+              backgroundColor: isErrorSection ? (isDark ? 'rgba(239, 68, 68, 0.1)' : '#fee2e2') : isDark ? 'rgba(249, 115, 22, 0.1)' : '#fff7ed',
+              borderLeftColor: isErrorSection ? ds.colors.error : ds.colors.warning,
+            },
+          ]}
+        >
+          <Card.Content style={styles.itemContent}>
+            <View style={styles.itemHeader}>
+              <Text style={[styles.itemName, { color: ds.colors.textPrimary }]}>{item.product_name || 'Unknown'}</Text>
+              <Text style={[styles.itemDate, { color: isErrorSection ? ds.colors.error : ds.colors.warning }]}>
+                {item.expiration_date ? new Date(item.expiration_date).toLocaleDateString() : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.itemMeta}>
+              <Text style={[styles.itemQuantity, { color: ds.colors.textSecondary }]}>
+                {item.quantity} {item.unit}
+              </Text>
+              <View style={styles.itemLocation}>
+                <MaterialCommunityIcons
+                  name={item.storage_location === 'pantry' ? 'archive' : item.storage_location === 'fridge' ? 'fridge' : 'snowflake'}
+                  size={14}
+                  color={ds.colors.textTertiary}
+                />
+                <Text style={[styles.itemLocationText, { color: ds.colors.textTertiary }]}>{item.storage_location}</Text>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+      );
+    },
+    [isDark, days, ds.colors]
+  );
+
+  const keyExtractor = useCallback((item: InventoryItem & { _empty?: boolean }) => (item._empty ? 'empty' : String(item.id)), []);
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <ScreenContentWrapper>
         <Text testID="expiring-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Expiring Items
         </Text>
-
         <Card style={[styles.sliderCard, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
           <Card.Content style={styles.sliderContent}>
             <View style={styles.sliderHeader}>
@@ -77,12 +162,8 @@ export default function ExpiringScreen() {
                 <MaterialCommunityIcons name="calendar-clock" size={24} color={ds.colors.primary} />
               </View>
               <View style={styles.sliderTextContainer}>
-                <Text style={[styles.sliderLabel, { color: ds.colors.textPrimary }]}>
-                  Look ahead
-                </Text>
-                <Text style={[styles.sliderValue, { color: ds.colors.primary }]}>
-                  {days} days
-                </Text>
+                <Text style={[styles.sliderLabel, { color: ds.colors.textPrimary }]}>Look ahead</Text>
+                <Text style={[styles.sliderValue, { color: ds.colors.primary }]}>{days} days</Text>
               </View>
             </View>
             <Slider
@@ -99,111 +180,37 @@ export default function ExpiringScreen() {
             />
           </Card.Content>
         </Card>
+      </ScreenContentWrapper>
+    ),
+    [days, ds.colors]
+  );
 
-        {expiredItems.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionBadge, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2' }]}>
-                <MaterialCommunityIcons name="alert-circle" size={20} color={ds.colors.error} />
-                <Text style={[styles.sectionBadgeText, { color: ds.colors.error }]}>
-                  Expired
-                </Text>
-                <View style={[styles.countBadge, { backgroundColor: ds.colors.error }]}>
-                  <Text style={styles.countText}>{expiredItems.length}</Text>
-                </View>
-              </View>
-            </View>
-            {expiredItems.map((item) => (
-              <Card key={item.id} style={[styles.itemCard, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fee2e2', borderLeftColor: ds.colors.error }]}>
-                <Card.Content style={styles.itemContent}>
-                  <View style={styles.itemHeader}>
-                    <Text style={[styles.itemName, { color: ds.colors.textPrimary }]}>
-                      {item.product_name || 'Unknown'}
-                    </Text>
-                    <Text style={[styles.itemDate, { color: ds.colors.error }]}>
-                      {item.expiration_date ? new Date(item.expiration_date).toLocaleDateString() : 'N/A'}
-                    </Text>
-                  </View>
-                  <View style={styles.itemMeta}>
-                    <Text style={[styles.itemQuantity, { color: ds.colors.textSecondary }]}>
-                      {item.quantity} {item.unit}
-                    </Text>
-                    <View style={styles.itemLocation}>
-                      <MaterialCommunityIcons 
-                        name={item.storage_location === 'pantry' ? 'archive' : item.storage_location === 'fridge' ? 'fridge' : 'snowflake'} 
-                        size={14} 
-                        color={ds.colors.textTertiary} 
-                      />
-                      <Text style={[styles.itemLocationText, { color: ds.colors.textTertiary }]}>
-                        {item.storage_location}
-                      </Text>
-                    </View>
-                  </View>
-                </Card.Content>
-              </Card>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionBadge, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.2)' : '#fff7ed' }]}>
-              <MaterialCommunityIcons name="clock-alert" size={20} color={ds.colors.warning} />
-              <Text style={[styles.sectionBadgeText, { color: ds.colors.warning }]}>
-                Expiring Soon
-              </Text>
-              <View style={[styles.countBadge, { backgroundColor: ds.colors.warning }]}>
-                <Text style={styles.countText}>{expiringItems.length}</Text>
-              </View>
-            </View>
-          </View>
-
-          {expiringItems.length === 0 ? (
-            <Card style={[styles.successCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5', ...ds.shadows.sm }]}>
-              <Card.Content style={styles.successContent}>
-                <MaterialCommunityIcons name="check-circle" size={48} color={ds.colors.success} />
-                <Text style={[styles.successTitle, { color: ds.colors.success }]}>
-                  All Clear!
-                </Text>
-                <Text style={[styles.successText, { color: ds.colors.textSecondary }]}>
-                  No items expiring in the next {days} days
-                </Text>
-              </Card.Content>
-            </Card>
-          ) : (
-            expiringItems.map((item) => (
-              <Card key={item.id} style={[styles.itemCard, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.1)' : '#fff7ed', borderLeftColor: ds.colors.warning }]}>
-                <Card.Content style={styles.itemContent}>
-                  <View style={styles.itemHeader}>
-                    <Text style={[styles.itemName, { color: ds.colors.textPrimary }]}>
-                      {item.product_name || 'Unknown'}
-                    </Text>
-                    <Text style={[styles.itemDate, { color: ds.colors.warning }]}>
-                      {item.expiration_date ? new Date(item.expiration_date).toLocaleDateString() : 'N/A'}
-                    </Text>
-                  </View>
-                  <View style={styles.itemMeta}>
-                    <Text style={[styles.itemQuantity, { color: ds.colors.textSecondary }]}>
-                      {item.quantity} {item.unit}
-                    </Text>
-                    <View style={styles.itemLocation}>
-                      <MaterialCommunityIcons 
-                        name={item.storage_location === 'pantry' ? 'archive' : item.storage_location === 'fridge' ? 'fridge' : 'snowflake'} 
-                        size={14} 
-                        color={ds.colors.textTertiary} 
-                      />
-                      <Text style={[styles.itemLocationText, { color: ds.colors.textTertiary }]}>
-                        {item.storage_location}
-                      </Text>
-                    </View>
-                  </View>
-                </Card.Content>
-              </Card>
-            ))
-          )}
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={ds.colors.primary} />
+          <Text style={[styles.loadingText, { color: ds.colors.textSecondary }]}>Loading items...</Text>
         </View>
-        </ScreenContentWrapper>
-      </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['top']}>
+      <SectionList
+        sections={sections}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        ListHeaderComponent={listHeaderComponent}
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && { paddingHorizontal: layout.horizontalPadding },
+        ]}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 }

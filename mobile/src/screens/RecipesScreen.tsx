@@ -25,6 +25,7 @@ import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLayout } from '../hooks/useLayout';
+import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { getDesignSystem } from '../utils/designSystem';
 import type { Recipe, RecentRecipe } from '../types';
 
@@ -83,6 +84,7 @@ export default function RecipesScreen() {
   const { isDark } = useTheme();
   const layout = useLayout();
   const { isAuthenticated } = useAuth();
+  const { isOnline } = useOfflineStatus();
   const ds = getDesignSystem(isDark);
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
   const [loadingIngredients, setLoadingIngredients] = useState(false);
@@ -122,7 +124,7 @@ export default function RecipesScreen() {
     setIngredientsError(null);
     try {
       console.log('Loading ingredients from API...');
-      const items = await apiClient.getInventory(0, 1000, undefined, undefined, selectedPantryId);
+      const items = await apiClient.getInventory(0, 100, undefined, undefined, selectedPantryId);
       console.log(`Loaded ${items.length} inventory items`);
       // Filter out expired and consumed items, but keep in_stock and low items
       const usableItems = items.filter(item => item.status !== 'expired' && item.status !== 'consumed');
@@ -291,6 +293,10 @@ export default function RecipesScreen() {
   };
 
   const handleSaveRecipe = async (recipe: Recipe) => {
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     const name = recipe.name;
     const isRecent = 'id' in recipe && typeof (recipe as RecentRecipe).id === 'number';
 
@@ -341,6 +347,10 @@ export default function RecipesScreen() {
   };
 
   const handleDeleteRecentRecipe = async (recipeId: number) => {
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     try {
       await apiClient.deleteRecentRecipe(recipeId);
       setRecentRecipes(recentRecipes.filter((r) => r.id !== recipeId));
@@ -352,7 +362,10 @@ export default function RecipesScreen() {
 
   const handleClearAllRecentRecipes = () => {
     if (recentRecipes.length === 0) return;
-    
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     Alert.alert(
       'Clear All Recent Recipes',
       `Are you sure you want to delete all ${recentRecipes.length} recent recipe(s)? This cannot be undone.`,

@@ -1,38 +1,50 @@
 import { useState, useEffect } from 'react';
-import apiClient from '../api/client';
+import NetInfo from '@react-native-community/netinfo';
+
+/** Message to show when user tries a critical action while offline */
+export const OFFLINE_ACTION_MESSAGE =
+  "You're offline. Please check your connection and try again.";
 
 /**
- * Hook to track online/offline status and provide user-friendly messaging
+ * Hook to track online/offline status using NetInfo (proactive) and API client (reactive).
+ * Use isOnline before critical actions (save, delete) and show OFFLINE_ACTION_MESSAGE if false.
  */
 export function useOfflineStatus() {
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
-    // Check initial status
-    setIsOnline(apiClient.isCurrentlyOnline());
+    const applyState = (connected: boolean) => {
+      setIsOnline((prev) => {
+        if (!connected && prev) setWasOffline(true);
+        if (connected) setWasOffline(false);
+        return connected;
+      });
+    };
 
-    // Poll online status periodically (every 5 seconds)
-    const interval = setInterval(() => {
-      const currentStatus = apiClient.isCurrentlyOnline();
-      if (currentStatus !== isOnline) {
-        setIsOnline(currentStatus);
-        if (!currentStatus) {
-          setWasOffline(true);
-        } else if (wasOffline) {
-          // Just came back online
-          setWasOffline(false);
-        }
-      }
-    }, 5000);
+    // Proactive: NetInfo (know we're offline before any request)
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      // isInternetReachable can be null (unknown); treat as online unless explicitly false
+      const connected =
+        state.isConnected === true &&
+        (state.isInternetReachable === true || state.isInternetReachable === null);
+      applyState(connected);
+    });
 
-    return () => clearInterval(interval);
-  }, [isOnline, wasOffline]);
+    NetInfo.fetch().then((state) => {
+      const connected =
+        state.isConnected === true &&
+        (state.isInternetReachable === true || state.isInternetReachable === null);
+      applyState(connected);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return {
     isOnline,
     wasOffline,
-    message: isOnline 
+    message: isOnline
       ? (wasOffline ? 'Back online!' : null)
       : 'You are currently offline. Some features may not work.',
   };

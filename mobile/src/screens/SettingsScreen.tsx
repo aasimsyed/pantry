@@ -20,6 +20,7 @@ import apiClient from '../api/client';
 import { getUseCloudOcr, setUseCloudOcr } from '../services/ocrService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
+import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { getDesignSystem } from '../utils/designSystem';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { PremiumButton } from '../components/PremiumButton';
@@ -72,6 +73,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation();
   const { themeMode, isDark, setThemeMode } = useTheme();
   const layout = useLayout();
+  const { isOnline } = useOfflineStatus();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -189,6 +191,10 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     Alert.alert(
       '⚠️ Delete Account',
       'Are you sure you want to delete your account?\n\nThis will permanently delete:\n• All your pantries\n• All inventory items\n• All saved recipes\n• All your data\n\nThis action cannot be undone!',

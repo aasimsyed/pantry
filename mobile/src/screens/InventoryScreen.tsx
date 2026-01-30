@@ -27,6 +27,7 @@ import { InstacartLogo } from '../components/InstacartLogo';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
+import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
 import { getDesignSystem } from '../utils/designSystem';
 import type { InventoryItem } from '../types';
 
@@ -34,6 +35,7 @@ export default function InventoryScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
   const layout = useLayout();
+  const { isOnline } = useOfflineStatus();
   const ds = getDesignSystem(isDark);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -109,7 +111,7 @@ export default function InventoryScreen() {
     try {
       setLoading(true);
       const location = locationFilter === 'All' ? undefined : locationFilter;
-      const data = await apiClient.getInventory(0, 1000, location, undefined, selectedPantryId);
+      const data = await apiClient.getInventory(0, 100, location, undefined, selectedPantryId);
       setItems(data);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to load inventory');
@@ -171,6 +173,10 @@ export default function InventoryScreen() {
   };
 
   const processImage = async (uri: string) => {
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     try {
       setProcessing(true);
       setDialogVisible(false);
@@ -201,6 +207,10 @@ export default function InventoryScreen() {
   };
 
   const handleDeleteItem = async (item: InventoryItem) => {
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     Alert.alert(
       'Delete Item',
       `Are you sure you want to delete "${item.product_name || 'this item'}"?`,
@@ -239,7 +249,10 @@ export default function InventoryScreen() {
 
   const handleUpdateItem = async () => {
     if (!editingItem) return;
-
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     try {
       await apiClient.updateInventoryItem(editingItem.id, {
         quantity: editFormData.quantity,
@@ -265,12 +278,14 @@ export default function InventoryScreen() {
       Alert.alert('Error', 'Product name is required');
       return;
     }
-
     if (selectedPantryId === undefined) {
       Alert.alert('Error', 'Please select a pantry first');
       return;
     }
-
+    if (!isOnline) {
+      Alert.alert('Offline', OFFLINE_ACTION_MESSAGE);
+      return;
+    }
     try {
       setProcessing(true);
       
