@@ -595,8 +595,11 @@ export default function InventoryScreen() {
           {
             icon: 'pencil-outline',
             label: 'Add Manually',
-            onPress: () => setManualEntryDialogVisible(true),
-            style: { 
+            onPress: () => {
+              setFabOpen(false);
+              setTimeout(() => setManualEntryDialogVisible(true), 200);
+            },
+            style: {
               backgroundColor: ds.colors.textPrimary,
               elevation: 0,
             },
@@ -606,11 +609,14 @@ export default function InventoryScreen() {
           {
             icon: 'barcode-scan',
             label: 'Scan Barcode',
-            onPress: () => navigation.navigate('BarcodeScanner' as never, { 
-              pantryId: selectedPantryId,
-              storageLocation: 'pantry'
-            } as never),
-            style: { 
+            onPress: () => {
+              setFabOpen(false);
+              setTimeout(() => navigation.navigate('BarcodeScanner' as never, {
+                pantryId: selectedPantryId,
+                storageLocation: 'pantry'
+              } as never), 200);
+            },
+            style: {
               backgroundColor: ds.colors.textPrimary,
               elevation: 0,
             },
@@ -620,8 +626,11 @@ export default function InventoryScreen() {
           {
             icon: 'camera-outline',
             label: 'Scan Label',
-            onPress: () => setDialogVisible(true),
-            style: { 
+            onPress: () => {
+              setFabOpen(false);
+              setTimeout(() => setDialogVisible(true), 200);
+            },
+            style: {
               backgroundColor: ds.colors.textPrimary,
               elevation: 0,
             },
