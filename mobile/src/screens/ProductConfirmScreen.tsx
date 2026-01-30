@@ -97,12 +97,11 @@ export default function ProductConfirmScreen() {
         status: 'in_stock',
       });
 
-      // Navigate back to inventory
-      navigation.navigate('Main' as never, { screen: 'Inventory' } as never);
+      // BarcodeScanner used replace(), so stack is [Main, ProductConfirm]; one goBack() returns to Inventory
+      navigation.goBack();
     } catch (error: any) {
       console.error('Error saving product:', error);
-      // Still navigate back - the error may be a duplicate barcode but item was created
-      navigation.navigate('Main' as never, { screen: 'Inventory' } as never);
+      navigation.goBack();
     } finally {
       setSaving(false);
     }
