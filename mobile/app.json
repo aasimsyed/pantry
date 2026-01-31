@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Pantry AI",
     "slug": "smart-pantry",
-    "version": "2.3.3",
+    "version": "2.3.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -74,7 +74,8 @@
     "extra": {
       "eas": {
         "projectId": "57af01d6-c443-4708-b8f2-0354bc50e1a3"
-      }
+      },
+      "supportUrl": "https://smartpantry.app/support"
     },
     "owner": "aasimsyed",
     "scheme": "smartpantry",

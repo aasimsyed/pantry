@@ -65,7 +65,7 @@ export default function ExpiringScreen() {
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: ExpiringSection }) => (
-      <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeader} accessibilityRole="header" accessibilityLabel={`${section.title}, ${section.data[0]?._empty ? 0 : section.data.length} items`} accessibilityHint="Section header for expiring or expired items">
         <View
           style={[
             styles.sectionBadge,
@@ -99,7 +99,11 @@ export default function ExpiringScreen() {
     ({ item, section }: { item: InventoryItem & { _empty?: boolean }; section: ExpiringSection }) => {
       if (item._empty) {
         return (
-          <Card style={[styles.successCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5', ...ds.shadows.sm }]}>
+          <Card
+            style={[styles.successCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5', ...ds.shadows.sm }]}
+            accessibilityLabel={`All clear. No items expiring in the next ${days} days.`}
+            accessibilityHint="No items in this section"
+          >
             <Card.Content style={styles.successContent}>
               <MaterialCommunityIcons name="check-circle" size={48} color={ds.colors.success} />
               <Text style={[styles.successTitle, { color: ds.colors.success }]}>All Clear!</Text>
@@ -111,6 +115,7 @@ export default function ExpiringScreen() {
         );
       }
       const isErrorSection = section.isError;
+      const itemLabel = `${item.product_name || 'Unknown'}, ${item.expiration_date ? new Date(item.expiration_date).toLocaleDateString() : 'N/A'}, ${section.title}`;
       return (
         <Card
           style={[
@@ -120,6 +125,9 @@ export default function ExpiringScreen() {
               borderLeftColor: isErrorSection ? ds.colors.error : ds.colors.warning,
             },
           ]}
+          accessibilityLabel={itemLabel}
+          accessibilityHint="Expiring or expired inventory item"
+          accessibilityRole="none"
         >
           <Card.Content style={styles.itemContent}>
             <View style={styles.itemHeader}>
@@ -178,6 +186,9 @@ export default function ExpiringScreen() {
               maximumTrackTintColor={ds.colors.surfaceHover}
               thumbTintColor={ds.colors.primary}
               style={styles.slider}
+              accessibilityLabel="Look ahead days"
+              accessibilityHint={`Adjust between 1 and 30 days. Currently ${days} days.`}
+              accessibilityValue={{ min: 1, max: 30, now: days }}
             />
           </Card.Content>
         </Card>

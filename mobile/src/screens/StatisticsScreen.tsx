@@ -146,7 +146,7 @@ export default function StatisticsScreen() {
   if (!stats) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: ds.colors.background }]} edges={['bottom']}>
-        <View style={styles.center}>
+        <View style={styles.center} accessibilityRole="none" accessibilityLabel="No insights yet. Add items to your pantry to see health score, storage breakdown, and usage stats." accessibilityHint="Empty state">
           <Text style={[styles.emptyTitle, { color: ds.colors.textPrimary }]}>No insights yet</Text>
           <Text style={[styles.emptyText, { color: ds.colors.textSecondary }]}>
             Add items to your pantry to see health score, storage breakdown, and usage stats.
@@ -175,7 +175,7 @@ export default function StatisticsScreen() {
         </Text>
 
         {/* Pantry Health Score */}
-        <View style={[styles.healthCard, { backgroundColor: ds.colors.surface }]}>
+        <View style={[styles.healthCard, { backgroundColor: ds.colors.surface }]} accessibilityRole="none" accessibilityLabel={`Pantry health score ${stats.health_score} out of 100, ${getHealthLabel(stats.health_score)}`} accessibilityHint="Summary of pantry health">
           <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
             PANTRY HEALTH
           </Text>

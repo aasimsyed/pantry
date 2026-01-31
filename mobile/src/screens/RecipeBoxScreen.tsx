@@ -284,7 +284,7 @@ export default function RecipeBoxScreen() {
   const listHeaderComponent = useMemo(
     () => (
       <>
-        <View style={[styles.header, styles.headerRow]}>
+        <View style={[styles.header, styles.headerRow]} accessibilityRole="header" accessibilityLabel="Recipe Box" accessibilityHint="Screen title">
           <Text testID="recipe-box-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
             Recipe Box
           </Text>
@@ -612,9 +612,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   filterIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -743,7 +745,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   deleteButton: {
-    padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Filter modal (Rams / Ive: restraint, clarity, space)
   filterOverlay: {

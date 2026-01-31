@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
@@ -845,6 +845,8 @@ export default function SettingsScreen() {
               titleStyle={{ color: ds.colors.textPrimary, fontSize: 15, fontWeight: '500' }}
               descriptionStyle={{ color: ds.colors.textSecondary, fontSize: 13 }}
               style={styles.listItem}
+              accessibilityLabel="Privacy Policy"
+              accessibilityHint="Double tap to read privacy policy"
             />
 
             <List.Item
@@ -858,6 +860,26 @@ export default function SettingsScreen() {
               titleStyle={{ color: ds.colors.textPrimary, fontSize: 15, fontWeight: '500' }}
               descriptionStyle={{ color: ds.colors.textSecondary, fontSize: 13 }}
               style={styles.listItem}
+              accessibilityLabel="Terms of Service"
+              accessibilityHint="Double tap to read terms of service"
+            />
+
+            <List.Item
+              title="Support"
+              titleNumberOfLines={2}
+              description="Contact us for help"
+              descriptionNumberOfLines={2}
+              left={(props) => <List.Icon {...props} icon="help-circle" color={ds.colors.primary} />}
+              right={(props) => <List.Icon {...props} icon="open-in-new" color={ds.colors.textTertiary} />}
+              onPress={() => {
+                const url = Constants.expoConfig?.extra?.supportUrl as string | undefined;
+                Linking.openURL(url || 'https://smartpantry.app/support').catch(() => {});
+              }}
+              titleStyle={{ color: ds.colors.textPrimary, fontSize: 15, fontWeight: '500' }}
+              descriptionStyle={{ color: ds.colors.textSecondary, fontSize: 13 }}
+              style={styles.listItem}
+              accessibilityLabel="Support"
+              accessibilityHint="Double tap to open support in browser"
             />
 
             <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />

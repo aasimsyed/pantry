@@ -5,6 +5,21 @@ All notable changes to Smart Pantry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.4] - 2026-01-30
+
+### Added
+- **Accessibility**: Screen reader labels and hints on Recipe Box (list items, filter, search, header), Expiring (section headers, slider, item cards, empty state), and Statistics (health score, empty state, timeline rows). Minimum 44pt touch targets for filter and delete in Recipe Box.
+- **Support URL**: Settings → Legal & About now includes a "Support" row that opens the app support URL (configurable via `app.json` → `extra.supportUrl`). Use the same URL in App Store Connect for the support link.
+
+### Changed
+- Expiring screen: Slider has accessibility label/hint and value; section headers and item cards are announced with clear labels.
+- Settings: Privacy Policy and Terms of Service list items have accessibility hints.
+
+### Note
+- **Privacy / permissions**: Permission strings (Face ID, Camera, Photo Library) in `app.json` were reviewed and match current behavior and App Store requirements. Face ID for sign-in; Camera for barcodes and labels; Photo Library for uploading product photos. See Privacy Policy for data handling.
+
+---
+
 ## [2.3.3] - 2026-01-30
 
 ### Added
