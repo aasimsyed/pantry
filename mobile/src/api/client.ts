@@ -203,12 +203,12 @@ class APIClient {
           if (isRecoveryQuestions404) {
             console.warn('Recovery questions endpoint not available (404), backend may not be deployed with this feature');
           } else {
-            console.error(`API request failed: ${error.response.status} ${error.response.statusText}`, {
-              url: originalRequest?.url,
-              method: originalRequest?.method,
-              data: error.response.data,
-              retryCount,
-            });
+            const statusText = error.response.statusText || (error.response.status === 409 ? 'Conflict' : String(error.response.status));
+            const detail = error.response.data?.detail;
+            console.error(
+              `API request failed: ${error.response.status} ${statusText}${detail ? ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}` : ''}`,
+              { url: originalRequest?.url, method: originalRequest?.method, data: error.response.data, retryCount }
+            );
           }
         } else {
           console.error('API request failed:', error.message || error, {

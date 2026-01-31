@@ -328,9 +328,10 @@ export default function RecipesScreen() {
     } catch (err: any) {
       const statusCode = err.response?.status;
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to save recipe';
-      // 409 = already saved: recipe is in Recipe Box. Don't refetch — backend still has it in
-      // recent list, so loadRecentRecipes() would bring it back. We already removed it from UI.
+      // 409 = already saved: recipe is in Recipe Box. Don't refetch; don't re-add to list.
       if (statusCode === 409 || errorMessage.includes('already saved')) {
+        triggerHapticSuccess();
+        Alert.alert('Already saved', 'This recipe is already in your Recipe Box.');
         return;
       }
       Alert.alert('Error', errorMessage);
@@ -576,9 +577,7 @@ export default function RecipesScreen() {
               testID="allow-missing-checkbox"
               value={allowMissing}
               onValueChange={setAllowMissing}
-              thumbColor={allowMissing ? ds.colors.textPrimary : '#f4f3f4'}
-              trackColor={{ false: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)', true: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)' }}
-              ios_backgroundColor={isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'}
+              color={ds.colors.primary}
             />
           </TouchableOpacity>
 
