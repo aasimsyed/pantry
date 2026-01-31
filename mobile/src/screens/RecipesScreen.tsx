@@ -113,7 +113,9 @@ export default function RecipesScreen() {
   const [selectedPantryId, setSelectedPantryId] = useState<number | undefined>();
   const [recentRecipes, setRecentRecipes] = useState<RecentRecipe[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
-  
+  /** Lowercase recipe names that are already in Recipe Box; used to hide them from Recipes list. */
+  const [savedRecipeNames, setSavedRecipeNames] = useState<Set<string>>(() => new Set());
+
   // Use ref for cancel flag so it's immediately accessible in the generation loop
   const cancelRequestedRef = useRef(false);
 
@@ -149,24 +151,29 @@ export default function RecipesScreen() {
     }
   }, [selectedPantryId]);
 
-  // Load recent recipes
+  // Load recent recipes and saved recipe names; filter out saved from recent so they don't appear on Recipes
   const loadRecentRecipes = useCallback(async () => {
-    // Only load if user is authenticated
     if (!isAuthenticated) {
       setRecentRecipes([]);
+      setSavedRecipeNames(new Set());
       setLoadingRecent(false);
       return;
     }
 
     setLoadingRecent(true);
     try {
-      const recent = await apiClient.getRecentRecipes(20);
-      setRecentRecipes(recent);
+      const [saved, recent] = await Promise.all([
+        apiClient.getSavedRecipes().catch(() => []),
+        apiClient.getRecentRecipes(20),
+      ]);
+      const savedNames = new Set(saved.map((r) => r.name.trim().toLowerCase()));
+      setSavedRecipeNames(savedNames);
+      const unsavedRecent = recent.filter((r) => !savedNames.has(r.name.trim().toLowerCase()));
+      setRecentRecipes(unsavedRecent);
       if (__DEV__) {
-        console.log(`[RecipesScreen] Loaded ${recent.length} recent recipes`);
+        console.log(`[RecipesScreen] Loaded ${recent.length} recent, ${saved.length} saved; showing ${unsavedRecent.length} unsaved recent`);
       }
     } catch (err: any) {
-      // Log detailed error for debugging
       console.error('[RecipesScreen] Error loading recent recipes:', {
         message: err.message,
         status: err.response?.status,
@@ -174,8 +181,6 @@ export default function RecipesScreen() {
         url: err.config?.url,
         authenticated: isAuthenticated,
       });
-      // Don't show error to user - recent recipes are optional
-      // But ensure we don't keep stale data
       setRecentRecipes([]);
     } finally {
       setLoadingRecent(false);
@@ -208,8 +213,8 @@ export default function RecipesScreen() {
     if (isAuthenticated) {
       loadRecentRecipes();
     } else {
-      // Clear recipes when logged out
       setRecentRecipes([]);
+      setSavedRecipeNames(new Set());
     }
   }, [isAuthenticated, loadRecentRecipes]);
 
@@ -323,6 +328,7 @@ export default function RecipesScreen() {
         });
       }
       triggerHapticSuccess();
+      setSavedRecipeNames((prev) => new Set([...prev, name.trim().toLowerCase()]));
       Alert.alert('Success', `Saved "${name}" to recipe box!`);
       loadRecentRecipes();
     } catch (err: any) {
@@ -331,6 +337,8 @@ export default function RecipesScreen() {
       // 409 = already saved: recipe is in Recipe Box. Don't refetch; don't re-add to list.
       if (statusCode === 409 || errorMessage.includes('already saved')) {
         triggerHapticSuccess();
+        setSavedRecipeNames((prev) => new Set([...prev, name.trim().toLowerCase()]));
+        loadRecentRecipes();
         Alert.alert('Already saved', 'This recipe is already in your Recipe Box.');
         return;
       }
@@ -348,6 +356,12 @@ export default function RecipesScreen() {
     setRecipes((prev) => prev.filter((r) => r.name !== recipeName));
     setRecentRecipes((prev) => prev.filter((r) => r.name !== recipeName));
   };
+
+  /** Generated recipes excluding any already in Recipe Box (so we don't show duplicates). */
+  const displayRecipes = React.useMemo(
+    () => recipes.filter((r) => !savedRecipeNames.has(r.name.trim().toLowerCase())),
+    [recipes, savedRecipeNames]
+  );
 
   const handleDeleteRecentRecipe = async (recipeId: number) => {
     if (!isOnline) {
@@ -1027,7 +1041,7 @@ export default function RecipesScreen() {
       )}
 
       {/* Generated Recipes Section — show when generating (skeleton slots) or when we have results */}
-      {(generating || recipes.length > 0) && (
+      {(generating || displayRecipes.length > 0) && (
         <View style={styles.recipeSection}>
           <View style={[styles.formDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]} />
           <Text style={[styles.sectionLabel, { color: ds.colors.textTertiary }]}>
@@ -1036,7 +1050,7 @@ export default function RecipesScreen() {
         </View>
       )}
 
-      {recipes.map((recipe, idx) => (
+      {displayRecipes.map((recipe, idx) => (
         <View
           key={idx}
           style={[styles.recipeItem, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }]}
