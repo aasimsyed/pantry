@@ -6,7 +6,7 @@ Sentry, etc. Load from .env; no env prefix.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -57,12 +57,12 @@ class Settings(BaseSettings):
     # Instacart Integration
     # -------------------------------------------------------------------------
     instacart_api_key: Optional[str] = None
+    instacart_environment: Literal["development", "production"] = "development"
     instacart_api_url: str = "https://connect.instacart.com"
     instacart_dev_api_url: str = "https://connect.dev.instacart.tools"
     instacart_timeout: int = 30
     instacart_link_expires_days: int = 30
     instacart_enabled: bool = True
-    instacart_affiliate_partner_id: Optional[str] = None  # Impact partner ID for affiliate tracking
 
     # -------------------------------------------------------------------------
     # API (server, CORS, rate limit)
@@ -169,6 +169,13 @@ class Settings(BaseSettings):
     @property
     def sentry_dsn_stripped(self) -> str:
         return (self.sentry_dsn or "").strip()
+
+    @property
+    def instacart_base_url(self) -> str:
+        """Instacart host matching the API key's environment."""
+        if self.instacart_environment == "production":
+            return self.instacart_api_url
+        return self.instacart_dev_api_url
 
 
 # Singleton

@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, View, Alert, TouchableOpacity, Pressable, TextInput as RNTextInput, FlatList } from 'react-native';
-
-// Instacart branding - using approved green color
-const INSTACART_GREEN = '#43B02A';
 import {
   Text,
   Button,
@@ -22,7 +19,7 @@ import { getUseCloudOcr, recognizeTextFromUri } from '../services/ocrService';
 import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { PremiumButton } from '../components/PremiumButton';
-import { InstacartLogo } from '../components/InstacartLogo';
+import { InstacartCTAButton } from '../components/InstacartCTAButton';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { SkeletonInventoryRow } from '../components/Skeleton';
 import { useTheme } from '../contexts/ThemeContext';
@@ -523,32 +520,17 @@ export default function InventoryScreen() {
           ))}
         </View>
         {items.filter((i) => i.status === 'low').length > 0 && (
-          <TouchableOpacity
-            onPress={() => instacartService.shopLowStockItems(items, setInstacartLoading)}
-            disabled={instacartLoading}
-            style={[
-              styles.instacartButton,
-              {
-                backgroundColor: '#F5E6D3',
-                borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)',
-              },
-            ]}
-            activeOpacity={0.7}
-            accessibilityLabel={`Shop low stock on Instacart (${items.filter((i) => i.status === 'low').length} items)`}
-            accessibilityHint="Double tap to open Instacart with low stock items"
-            accessibilityRole="button"
-          >
-            {instacartLoading ? (
-              <ActivityIndicator size="small" color={INSTACART_GREEN} />
-            ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <InstacartLogo width={100} height={18} />
-                <Text style={[styles.instacartButtonText, { color: ds.colors.textSecondary, fontSize: 13 }]}>
-                  ({items.filter((i) => i.status === 'low').length} items)
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.instacartButton}>
+            <InstacartCTAButton
+              label="Shop on Instacart"
+              onPress={() => instacartService.shopLowStockItems(items, setInstacartLoading)}
+              loading={instacartLoading}
+              accessibilityHint={`Opens Instacart with ${items.filter((i) => i.status === 'low').length} low stock items`}
+            />
+            <Text style={[styles.instacartButtonText, { color: ds.colors.textSecondary }]}>
+              {items.filter((i) => i.status === 'low').length} low stock items
+            </Text>
+          </View>
         )}
         <Text style={[styles.countLabel, { color: ds.colors.textTertiary }]}>{filteredItems.length} ITEMS</Text>
       </ScreenContentWrapper>
@@ -1373,20 +1355,13 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   instacartButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     marginHorizontal: 24,
     marginBottom: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    // borderColor is set inline to be theme-aware
+    gap: 6,
   },
   instacartButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
   },
   countLabel: {
     fontSize: 11,

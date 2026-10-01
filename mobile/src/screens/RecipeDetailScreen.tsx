@@ -7,9 +7,6 @@ import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 import { instacartService } from '../services/instacartService';
-
-// Instacart branding - using approved green color
-const INSTACART_GREEN = '#43B02A';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
@@ -17,7 +14,7 @@ import { DesignSystem, getDesignSystem, getTextStyle } from '../utils/designSyst
 import { triggerHapticSuccess } from '../utils/haptics';
 import { ScreenContentWrapper } from '../components/ScreenContentWrapper';
 import { FlavorChemistrySheet } from '../components/FlavorChemistrySheet';
-import { InstacartLogo } from '../components/InstacartLogo';
+import { InstacartCTAButton } from '../components/InstacartCTAButton';
 import type { Recipe, RecentRecipe, SavedRecipe, FlavorPairing } from '../types';
 
 type RouteParams = {
@@ -740,27 +737,13 @@ export default function RecipeDetailScreen() {
                   • {item}
                 </Text>
               ))}
-              <TouchableOpacity
-                style={[
-                  styles.instacartButton,
-                  { 
-                    backgroundColor: '#F5E6D3', // Cashew - approved Instacart background color
-                    borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)'
-                  }
-                ]}
+              <InstacartCTAButton
+                label="Shop ingredients"
+                style={styles.instacartButton}
                 onPress={() => instacartService.shopMissingIngredients(recipe as Recipe, setInstacartLoading)}
-                disabled={instacartLoading}
-                activeOpacity={0.7}
-                accessibilityLabel="Shop missing ingredients on Instacart"
-                accessibilityHint="Double tap to open Instacart with missing ingredients"
-                accessibilityRole="button"
-              >
-                {instacartLoading ? (
-                  <ActivityIndicator size="small" color={INSTACART_GREEN} />
-                ) : (
-                  <InstacartLogo width={120} height={20} />
-                )}
-              </TouchableOpacity>
+                loading={instacartLoading}
+                accessibilityHint="Opens Instacart with missing ingredients"
+              />
             </Card.Content>
           </Card>
         </>
@@ -789,14 +772,9 @@ export default function RecipeDetailScreen() {
                       • {item}
                     </Text>
                   ))}
-                  <TouchableOpacity
-                    style={[
-                      styles.instacartButton,
-                      { 
-                        backgroundColor: '#F5E6D3', // Cashew - approved Instacart background color
-                        borderColor: isDark ? 'rgba(0, 168, 98, 0.3)' : 'rgba(0, 168, 98, 0.2)'
-                      }
-                    ]}
+                  <InstacartCTAButton
+                    label="Shop ingredients"
+                    style={styles.instacartButton}
                     onPress={() => {
                       // Create a temporary recipe object with calculated missing ingredients
                       const recipeWithMissing = {
@@ -805,18 +783,9 @@ export default function RecipeDetailScreen() {
                       };
                       instacartService.shopMissingIngredients(recipeWithMissing as Recipe, setInstacartLoading);
                     }}
-                    disabled={instacartLoading}
-                    activeOpacity={0.7}
-                    accessibilityLabel="Shop missing ingredients on Instacart"
-                    accessibilityHint="Double tap to open Instacart with missing ingredients"
-                    accessibilityRole="button"
-                  >
-                    {instacartLoading ? (
-                      <ActivityIndicator size="small" color={INSTACART_GREEN} />
-                    ) : (
-                      <InstacartLogo width={120} height={20} />
-                    )}
-                  </TouchableOpacity>
+                    loading={instacartLoading}
+                    accessibilityHint="Opens Instacart with missing ingredients"
+                  />
                 </Card.Content>
               </Card>
             </>
@@ -1260,15 +1229,7 @@ const styles = StyleSheet.create({
   },
   // Instacart Button
   instacartButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     marginTop: DesignSystem.spacing.md,
-    borderRadius: DesignSystem.borderRadius.md,
-    borderWidth: 1,
-    // borderColor is set inline to be theme-aware
   },
   instacartButtonText: {
     fontSize: 15,

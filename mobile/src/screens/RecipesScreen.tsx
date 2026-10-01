@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ScrollView, StyleSheet, View, Alert, AppState, AppStateStatus, TouchableOpacity, TextInput as RNTextInput, Animated, Easing } from 'react-native';
-
-// Instacart branding - using approved green color
-const INSTACART_GREEN = '#43B02A';
 import {
   Text,
   Button,
@@ -17,7 +14,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
-import { instacartService } from '../services/instacartService';
 import { PantrySelector } from '../components/PantrySelector';
 import { SkeletonRecipeCard, Skeleton } from '../components/Skeleton';
 import { PremiumButton } from '../components/PremiumButton';
@@ -1095,24 +1091,6 @@ export default function RecipesScreen() {
             )}
           </TouchableOpacity>
           <View style={styles.recipeActions}>
-            {recipe.missing_ingredients && recipe.missing_ingredients.length > 0 && (
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  instacartService.shopMissingIngredients(recipe);
-                }}
-                style={styles.recipeActionButton}
-                accessibilityLabel="Shop missing ingredients on Instacart"
-                accessibilityHint="Double tap to open Instacart"
-                accessibilityRole="button"
-              >
-                <MaterialCommunityIcons 
-                  name="cart-outline" 
-                  size={22} 
-                  color={INSTACART_GREEN} 
-                />
-              </TouchableOpacity>
-            )}
             <TouchableOpacity
               onPress={(e) => {
                 e.stopPropagation();

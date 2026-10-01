@@ -24,11 +24,10 @@ class TestInstacartService:
         """Create mock settings for testing."""
         settings = MagicMock()
         settings.instacart_api_key = "test-api-key"
-        settings.instacart_api_url = "https://connect.instacart.com"
+        settings.instacart_base_url = "https://connect.dev.instacart.tools"
         settings.instacart_timeout = 30
         settings.instacart_link_expires_days = 30
         settings.instacart_enabled = True
-        settings.instacart_affiliate_partner_id = None
         return settings
     
     @pytest.fixture
@@ -98,14 +97,15 @@ class TestInstacartService:
         """Test basic line item formatting."""
         item = {"name": "bread"}
         formatted = service._format_line_item(item)
-        assert formatted["name"] == "bread"
+        assert formatted == {"name": "bread"}
     
     def test_format_line_item_with_quantity(self, service):
-        """Test line item formatting with quantity."""
+        """Test line item formatting uses line_item_measurements."""
         item = {"name": "apples", "quantity": 6, "unit": "each"}
         formatted = service._format_line_item(item)
-        assert formatted["quantity"] == 6.0
-        assert formatted["unit"] == "each"
+        assert formatted["line_item_measurements"] == [{"quantity": 6.0, "unit": "each"}]
+        assert "quantity" not in formatted
+        assert "unit" not in formatted
     
     @pytest.mark.asyncio
     async def test_create_recipe_link_success(self, service):
@@ -129,6 +129,8 @@ class TestInstacartService:
             
             assert result["products_link_url"] == "https://instacart.com/recipe/123"
             assert "expires_at" in result
+            post = mock_client.return_value.__aenter__.return_value.post
+            assert post.call_args.args[0] == "https://connect.dev.instacart.tools/idp/v1/products/recipe"
     
     @pytest.mark.asyncio
     async def test_create_recipe_link_api_error(self, service):
@@ -239,32 +241,50 @@ class TestInstacartExceptions:
         error = InstacartConfigError("Config error")
         assert str(error) == "Config error"
     
-    def test_append_affiliate_params_no_partner_id(self, service):
-        """Test that URLs are unchanged when no affiliate partner ID is configured."""
-        url = "https://www.instacart.com/store/shopping_lists/123456"
-        result = service._append_affiliate_params(url)
-        assert result == url
+
+
+class TestInstacartLinkPassthrough:
+    """Instacart appends affiliate params itself; links must not be modified."""
     
-    def test_append_affiliate_params_with_partner_id(self, mock_settings):
-        """Test that UTM parameters are appended when affiliate partner ID is configured."""
-        mock_settings.instacart_affiliate_partner_id = "5928554"
-        with patch('src.instacart_service.settings', mock_settings):
+    @pytest.mark.asyncio
+    async def test_shopping_list_link_returned_unchanged(self):
+        url = (
+            "https://www.instacart.com/store/shopping_lists/123?utm_campaign=instacart-idp"
+            "&utm_content=campaignid-20313_partnerid-5928554"
+        )
+        mock_response = MagicMock(status_code=200)
+        mock_response.json.return_value = {"products_link_url": url}
+        
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
+            )
             service = InstacartService()
-            
-            # URL without existing query params
-            url = "https://www.instacart.com/store/shopping_lists/123456"
-            result = service._append_affiliate_params(url)
-            assert "?" in result
-            assert "utm_campaign=instacart-idp" in result
-            assert "utm_medium=affiliate" in result
-            assert "utm_source=instacart_idp" in result
-            assert "utm_term=partnertype-mediapartner" in result
-            assert "utm_content=campaignid-20313_partnerid-5928554" in result
-            
-            # URL with existing query params
-            url_with_params = "https://www.instacart.com/store/shopping_lists/123456?existing=param"
-            result_with_params = service._append_affiliate_params(url_with_params)
-            assert "&" in result_with_params
-            assert "existing=param" in result_with_params
-            assert "utm_campaign=instacart-idp" in result_with_params
-            assert "utm_content=campaignid-20313_partnerid-5928554" in result_with_params
+            service.api_key = "test-api-key"
+            service.enabled = True
+            result = await service.create_shopping_list_link(title="List", items=[{"name": "milk"}])
+        
+        assert result["products_link_url"] == url
+
+
+class TestInstacartBaseUrl:
+    """Tests for environment-based host selection."""
+    
+    @pytest.mark.parametrize(
+        ("environment", "expected"),
+        [
+            ("development", "https://connect.dev.instacart.tools"),
+            ("production", "https://connect.instacart.com"),
+        ],
+    )
+    def test_base_url_matches_environment(self, environment, expected):
+        from src.config import Settings
+        
+        settings = Settings(_env_file=None, instacart_environment=environment)
+        assert settings.instacart_base_url == expected
+    
+    def test_defaults_to_development(self, monkeypatch):
+        from src.config import Settings
+        
+        monkeypatch.delenv("INSTACART_ENVIRONMENT", raising=False)
+        assert Settings(_env_file=None).instacart_base_url == "https://connect.dev.instacart.tools"
