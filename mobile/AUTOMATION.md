@@ -139,6 +139,72 @@ eas submit:list --platform ios --limit 5
 
 ---
 
+## Submit to Google Play Store
+
+### Prerequisites
+
+1. **Google Play Console** – [Create a developer account](https://play.google.com/console/signup) (one-time fee).
+2. **Create the app** in Play Console (if not already): create app → fill store listing, content rating, etc.
+3. **First upload** – Google requires the **first** version of a new app to be uploaded manually (Play Console → Your app → Production or Testing → Create new release → Upload AAB). After that you can use EAS Submit.
+4. **Service account (optional, for non-interactive submit)** – Play Console → **Setup** → **API access** → Link to Google Cloud → Create service account → Create key (JSON). Grant the service account access in Play Console (e.g. “Release to production” or “Release apps to testing”). Save the JSON key somewhere safe (e.g. `mobile/play-store-service-account.json` and add to `.gitignore`).
+
+### Build for Play Store
+
+Production builds use **Android App Bundle (AAB)** (already set in `eas.json`):
+
+```bash
+cd mobile
+eas build --platform android --profile production --non-interactive
+```
+
+Wait for the build to finish on [expo.dev](https://expo.dev).
+
+### Submit to Play Store
+
+**Interactive (first time or one-off):**
+
+```bash
+cd mobile
+eas submit --platform android --latest
+```
+
+EAS will prompt you to log in to Google (or use a service account). Choose the build, then pick the **track** (internal testing, closed testing, open testing, or production).
+
+**Non-interactive (e.g. CI or script):**  
+Add to `eas.json` under `submit` → `production` (or a new profile):
+
+```json
+"submit": {
+  "production": {
+    "ios": { "ascAppId": "...", "appleTeamId": "..." },
+    "android": {
+      "track": "internal",
+      "serviceAccountKeyPath": "./play-store-service-account.json"
+    }
+  }
+}
+```
+
+Then:
+
+```bash
+eas submit --platform android --profile production --non-interactive --latest
+```
+
+**NPM script:**
+
+```bash
+npm run submit:android
+# (runs: eas submit --platform android)
+```
+
+### After submitting
+
+- **Internal / closed testing** – Add testers in Play Console; they get a link to opt in.
+- **Production** – Review can take a few hours to several days. Check **Publishing overview** in Play Console.
+
+---
+
 ## Troubleshooting
 
 ### Build Number Already Submitted

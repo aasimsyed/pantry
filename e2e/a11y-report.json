@@ -1,0 +1,243 @@
+{
+  "timestamp": "2026-01-31T20:29:09.706Z",
+  "wcagLevel": "AA",
+  "fullyAutomated": true,
+  "note": "Full E2E: if signed in delete from Settings → Register → Login → feature + a11y → delete from Settings.",
+  "summary": {
+    "total": 6,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 1
+  },
+  "wcagCriteria": {
+    "1.1.1": {
+      "name": "Non-text Content (A)",
+      "status": "N/A"
+    },
+    "1.2.1": {
+      "name": "Audio-only and Video-only (A)",
+      "status": "N/A"
+    },
+    "1.2.2": {
+      "name": "Captions (Prerecorded) (A)",
+      "status": "N/A"
+    },
+    "1.2.3": {
+      "name": "Audio Description or Media Alternative (A)",
+      "status": "N/A"
+    },
+    "1.2.4": {
+      "name": "Captions (Live) (AA)",
+      "status": "N/A"
+    },
+    "1.2.5": {
+      "name": "Audio Description (Prerecorded) (AA)",
+      "status": "N/A"
+    },
+    "1.3.1": {
+      "name": "Info and Relationships (A)",
+      "status": "N/A"
+    },
+    "1.3.2": {
+      "name": "Meaningful Sequence (A)",
+      "status": "N/A"
+    },
+    "1.3.3": {
+      "name": "Sensory Characteristics (A)",
+      "status": "N/A"
+    },
+    "1.3.4": {
+      "name": "Orientation (AA)",
+      "status": "N/A"
+    },
+    "1.3.5": {
+      "name": "Identify Input Purpose (AA)",
+      "status": "N/A"
+    },
+    "1.4.1": {
+      "name": "Use of Color (A)",
+      "status": "N/A"
+    },
+    "1.4.2": {
+      "name": "Audio Control (A)",
+      "status": "N/A"
+    },
+    "1.4.3": {
+      "name": "Contrast (Minimum) (AA)",
+      "status": "fail"
+    },
+    "1.4.4": {
+      "name": "Resize Text (AA)",
+      "status": "fail"
+    },
+    "1.4.5": {
+      "name": "Images of Text (AA)",
+      "status": "N/A"
+    },
+    "1.4.10": {
+      "name": "Reflow (AA)",
+      "status": "fail"
+    },
+    "1.4.11": {
+      "name": "Non-text Contrast (AA)",
+      "status": "fail"
+    },
+    "1.4.12": {
+      "name": "Text Spacing (AA)",
+      "status": "N/A"
+    },
+    "1.4.13": {
+      "name": "Content on Hover or Focus (AA)",
+      "status": "N/A"
+    },
+    "2.1.1": {
+      "name": "Keyboard (A)",
+      "status": "N/A"
+    },
+    "2.1.2": {
+      "name": "No Keyboard Trap (A)",
+      "status": "N/A"
+    },
+    "2.2.1": {
+      "name": "Timing Adjustable (A)",
+      "status": "N/A"
+    },
+    "2.2.2": {
+      "name": "Pause, Stop, Hide (A)",
+      "status": "N/A"
+    },
+    "2.3.1": {
+      "name": "Three Flashes or Below Threshold (A)",
+      "status": "N/A"
+    },
+    "2.4.1": {
+      "name": "Bypass Blocks (A)",
+      "status": "N/A"
+    },
+    "2.4.2": {
+      "name": "Page Titled (A)",
+      "status": "fail"
+    },
+    "2.4.3": {
+      "name": "Focus Order (A)",
+      "status": "N/A"
+    },
+    "2.4.4": {
+      "name": "Link Purpose (A)",
+      "status": "fail"
+    },
+    "2.4.5": {
+      "name": "Multiple Ways (AA)",
+      "status": "N/A"
+    },
+    "2.4.6": {
+      "name": "Headings and Labels (AA)",
+      "status": "fail"
+    },
+    "2.4.7": {
+      "name": "Focus Visible (AA)",
+      "status": "N/A"
+    },
+    "2.5.1": {
+      "name": "Pointer Gestures (A)",
+      "status": "N/A"
+    },
+    "2.5.2": {
+      "name": "Pointer Cancellation (A)",
+      "status": "N/A"
+    },
+    "2.5.3": {
+      "name": "Label in Name (A)",
+      "status": "fail"
+    },
+    "2.5.4": {
+      "name": "Motion Actuation (A)",
+      "status": "N/A"
+    },
+    "3.1.1": {
+      "name": "Language of Page (A)",
+      "status": "N/A"
+    },
+    "3.1.2": {
+      "name": "Language of Parts (AA)",
+      "status": "N/A"
+    },
+    "3.2.1": {
+      "name": "On Focus (A)",
+      "status": "N/A"
+    },
+    "3.2.2": {
+      "name": "On Input (A)",
+      "status": "N/A"
+    },
+    "3.2.3": {
+      "name": "Consistent Navigation (AA)",
+      "status": "N/A"
+    },
+    "3.2.4": {
+      "name": "Consistent Identification (AA)",
+      "status": "N/A"
+    },
+    "3.3.1": {
+      "name": "Error Identification (A)",
+      "status": "fail"
+    },
+    "3.3.2": {
+      "name": "Labels or Instructions (A)",
+      "status": "fail"
+    },
+    "3.3.3": {
+      "name": "Error Suggestion (AA)",
+      "status": "N/A"
+    },
+    "3.3.4": {
+      "name": "Error Prevention (AA)",
+      "status": "N/A"
+    },
+    "4.1.1": {
+      "name": "Parsing (A)",
+      "status": "N/A"
+    },
+    "4.1.2": {
+      "name": "Name, Role, Value (A)",
+      "status": "fail"
+    },
+    "4.1.3": {
+      "name": "Status Messages (AA)",
+      "status": "N/A"
+    }
+  },
+  "results": [
+    {
+      "screen": "Home",
+      "priority": 3,
+      "passed": true
+    },
+    {
+      "screen": "Recipe Box",
+      "priority": 6,
+      "passed": true
+    },
+    {
+      "screen": "Statistics",
+      "priority": 7,
+      "passed": true
+    },
+    {
+      "screen": "Pantry Selector",
+      "priority": 8,
+      "passed": true
+    },
+    {
+      "screen": "Settings",
+      "priority": 9,
+      "passed": true
+    },
+    {
+      "screen": "Recipe Detail",
+      "priority": 10,
+      "passed": true,
+      "skipped": true
+    }
+  ]
+}

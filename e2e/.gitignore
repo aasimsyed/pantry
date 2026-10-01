@@ -1,0 +1,6 @@
+node_modules/
+e2e-logs/
+dist/
+*.log
+.env
+.env.local

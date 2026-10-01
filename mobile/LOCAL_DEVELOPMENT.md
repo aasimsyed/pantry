@@ -9,6 +9,30 @@ Guide for running the Smart Pantry mobile app locally and viewing client-side er
 3. **iOS Simulator** (macOS only): Install Xcode from App Store
 4. **Android Emulator** (optional): Install Android Studio
 
+## Using the local backend (simulator / emulator)
+
+Start your local backend first (e.g. from repo root: `./scripts/kill-and-restart-backend.sh` or `python start_server.py`). Then run the app with the API URL set:
+
+**iOS Simulator** (simulator shares the Mac’s network, so `localhost` works):
+
+```bash
+cd mobile
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 npx expo run:ios
+# or with run-local.sh (Metro only): EXPO_PUBLIC_API_URL=http://127.0.0.1:8000 ./run-local.sh
+```
+
+**Android Emulator** (emulator uses `10.0.2.2` to reach the host’s localhost):
+
+```bash
+cd mobile
+EXPO_PUBLIC_API_URL=http://10.0.2.2:8000 npx expo run:android
+```
+
+**Physical device:** Use your Mac’s LAN IP so the phone can reach the backend:  
+`EXPO_PUBLIC_API_URL=http://YOUR_MAC_IP:8000` (e.g. `./run-local.sh --device` sets this automatically).
+
+---
+
 ## Quick Start
 
 ### 1. Install Dependencies
