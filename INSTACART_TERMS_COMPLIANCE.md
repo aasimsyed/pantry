@@ -11,7 +11,7 @@
 | Term | Requirement | Our implementation | Status |
 |------|-------------|--------------------|--------|
 | **Purpose** | Use API to (a) direct users to Instacart and/or (b) display Merchant Content with Developer Content. | We only **direct users** to Instacart: we send recipe/shopping list data to the API, receive a `products_link_url`, and open it in the Instacart app or web. We do not display Merchant Content (e.g. product catalog or prices) in our app. | **Compliant** |
-| **Attribution** | Comply with attribution requirements (e.g. third party copyright notices). | We use the **official Instacart logo lockup** (`InstacartLogo` component, `instacart-lockup.png`) and clear CTAs (“Shop missing ingredients on Instacart”, “Shop low stock on Instacart”). We do not remove or obscure any Instacart Marks or notices. The API does not return copyright text for us to display. | **Compliant** |
+| **Attribution** | Comply with attribution requirements (e.g. third party copyright notices). | We use the **official full-color Instacart logo** (`instacart-carrot.png`) inside the approved `InstacartCTAButton` with approved CTA text ("Shop ingredients", "Shop on Instacart"). We do not remove or obscure any Instacart Marks or notices. The API does not return copyright text for us to display. | **Compliant** |
 
 ---
 
@@ -32,8 +32,8 @@
 | Term | Requirement | Our implementation | Status |
 |------|-------------|--------------------|--------|
 | **Marks usage** | Use Instacart Marks only to indicate compatibility with Instacart; use in strict compliance with Instacart Marks Guidelines. | We use the **official logo lockup** (symbol + wordmark) from approved assets. | **Compliant** |
-| **Logo** | Per [Design – Logos](https://docs.instacart.com/developer_platform_api/guide/concepts/design/logos/): use most recent logos from Instacart_logos.zip. | We use `instacart-lockup.png` (lockup) and enforce minimum size (14px height) and clearspace per brand guidelines. | **Compliant** |
-| **Colors** | Use approved colors. | We use **INSTACART_GREEN** (`#43B02A`) and **Cashew** (`#F5E6D3`) for CTA backgrounds where specified in our implementation. | **Compliant** |
+| **Logo** | Per [Design – Logos](https://docs.instacart.com/developer_platform_api/guide/concepts/design/logos/): use most recent logos from Instacart_logos.zip. | We use `instacart-carrot.png` at 22px, full color and unmodified, per the [CTA design](https://docs.instacart.com/developer_platform_api/guide/concepts/design/cta_design) spec. | **Compliant** |
+| **Colors** | Use approved colors. | CTA uses the **Dark** theme: background `#003D29`, text `#FAF1E5`. | **Compliant** |
 | **Notices** (3.5(b)) | Do not remove legal, copyright, trademark, or other proprietary notices. | We do not remove or alter any Instacart notices; we add clear Instacart attribution (logo + “Shop on Instacart”–style CTAs). | **Compliant** |
 
 ---

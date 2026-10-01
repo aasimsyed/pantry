@@ -2,28 +2,38 @@
 
 Reference: [Instacart Pre-Launch Checklist](https://docs.instacart.com/developer_platform_api/guide/concepts/launch_activities/pre-launch_checklist). Complete these **before** requesting a Production API key.
 
+**Process:** request a Production key in the [Developer Dashboard](https://dashboard.instacart.com/). Instacart replies within 5 business days asking for a demo. If the demo meets the integration requirements the key is approved; otherwise revise and resubmit. After approval you receive an Impact.com affiliate invite.
+
 ---
 
-## Pre-launch checklist (exact items)
+## Integration requirements
 
 | Instacart requirement | Done? | Evidence |
 |------------------------|-------|----------|
-| **All requests are formatted according to the Instacart Developer Platform API specification.** | **Yes** | `src/instacart_service.py`: Recipe requests use `POST /idp/v1/products/recipe` with `title`, `author`, `ingredients` (each with `name`, optional `display_text`, `measurements` with `quantity`/`unit`), `expires_in`, and optional `instructions`, `servings`, `cooking_time`, `landing_page_configuration`. Shopping list requests use `POST /idp/v1/products/products_link` with `title`, `link_type`, `line_items` (each with `name`, optional `display_text`, `quantity`, `unit`), `expires_in`. Headers: `Authorization: Bearer`, `Content-Type: application/json`. |
-| **Error handling exists for all the implemented endpoints.** | **Yes** | `api/routers/instacart.py`: `GET /api/instacart/status` has no external call (only reads config), so no handler needed. `POST /api/instacart/recipe-link` and `POST /api/instacart/shopping-list-link` both catch `InstacartConfigError` → 503, `InstacartAPIError` → 502, and generic `Exception` → 500. Service layer (`instacart_service.py`) catches `httpx.TimeoutException` and `httpx.RequestError` and non-200 responses, and raises `InstacartAPIError` with message/status. |
+| **Use the Platform API and link to Instacart landing pages.** | **Yes** | `src/instacart_service.py`: `POST /idp/v1/products/recipe` and `POST /idp/v1/products/products_link`; the app opens the returned `products_link_url`. |
+| **Approved CTA text: "Shop ingredients" or "Shop on Instacart".** | **Yes** | `InstacartCTAButton` restricts `label` to those two strings. Recipe Detail: "Shop ingredients". Inventory: "Shop on Instacart". |
+| **Approved CTA theme with exact hex codes.** | **Yes** | Dark theme: background `#003D29`, text `#FAF1E5`. |
+| **CTA 46px tall, 29.5px border radius, 22px full-color logo.** | **Yes** | `mobile/src/components/InstacartCTAButton.tsx`, logo `instacart-carrot.png`. |
+| **Logo in full color, unmodified, unrotated, on an approved background.** | **Yes** | Full-color carrot on the Dark CTA background. |
+| **Logo used only to indicate an integration.** | **Yes** | Logo appears only inside the CTA; not paired with the Smart Pantry logo or used in marketing. |
 
----
+## Customer-facing copy
 
-## Done (implementation)
+| Must not appear | Done? |
+|-----------------|-------|
+| "Free Delivery" | **Yes** (not used) |
+| "Partner" / "Partnership" describing Instacart | **Yes** (not used) |
+| "Instacart delivers" or similar phrasings | **Yes** (not used) |
+| Delivery speed references | **Yes** (not used) |
 
-| Requirement | Status | Where |
-|-------------|--------|--------|
-| **Format requests per API spec** | Done | `src/instacart_service.py`: recipe payload (`title`, `author`, `ingredients` with `measurements`), shopping list payload (`title`, `line_items`); units and structure match IDP API. |
-| **Error handling for all endpoints** | Done | `api/routers/instacart.py`: `/status`, `/recipe-link`, `/shopping-list-link` handle `InstacartConfigError` (503), `InstacartAPIError` (502), and generic `Exception` (500). Service layer catches timeouts and request errors. |
-| **Recipe page API** | Done | `create_recipe_link()` → `POST /idp/v1/products/recipe` with optional instructions, servings, cooking_time, linkback. |
-| **Shopping list API** | Done | `create_shopping_list_link()` → `POST /idp/v1/products/products_link` with line items. |
-| **Branding** | Done | `InstacartLogo` (lockup), approved green/cashew colors, min 14px, clearspace; used on Recipe Detail. |
-| **Privacy** | Done | Instacart called out in `PRIVACY_POLICY.md` (optional feature, user-triggered). |
-| **Affiliate (optional)** | Ready | `_append_affiliate_params()` when `INSTACART_AFFILIATE_PARTNER_ID` is set; UTM format per Instacart docs. |
+## API implementation
+
+| Item | Done? | Evidence |
+|------|-------|----------|
+| Requests formatted per API spec | **Yes** | Recipe ingredients use `measurements`; shopping list items use `line_item_measurements`. Headers: `Authorization: Bearer`, `Content-Type` and `Accept: application/json`. |
+| Error handling for all endpoints | **Yes** | `api/routers/instacart.py`: `InstacartConfigError` → 503, `InstacartAPIError` → 502, other exceptions → 500. Service layer handles timeouts, request errors, and non-200 responses. |
+| Key matches host | **Yes** | `INSTACART_ENVIRONMENT` (`development` default) selects `connect.dev.instacart.tools` or `connect.instacart.com`. |
+| Affiliate tracking | **Yes** | No manual UTM params; Instacart appends them to `products_link_url` once Impact is linked. |
 
 ---
 
@@ -31,17 +41,9 @@ Reference: [Instacart Pre-Launch Checklist](https://docs.instacart.com/developer
 
 | Item | Action |
 |------|--------|
-| **1. Enterprise Service Desk account** | Required before Production API key. Get invitation/set up at [Enterprise Service Desk](https://enterprise-servicedesk.instacart.com). See [Request technical support](https://docs.instacart.com/support/request_technical_support/). |
-| **2. Terms & conditions** | **Done.** See [INSTACART_TERMS_COMPLIANCE.md](INSTACART_TERMS_COMPLIANCE.md) for a clause-by-clause review (data use, attribution, branding). Conclusion: compliant. |
-| **3. Request Production API key** | After 1 and 2, request Production API key via Instacart (dashboard/process they provide). Keep using dev/sandbox URL and key until approved. |
-| **4. (Optional) Linkback URL** | To show “Back to Smart Pantry” on Instacart recipe/shopping pages: set a public app or web URL and pass it as `linkback_url` from API to `create_recipe_link` / `create_shopping_list_link` (service already supports it; API models and mobile don’t pass it yet). |
-
----
-
-## Suggested order
-
-1. Create/verify Enterprise Service Desk account.  
-2. ~~Review Developer Platform terms~~ (done; see [INSTACART_TERMS_COMPLIANCE.md](INSTACART_TERMS_COMPLIANCE.md)).  
-3. Request Production API key.  
-4. (Optional) Add linkback URL for better UX and “back to app” compliance.  
-5. After approval, enable conversion tracking (Impact/affiliate) if desired.
+| **1. Sandbox test** | With the development key on Cloud Run, tap both CTAs, check ingredient matching, and save one landing page URL. |
+| **2. Demo recording** | Show the flow leading to the CTA, a tap on the CTA, and the Instacart landing page. Include the saved landing page URL. |
+| **3. Request Production key** | Dashboard → API Keys → Create New API Key → Production. Wait for Instacart's demo request. |
+| **4. Production cutover** | After approval, set `INSTACART_API_KEY` (production key) and `INSTACART_ENVIRONMENT=production` on Cloud Run. |
+| **5. Impact affiliate** | Accept the invite using the same email and company name as the Developer Platform account. After 24-48h, confirm `utm_*` params appear once in returned links. |
+| **6. Public announcements (optional)** | Only after approval; submit to Instacart at least 5 business days ahead. See [Developer messaging](https://docs.instacart.com/developer_platform_api/guide/terms_and_policies/developer_messaging). |
