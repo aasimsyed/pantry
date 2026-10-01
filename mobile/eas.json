@@ -16,6 +16,9 @@
       "android": {
         "buildType": "apk"
       },
+      "env": {
+        "SENTRY_ALLOW_FAILURE": "true"
+      },
       "ios": {
         "simulator": false
       }
@@ -26,7 +29,8 @@
         "autoIncrement": true
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://pantry-api-154407938924.us-south1.run.app"
+        "EXPO_PUBLIC_API_URL": "https://pantry-api-154407938924.us-south1.run.app",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "ios": {
         "autoIncrement": true

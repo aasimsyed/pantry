@@ -13,6 +13,8 @@
     "build:android": "eas build --platform android --profile preview",
     "build:android:prod": "eas build --platform android --profile production",
     "build:ios": "eas build --platform ios",
+    "local:build:ios": "./build-ios.sh",
+    "local:build:ios-only": "./build-ios.sh --build-only",
     "submit:android": "eas submit --platform android",
     "submit:ios": "eas submit --platform ios",
     "test:e2e": "maestro test .maestro/",

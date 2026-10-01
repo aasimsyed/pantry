@@ -44,6 +44,7 @@ venv.bak/
 .env
 .env.local
 .env.production
+mobile/.env.build
 
 # Database
 *.db
@@ -90,6 +91,9 @@ test-local-stack.sh
 
 # Dashboard / Streamlit (local config and cache)
 dashboard/.streamlit/
+
+# iOS build artifacts
+mobile/ios/build/
 
 # Docker
 docker-compose.override.yml
