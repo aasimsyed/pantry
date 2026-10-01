@@ -120,7 +120,18 @@ class Settings(BaseSettings):
     ai_cache_dir: str = "./cache/ai"
     ai_cache_ttl: int = 86400 * 7
     ai_max_cost_per_request: float = 0.05
-    ai_daily_cost_limit: float = 1.00
+    # Per-user daily AI spend in USD, reset at midnight UTC
+    ai_daily_cost_limit: float = 0.25
+    ai_free_daily_cost_limit: float = 0.02
+
+    # -------------------------------------------------------------------------
+    # Subscriptions (RevenueCat)
+    # -------------------------------------------------------------------------
+    revenuecat_api_key: Optional[str] = None
+    revenuecat_entitlement_id: str = "premium"
+    revenuecat_cache_ttl: int = 300
+    # First iOS build number sold as freemium; unset keeps every user on premium
+    freemium_first_build: Optional[int] = None
 
     # -------------------------------------------------------------------------
     # OCR

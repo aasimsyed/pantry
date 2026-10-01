@@ -3,10 +3,13 @@
 import logging
 from typing import Dict
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.orm import Session
 
-from api.dependencies import get_current_user, get_pantry_service
-from api.models import UserSettingsResponse, UserSettingsUpdate
+from api.dependencies import get_current_user, get_db, get_pantry_service
+from api.limiter import limiter
+from api.models import AIUsageResponse, UserSettingsResponse, UserSettingsUpdate
+from src.ai_budget import usage_summary
 from src.config import settings as app_settings
 from src.database import User
 from src.db_service import PantryService
@@ -39,6 +42,18 @@ def get_user_settings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get user settings: {str(e)}",
         ) from e
+
+
+@router.get("/ai-usage", response_model=AIUsageResponse)
+@limiter.limit("30/minute")
+def get_ai_usage(
+    request: Request,
+    refresh: bool = Query(False, description="Re-check subscription status, e.g. after a purchase"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dict:
+    """Today's AI spend, daily limit and subscription tier."""
+    return usage_summary(db, current_user, refresh)
 
 
 @router.put("/settings", response_model=UserSettingsResponse)

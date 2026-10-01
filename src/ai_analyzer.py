@@ -35,7 +35,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from dateutil import parser as date_parser
 from diskcache import Cache
@@ -209,6 +209,11 @@ class AIBackend(ABC):
         """Initialize backend with configuration."""
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.cost_usd = 0.0
+
+    def record_usage(self, model: str, input_tokens: int, output_tokens: int) -> None:
+        """Accumulate the cost of a model call made through this backend."""
+        self.cost_usd += token_cost_usd(model, input_tokens, output_tokens)
     
     @abstractmethod
     def extract_product_info(self, ocr_text: str) -> Dict[str, Any]:
@@ -303,6 +308,24 @@ Guidelines:
 Return ONLY the JSON, no other text, no markdown code blocks."""
         
         return prompt
+
+
+# USD per 1M (input, output) tokens at standard rates
+MODEL_PRICES_PER_MTOK: Dict[str, Tuple[float, float]] = {
+    "gpt-6-luna": (0.10, 0.50),
+    "gpt-6-sol": (2.00, 10.00),
+    "gpt-6.1-sol": (2.00, 10.00),
+    "gpt-6-astra": (10.00, 50.00),
+    "claude-sonnet-5-5": (2.00, 10.00),
+}
+# Unknown models are billed at the most expensive known rate so the cap never under-counts
+_FALLBACK_PRICE = max(MODEL_PRICES_PER_MTOK.values())
+
+
+def token_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Estimated USD cost of one model call."""
+    input_price, output_price = MODEL_PRICES_PER_MTOK.get((model or "").lower(), _FALLBACK_PRICE)
+    return (int(input_tokens) * input_price + int(output_tokens) * output_price) / 1_000_000
 
 
 def openai_completion_kwargs(model: str, max_tokens: int, temperature: Optional[float]) -> Dict[str, Any]:
@@ -406,6 +429,9 @@ class OpenAIBackend(AIBackend):
                 ),
             }
             response = self.client.chat.completions.create(**api_params)
+            self.record_usage(
+                self.config.model, response.usage.prompt_tokens, response.usage.completion_tokens
+            )
             
             # Parse response
             content = response.choices[0].message.content.strip()
@@ -483,6 +509,7 @@ class ClaudeBackend(AIBackend):
                 **claude_message_kwargs(model, self.config.max_tokens, self.config.temperature),
                 messages=[{"role": "user", "content": prompt}]
             )
+            self.record_usage(model, message.usage.input_tokens, message.usage.output_tokens)
             
             content = claude_text(message)
             
@@ -624,6 +651,11 @@ class AIAnalyzer:
             return self.backends[backend_name]
         
         raise ValueError("No AI backends available")
+
+    @property
+    def cost_usd(self) -> float:
+        """Estimated USD spent by this analyzer's model calls so far."""
+        return sum(backend.cost_usd for backend in self.backends.values())
     
     def analyze_product(self, ocr_result: Dict[str, Any]) -> ProductData:
         """Analyze OCR result and extract product information.

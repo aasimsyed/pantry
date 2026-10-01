@@ -194,6 +194,13 @@ export interface User {
   last_login?: string;
 }
 
+export interface AiUsage {
+  tier: 'free' | 'premium';
+  spent_usd: number;
+  limit_usd: number;
+  resets_at: string;
+}
+
 export interface TokenResponse {
   access_token: string;
   refresh_token: string;

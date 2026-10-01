@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from api.config import config
-from api.dependencies import get_current_user, get_db, get_pantry_service
+from api.dependencies import get_current_user, get_db, get_pantry_service, require_ai_budget
 from api.limiter import limiter
 from api.models import (
     ConsumeRequest,
@@ -24,6 +24,7 @@ from api.models import (
 )
 from api.utils import _SCHEMA_ERROR_MSG, detail_for_db_error, enrich_inventory_item
 from src.ai_analyzer import create_ai_analyzer
+from src.ai_budget import track_spend
 from src.database import User
 from src.db_service import PantryService
 from src.file_validation import validate_image_file
@@ -78,7 +79,7 @@ def process_single_image(
     file: UploadFile = File(...),
     storage_location: str = Form("pantry"),
     pantry_id: Optional[int] = Form(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_ai_budget),
     service: PantryService = Depends(get_pantry_service),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
@@ -159,7 +160,8 @@ def process_single_image(
                     detail="No text extracted from image. Please ensure the image contains readable product labels.",
                 )
             try:
-                product_data = ai_analyzer.analyze_product(ocr_result)
+                with track_spend(db, current_user.id, ai_analyzer):
+                    product_data = ai_analyzer.analyze_product(ocr_result)
                 ai_confidence = product_data.confidence
             except Exception as e:
                 logger.error("AI analysis failed: %s", e, exc_info=True)
@@ -266,7 +268,7 @@ def process_single_image(
 def process_from_text(
     request: Request,
     body: ProcessFromTextRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_ai_budget),
     service: PantryService = Depends(get_pantry_service),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
@@ -288,7 +290,8 @@ def process_from_text(
             detail="AI analyzer unavailable",
         ) from e
     try:
-        product_data = ai_analyzer.analyze_product(ocr_result)
+        with track_spend(db, current_user.id, ai_analyzer):
+            product_data = ai_analyzer.analyze_product(ocr_result)
         ai_confidence = product_data.confidence
     except Exception as e:
         logger.error("AI analysis failed: %s", e, exc_info=True)

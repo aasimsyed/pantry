@@ -31,7 +31,8 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-              "smartpantry"
+              "smartpantry",
+              "rc-fdef1a015e"
             ]
           }
         ],

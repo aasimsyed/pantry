@@ -39,6 +39,7 @@ from typing import Optional
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -1297,6 +1298,21 @@ class RefreshToken(Base):
     def is_valid(self) -> bool:
         """Check if token is valid (not revoked and not expired)."""
         return not self.revoked and not self.is_expired
+
+
+# ============================================================================
+# AIUsage Model - Per-user daily AI spend
+# ============================================================================
+
+class AIUsage(Base):
+    """Estimated AI spend per user per UTC day, used to enforce the daily cap."""
+
+    __tablename__ = "ai_usage"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    day = Column(Date, primary_key=True)
+    cost_usd = Column(Float, nullable=False, default=0.0)
+    request_count = Column(Integer, nullable=False, default=0)
 
 
 # ============================================================================

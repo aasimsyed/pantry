@@ -3,6 +3,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import type {
+  AiUsage,
   Product,
   Pantry,
   InventoryItem,
@@ -48,6 +49,11 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1000; // 1 second base delay
 const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 const RETRYABLE_ERROR_CODES = ['ECONNABORTED', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ERR_NETWORK'];
+
+/** Thrown on HTTP 402: the free daily AI allowance is used up. */
+export class PaymentRequiredError extends Error {
+  name = 'PaymentRequiredError';
+}
 
 // Helper to check if error is retryable
 function isRetryableError(error: any): boolean {
@@ -177,11 +183,21 @@ class APIClient {
           }
         }
 
+        const detail = error.response?.data?.detail;
+        if (error.response?.status === 402) {
+          throw new PaymentRequiredError(typeof detail === 'string' ? detail : 'Upgrade to Premium to continue.');
+        }
+
         // Do not retry 429 on rate-limited auth endpoints (retries waste user's quota)
         const isAuthRateLimited =
           error.response?.status === 429 &&
           originalRequest?.url?.includes('/api/auth/forgot-password');
         if (isAuthRateLimited) {
+          throw error;
+        }
+        // Retry-After means a daily cap, not a transient limit
+        if (error.response?.status === 429 && error.response.headers?.['retry-after']) {
+          if (typeof detail === 'string') error.message = detail;
           throw error;
         }
 
@@ -579,6 +595,11 @@ class APIClient {
       ...config,
     });
     return response.data;
+  }
+
+  /** Today's AI spend and tier. refresh re-checks the subscription, e.g. after a purchase. */
+  async getAiUsage(refresh = false): Promise<AiUsage> {
+    return this.request<AiUsage>('GET', '/api/user/ai-usage', { params: refresh ? { refresh: true } : undefined });
   }
 
   // Health

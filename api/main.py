@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from recipe_generator import RecipeGenerator
 from src.ai_analyzer import create_ai_analyzer
+from src.ai_budget import record_spend, track_spend
 from src.auth_service import (
     authenticate_user,
     create_access_token,
@@ -50,7 +51,7 @@ from src.ocr_service import create_ocr_service
 from src.security_logger import get_client_ip, get_user_agent, log_security_event
 
 from .config import config
-from .dependencies import get_current_admin_user, get_current_user, get_db, get_pantry_service
+from .dependencies import get_current_admin_user, get_db, get_pantry_service, require_ai_budget
 from .models import (
     ConsumeRequest,
     ErrorResponse,
@@ -332,7 +333,7 @@ app.include_router(instacart_router.router)
 def generate_single_recipe(
     request: Request,
     recipe_request: SingleRecipeRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_ai_budget),
     service: PantryService = Depends(get_pantry_service),
 ) -> Dict:
     """
@@ -457,21 +458,22 @@ def generate_single_recipe(
 
         # Generate single recipe
         logger.info(f"Generating 1 recipe from {len(pantry_items)} ingredients")
-        recipe = recipe_generator._generate_single_recipe(
-            ingredients=ingredient_list,
-            cuisine=recipe_request.cuisine,
-            difficulty=recipe_request.difficulty,
-            dietary_restrictions=recipe_request.dietary_restrictions,
-            meal_type=recipe_request.meal_type,
-            recipe_type=recipe_request.recipe_type,
-            cooking_method=recipe_request.cooking_method,
-            user_preference=recipe_request.user_preference,
-            avoid_previous=recipe_request.avoid_names or [],
-            required_ingredients=required_ingredient_names,
-            required_ingredients_not_in_pantry=required_not_in_pantry or None,
-            excluded_ingredients=recipe_request.excluded_ingredients,
-            allow_missing_ingredients=recipe_request.allow_missing_ingredients,
-        )
+        with track_spend(service.session, current_user.id, ai_analyzer):
+            recipe = recipe_generator._generate_single_recipe(
+                ingredients=ingredient_list,
+                cuisine=recipe_request.cuisine,
+                difficulty=recipe_request.difficulty,
+                dietary_restrictions=recipe_request.dietary_restrictions,
+                meal_type=recipe_request.meal_type,
+                recipe_type=recipe_request.recipe_type,
+                cooking_method=recipe_request.cooking_method,
+                user_preference=recipe_request.user_preference,
+                avoid_previous=recipe_request.avoid_names or [],
+                required_ingredients=required_ingredient_names,
+                required_ingredients_not_in_pantry=required_not_in_pantry or None,
+                excluded_ingredients=recipe_request.excluded_ingredients,
+                allow_missing_ingredients=recipe_request.allow_missing_ingredients,
+            )
 
         if not recipe:
             raise HTTPException(
@@ -566,7 +568,7 @@ def generate_single_recipe(
 def generate_recipes(
     request: Request,
     recipe_request: RecipeRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_ai_budget),
     service: PantryService = Depends(get_pantry_service),
 ) -> List[Dict]:
     """
@@ -693,21 +695,22 @@ def generate_recipes(
             f"Generating {recipe_request.max_recipes} recipes from {len(pantry_items)} ingredients"
         )
         try:
-            recipes = recipe_generator.generate_recipes(
-                pantry_items=pantry_items,
-                num_recipes=recipe_request.max_recipes,
-                cuisine=recipe_request.cuisine,
-                difficulty=recipe_request.difficulty,
-                dietary_restrictions=recipe_request.dietary_restrictions,
-                meal_type=recipe_request.meal_type,
-                recipe_type=recipe_request.recipe_type,
-                cooking_method=recipe_request.cooking_method,
-                user_preference=recipe_request.user_preference,
-                required_ingredients=required_ingredient_names,
-                required_ingredients_not_in_pantry=required_not_in_pantry_batch or None,
-                excluded_ingredients=recipe_request.excluded_ingredients,
-                allow_missing_ingredients=recipe_request.allow_missing_ingredients,
-            )
+            with track_spend(service.session, current_user.id, ai_analyzer):
+                recipes = list(recipe_generator.generate_recipes(
+                    pantry_items=pantry_items,
+                    num_recipes=recipe_request.max_recipes,
+                    cuisine=recipe_request.cuisine,
+                    difficulty=recipe_request.difficulty,
+                    dietary_restrictions=recipe_request.dietary_restrictions,
+                    meal_type=recipe_request.meal_type,
+                    recipe_type=recipe_request.recipe_type,
+                    cooking_method=recipe_request.cooking_method,
+                    user_preference=recipe_request.user_preference,
+                    required_ingredients=required_ingredient_names,
+                    required_ingredients_not_in_pantry=required_not_in_pantry_batch or None,
+                    excluded_ingredients=recipe_request.excluded_ingredients,
+                    allow_missing_ingredients=recipe_request.allow_missing_ingredients,
+                ))
         except Exception as e:
             # If generation fails partway, try to return what we have
             logger.warning(f"Recipe generation interrupted: {e}")
@@ -814,7 +817,7 @@ def generate_recipes(
 async def generate_recipes_stream(
     request: Request,
     recipe_request: RecipeRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_ai_budget),
     service: PantryService = Depends(get_pantry_service),
 ):
     """
@@ -830,6 +833,7 @@ async def generate_recipes_stream(
     """
 
     async def generate_and_stream():
+        ai_analyzer = None
         try:
             # Get pantry_id from request or use default
             pantry_id = recipe_request.pantry_id
@@ -1000,6 +1004,9 @@ async def generate_recipes_stream(
         except Exception as e:
             logger.error(f"Error in streaming recipe generation: {e}", exc_info=True)
             yield f"data: {json.dumps({'error': f'Failed to generate recipes: {str(e)}'})}\n\n"
+        finally:
+            if ai_analyzer is not None:
+                record_spend(service.session, current_user.id, ai_analyzer.cost_usd)
 
     return StreamingResponse(
         generate_and_stream(),
@@ -1056,7 +1063,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     content: dict = {"detail": exc.detail, "error_code": str(exc.status_code)}
     if request_id and exc.status_code == 500:
         content["request_id"] = request_id
-    return JSONResponse(status_code=exc.status_code, content=content)
+    return JSONResponse(status_code=exc.status_code, content=content, headers=exc.headers)
 
 
 @app.exception_handler(Exception)

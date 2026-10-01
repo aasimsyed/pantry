@@ -399,6 +399,9 @@ class RecipeGenerator:
             }
             
             response = backend.client.chat.completions.create(**api_params)
+            backend.record_usage(
+                model_used, response.usage.prompt_tokens, response.usage.completion_tokens
+            )
             raw = response.choices[0].message.content
             content = (raw or "").strip()
             finish_reason = getattr(response.choices[0], "finish_reason", None)
@@ -436,6 +439,9 @@ class RecipeGenerator:
                     message = backend.client.messages.create(
                         **claude_message_kwargs(model_name, recipe_max_tokens, 0.7),
                         messages=messages
+                    )
+                    backend.record_usage(
+                        model_name, message.usage.input_tokens, message.usage.output_tokens
                     )
                     content = claude_text(message)
                     model_used = model_name  # Track which model succeeded

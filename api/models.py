@@ -5,7 +5,7 @@ Defines request and response models for API endpoints.
 Provides automatic validation and serialization/deserialization.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 
@@ -170,6 +170,14 @@ class UserSettingsUpdate(BaseModel):
     """Request model for updating user settings."""
     ai_provider: Optional[str] = Field(None, description="AI provider: 'openai' or 'anthropic'")
     ai_model: Optional[str] = Field(None, description="AI model name (e.g., 'gpt-6-luna', 'claude-sonnet-5-5')")
+
+
+class AIUsageResponse(BaseModel):
+    """Today's AI spend against the user's daily allowance."""
+    tier: Literal["free", "premium"]
+    spent_usd: float
+    limit_usd: float
+    resets_at: datetime
 
 
 # ============================================================================

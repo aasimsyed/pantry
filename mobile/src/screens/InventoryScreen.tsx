@@ -14,9 +14,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import apiClient from '../api/client';
+import apiClient, { PaymentRequiredError } from '../api/client';
 import { getUseCloudOcr, recognizeTextFromUri } from '../services/ocrService';
 import { instacartService } from '../services/instacartService';
+import { offerPremium } from '../services/purchasesService';
 import { PantrySelector } from '../components/PantrySelector';
 import { PremiumButton } from '../components/PremiumButton';
 import { InstacartCTAButton } from '../components/InstacartCTAButton';
@@ -201,7 +202,8 @@ export default function InventoryScreen() {
         Alert.alert('Error', 'Failed to process image');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to process image');
+      if (err instanceof PaymentRequiredError) offerPremium(err.message);
+      else Alert.alert('Error', err.message || 'Failed to process image');
     } finally {
       setProcessing(false);
     }

@@ -304,6 +304,8 @@ def test_openai_extraction(mock_openai_class, config: AIConfig, mock_openai_resp
     mock_response.choices = [Mock()]
     mock_response.choices[0].message.content = json.dumps(mock_openai_response)
     mock_response.usage.total_tokens = 500
+    mock_response.usage.prompt_tokens = 200
+    mock_response.usage.completion_tokens = 300
     mock_client.chat.completions.create.return_value = mock_response
     
     # Create backend and extract
@@ -427,6 +429,8 @@ def test_analyzer_product_analysis(mock_openai_class, sample_ocr_result: dict, m
     mock_response.choices = [Mock()]
     mock_response.choices[0].message.content = json.dumps(mock_openai_response)
     mock_response.usage.total_tokens = 500
+    mock_response.usage.prompt_tokens = 200
+    mock_response.usage.completion_tokens = 300
     mock_client.chat.completions.create.return_value = mock_response
     
     # Create analyzer
@@ -459,6 +463,8 @@ def test_analyzer_caching(mock_openai_class, sample_ocr_result: dict, mock_opena
     mock_response.choices = [Mock()]
     mock_response.choices[0].message.content = json.dumps(mock_openai_response)
     mock_response.usage.total_tokens = 500
+    mock_response.usage.prompt_tokens = 200
+    mock_response.usage.completion_tokens = 300
     mock_client.chat.completions.create.return_value = mock_response
     
     # Create analyzer with cache
@@ -495,6 +501,8 @@ def test_analyzer_batch_processing(mock_openai_class, mock_openai_response: dict
     mock_response.choices = [Mock()]
     mock_response.choices[0].message.content = json.dumps(mock_openai_response)
     mock_response.usage.total_tokens = 500
+    mock_response.usage.prompt_tokens = 200
+    mock_response.usage.completion_tokens = 300
     mock_client.chat.completions.create.return_value = mock_response
     
     # Create analyzer

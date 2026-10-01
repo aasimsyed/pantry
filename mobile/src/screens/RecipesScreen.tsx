@@ -13,7 +13,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import apiClient from '../api/client';
+import apiClient, { PaymentRequiredError } from '../api/client';
+import { offerPremium } from '../services/purchasesService';
 import { PantrySelector } from '../components/PantrySelector';
 import { SkeletonRecipeCard, Skeleton } from '../components/Skeleton';
 import { PremiumButton } from '../components/PremiumButton';
@@ -279,7 +280,8 @@ export default function RecipesScreen() {
       // The backend automatically saves generated recipes to recent recipes
       await loadRecentRecipes();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to generate recipes');
+      if (err instanceof PaymentRequiredError) offerPremium(err.message);
+      else Alert.alert('Error', err.message || 'Failed to generate recipes');
       // Still try to reload recent recipes in case some were saved before the error
       await loadRecentRecipes();
     } finally {

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+from src.ai_budget import ensure_within_budget
 from src.database import create_database_engine, User
 from src.db_service import PantryService
 from src.auth_service import verify_token, get_user_by_id
@@ -146,6 +147,15 @@ async def get_current_admin_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
+    return current_user
+
+
+def require_ai_budget(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """Current user, rejected with 402/429 once their daily AI allowance is spent."""
+    ensure_within_budget(db, current_user)
     return current_user
 
 

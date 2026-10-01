@@ -18,6 +18,13 @@ import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
 import { getUseCloudOcr, setUseCloudOcr } from '../services/ocrService';
+import {
+  manageSubscription,
+  presentPaywall,
+  purchasesAvailable,
+  restorePurchases,
+} from '../services/purchasesService';
+import type { AiUsage } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
 import { useOfflineStatus, OFFLINE_ACTION_MESSAGE } from '../hooks/useOfflineStatus';
@@ -83,7 +90,17 @@ export default function SettingsScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [useCloudOcr, setUseCloudOcrState] = useState(false);
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const ds = getDesignSystem(isDark);
+
+  const runPurchaseAction = async (action: () => Promise<unknown>) => {
+    try {
+      await action();
+      setAiUsage(await apiClient.getAiUsage());
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not reach the App Store');
+    }
+  };
 
   useEffect(() => {
     loadSettings();
@@ -114,6 +131,7 @@ export default function SettingsScreen() {
       setSettings(data);
       const recovery = await apiClient.getRecoveryQuestions().catch(() => null);
       if (recovery) setRecoveryData(recovery);
+      setAiUsage(await apiClient.getAiUsage().catch(() => null));
       const [available, enabled, cloudOcr] = await Promise.all([
         apiClient.isBiometricAvailable(),
         apiClient.getBiometricEnabled(),
@@ -337,6 +355,74 @@ export default function SettingsScreen() {
         <Text testID="settings-title" style={[styles.title, { color: ds.colors.textPrimary }]}>
           Settings
         </Text>
+
+        {/* Subscription and daily AI allowance */}
+        {aiUsage && (
+          <Card style={[styles.card, { backgroundColor: ds.colors.surface, ...ds.shadows.md }]}>
+            <Card.Content style={styles.cardContent}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIconContainer, { backgroundColor: ds.colors.surfaceHover }]}>
+                  <MaterialCommunityIcons name="crown" size={24} color={ds.colors.primary} />
+                </View>
+                <View style={styles.sectionHeaderText}>
+                  <Text style={[styles.sectionTitle, { color: ds.colors.textPrimary }]}>
+                    {aiUsage.tier === 'premium' ? 'Premium' : 'Free plan'}
+                  </Text>
+                  <Text style={[styles.description, { color: ds.colors.textSecondary }]}>
+                    {aiUsage.tier === 'premium'
+                      ? 'Higher daily allowance for AI recipes and label scans'
+                      : 'Limited AI recipes and label scans each day'}
+                  </Text>
+                </View>
+              </View>
+              <Divider style={[styles.divider, { backgroundColor: ds.colors.surfaceHover }]} />
+              <List.Item
+                title="AI used today"
+                description={`${Math.min(100, Math.round((aiUsage.spent_usd / aiUsage.limit_usd) * 100))}% of today's allowance, resets at midnight UTC`}
+                descriptionNumberOfLines={2}
+                left={(props) => <List.Icon {...props} icon="chart-donut" color={ds.colors.primary} />}
+                titleStyle={{ color: ds.colors.textPrimary }}
+                descriptionStyle={{ color: ds.colors.textSecondary }}
+                style={styles.listItem}
+              />
+              {purchasesAvailable && aiUsage.tier === 'free' && (
+                <List.Item
+                  title="Upgrade to Premium"
+                  left={(props) => <List.Icon {...props} icon="star-circle" color={ds.colors.primary} />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" color={ds.colors.textTertiary} />}
+                  onPress={() => runPurchaseAction(presentPaywall)}
+                  titleStyle={{ color: ds.colors.textPrimary }}
+                  style={styles.listItem}
+                  accessibilityLabel="Upgrade to Premium"
+                  accessibilityHint="Double tap to see subscription options"
+                />
+              )}
+              {purchasesAvailable && aiUsage.tier === 'premium' && (
+                <List.Item
+                  title="Manage Subscription"
+                  left={(props) => <List.Icon {...props} icon="cog" color={ds.colors.primary} />}
+                  right={(props) => <List.Icon {...props} icon="open-in-new" color={ds.colors.textTertiary} />}
+                  onPress={() => runPurchaseAction(manageSubscription)}
+                  titleStyle={{ color: ds.colors.textPrimary }}
+                  style={styles.listItem}
+                  accessibilityLabel="Manage Subscription"
+                  accessibilityHint="Double tap to open App Store subscription settings"
+                />
+              )}
+              {purchasesAvailable && (
+                <List.Item
+                  title="Restore Purchases"
+                  left={(props) => <List.Icon {...props} icon="restore" color={ds.colors.primary} />}
+                  onPress={() => runPurchaseAction(restorePurchases)}
+                  titleStyle={{ color: ds.colors.textPrimary }}
+                  style={styles.listItem}
+                  accessibilityLabel="Restore Purchases"
+                  accessibilityHint="Double tap to restore a previous purchase"
+                />
+              )}
+            </Card.Content>
+          </Card>
+        )}
 
         {/* Sign-in: Face ID / Touch ID */}
         {biometricAvailable && (

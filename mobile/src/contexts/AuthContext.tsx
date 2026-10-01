@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import apiClient from '../api/client';
+import { identifyPurchaser, resetPurchaser } from '../services/purchasesService';
 import type { User, LoginRequest, RegisterRequest } from '../types';
 
 interface AuthContextType {
@@ -41,6 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 100);
     });
   }, []);
+
+  useEffect(() => {
+    if (user) identifyPurchaser(user.id);
+    else resetPurchaser();
+  }, [user?.id]);
 
   const checkRecoveryQuestions = async () => {
     try {
