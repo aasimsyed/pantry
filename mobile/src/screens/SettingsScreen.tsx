@@ -794,6 +794,7 @@ export default function SettingsScreen() {
             </View>
 
             <Button
+              testID="settings-delete-account"
               mode="outlined"
               onPress={handleDeleteAccount}
               textColor={isDark ? '#ff6b6b' : '#dc2626'}
@@ -805,6 +806,9 @@ export default function SettingsScreen() {
                 }
               ]}
               icon="delete-forever"
+              accessibilityLabel="Delete My Account"
+              accessibilityHint="Double tap to permanently delete your account"
+              accessibilityRole="button"
             >
               Delete My Account
             </Button>

@@ -158,7 +158,7 @@ export default function SetRecoveryQuestionsPromptScreen() {
             <PremiumButton mode="contained" onPress={handleSave} loading={saving} disabled={saving} style={styles.button} accessibilityLabel="Save recovery questions" accessibilityHint="Double tap to save and continue" accessibilityRole="button">
               Save and continue
             </PremiumButton>
-            <Button mode="text" onPress={completeRecoveryQuestions} style={styles.linkButton} labelStyle={styles.linkButtonLabel}>
+            <Button testID="recovery-remind-later" mode="text" onPress={completeRecoveryQuestions} style={styles.linkButton} labelStyle={styles.linkButtonLabel}>
               Remind me later
             </Button>
           </Card.Content>

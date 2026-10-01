@@ -8,7 +8,7 @@ import { AuthenticationType } from 'expo-local-authentication';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../hooks/useLayout';
-import { getDesignSystem } from '../utils/designSystem';
+import { useDesignSystem } from '../hooks/useDesignSystem';
 import { PremiumButton } from '../components/PremiumButton';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -35,7 +35,7 @@ export default function LoginScreen() {
   const { login, tryBiometricLogin } = useAuth();
   const { isDark } = useTheme();
   const layout = useLayout();
-  const ds = getDesignSystem(isDark);
+  const ds = useDesignSystem();
   const navigation = useNavigation<NavigationProp>();
 
   useEffect(() => {
@@ -120,17 +120,17 @@ export default function LoginScreen() {
               </View>
             </View>
             
-            <Text testID="login-title" style={[styles.title, layout.isTablet && styles.titleTablet, { color: ds.colors.textPrimary }]}>
+            <Text testID="login-title" style={[styles.title, layout.isTablet && styles.titleTablet, { color: ds.colors.textPrimary, ...ds.typography.headline }]}>
               Welcome Back
             </Text>
-            <Text testID="login-subtitle" style={[styles.subtitle, layout.isTablet && styles.subtitleTablet, { color: ds.colors.textSecondary }]}>
+            <Text testID="login-subtitle" style={[styles.subtitle, layout.isTablet && styles.subtitleTablet, { color: ds.colors.textSecondary, ...ds.typography.body }]}>
               Sign in to continue to Smart Pantry
             </Text>
 
             {error && (
-              <View style={[styles.errorContainer, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)' }]}>
+              <View style={[styles.errorContainer, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)' }]} accessibilityRole="alert">
                 <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#ef4444" />
-                <Text style={[styles.errorText, { color: '#ef4444' }]}>
+                <Text testID="login-error" style={[styles.errorText, { color: '#ef4444', ...ds.typography.label }]} accessibilityLabel={error} accessibilityHint="Fix the issue and try again">
                   {error}
                 </Text>
               </View>
@@ -200,7 +200,7 @@ export default function LoginScreen() {
                 >
                   Sign in with {biometricLabel}
                 </PremiumButton>
-                <Text style={[styles.biometricHint, { color: ds.colors.textSecondary }]}>
+                <Text style={[styles.biometricHint, { color: ds.colors.textSecondary, ...ds.typography.caption }]}>
                   Sign in with your password first; then you can use this next time.
                 </Text>
               </>
@@ -210,7 +210,7 @@ export default function LoginScreen() {
               mode="text"
               onPress={() => navigation.navigate('ForgotPassword')}
               style={styles.forgotPasswordButton}
-              labelStyle={styles.forgotPasswordLabel}
+              labelStyle={[styles.forgotPasswordLabel, { fontSize: ds.typography.label.fontSize }]}
               compact
             >
               Forgot Password?
@@ -232,7 +232,7 @@ export default function LoginScreen() {
               mode="text"
               onPress={() => navigation.navigate('Register')}
               style={styles.linkButton}
-              labelStyle={styles.linkButtonLabel}
+              labelStyle={[styles.linkButtonLabel, { fontSize: ds.typography.label.fontSize }]}
             >
               Don't have an account? Sign up
             </Button>

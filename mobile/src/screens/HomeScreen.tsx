@@ -6,13 +6,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { getDesignSystem } from '../utils/designSystem';
+import { useDesignSystem } from '../hooks/useDesignSystem';
 import { useLayout } from '../hooks/useLayout';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const { isDark } = useTheme();
-  const ds = getDesignSystem(isDark);
+  const ds = useDesignSystem();
   const layout = useLayout();
   const { user, logout } = useAuth();
 
@@ -71,10 +71,10 @@ export default function HomeScreen() {
         <View style={contentWrapperStyle}>
         {/* Hero Section - Refined, minimal; slightly larger on tablet */}
         <View style={[styles.heroSection, layout.isTablet && styles.heroSectionTablet]}>
-          <Text testID="home-title" style={[styles.heroTitle, layout.isTablet && styles.heroTitleTablet, { color: ds.colors.textPrimary }]}>
+          <Text testID="home-title" style={[styles.heroTitle, layout.isTablet && styles.heroTitleTablet, { color: ds.colors.textPrimary, ...ds.typography.display }]}>
             Smart Pantry
           </Text>
-          <Text testID="home-subtitle" style={[styles.heroSubtitle, layout.isTablet && styles.heroSubtitleTablet, { color: ds.colors.textSecondary }]}>
+          <Text testID="home-subtitle" style={[styles.heroSubtitle, layout.isTablet && styles.heroSubtitleTablet, { color: ds.colors.textSecondary, ...ds.typography.title }]}>
             Manage your food. Reduce waste.
           </Text>
         </View>
@@ -115,10 +115,10 @@ export default function HomeScreen() {
                   />
                 </View>
                 <View style={styles.actionContent}>
-                  <Text style={[styles.actionTitle, layout.isTablet && styles.actionTitleTablet, { color: ds.colors.textPrimary }]}>
+                  <Text style={[styles.actionTitle, layout.isTablet && styles.actionTitleTablet, { color: ds.colors.textPrimary, ...ds.typography.title }]}>
                     {action.title}
                   </Text>
-                  <Text style={[styles.actionSubtitle, layout.isTablet && styles.actionSubtitleTablet, { color: ds.colors.textSecondary }]}>
+                  <Text style={[styles.actionSubtitle, layout.isTablet && styles.actionSubtitleTablet, { color: ds.colors.textSecondary, ...ds.typography.caption }]}>
                     {action.subtitle}
                   </Text>
                 </View>
@@ -141,7 +141,7 @@ export default function HomeScreen() {
               { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }
             ]} 
           />
-          <Text style={[styles.sectionLabel, layout.isTablet && styles.sectionLabelTablet, { color: ds.colors.textTertiary }]}>
+          <Text style={[styles.sectionLabel, layout.isTablet && styles.sectionLabelTablet, { color: ds.colors.textTertiary, ...ds.typography.caption }]}>
             CAPABILITIES
           </Text>
           
@@ -154,10 +154,10 @@ export default function HomeScreen() {
               { title: 'Analytics', desc: 'Track inventory and consumption patterns' },
             ].map((feature, index) => (
               <View key={index} style={[styles.technologyItem, layout.isTablet && styles.technologyItemTablet]}>
-                <Text style={[styles.technologyTitle, layout.isTablet && styles.technologyTitleTablet, { color: ds.colors.textPrimary }]}>
+                <Text style={[styles.technologyTitle, layout.isTablet && styles.technologyTitleTablet, { color: ds.colors.textPrimary, ...ds.typography.label }]}>
                   {feature.title}
                 </Text>
-                <Text style={[styles.technologyDesc, layout.isTablet && styles.technologyDescTablet, { color: ds.colors.textSecondary }]}>
+                <Text style={[styles.technologyDesc, layout.isTablet && styles.technologyDescTablet, { color: ds.colors.textSecondary, ...ds.typography.caption }]}>
                   {feature.desc}
                 </Text>
               </View>
@@ -176,10 +176,10 @@ export default function HomeScreen() {
             />
             <View style={styles.userInfo}>
               <View style={styles.userDetails}>
-                <Text style={[styles.userLabel, layout.isTablet && styles.userLabelTablet, { color: ds.colors.textTertiary }]}>
+                <Text style={[styles.userLabel, layout.isTablet && styles.userLabelTablet, { color: ds.colors.textTertiary, ...ds.typography.caption }]}>
                   Signed in as
                 </Text>
-                <Text style={[styles.userName, layout.isTablet && styles.userNameTablet, { color: ds.colors.textPrimary }]}>
+                <Text style={[styles.userName, layout.isTablet && styles.userNameTablet, { color: ds.colors.textPrimary, ...ds.typography.body }]}>
                   {user.full_name || user.email}
                 </Text>
               </View>
@@ -192,7 +192,7 @@ export default function HomeScreen() {
                 accessibilityHint="Double tap to sign out"
                 accessibilityRole="button"
               >
-                <Text style={[styles.logoutText, layout.isTablet && styles.logoutTextTablet, { color: ds.colors.textSecondary }]}>
+                <Text style={[styles.logoutText, layout.isTablet && styles.logoutTextTablet, { color: ds.colors.textSecondary, ...ds.typography.label }]}>
                   Sign Out
                 </Text>
               </TouchableOpacity>

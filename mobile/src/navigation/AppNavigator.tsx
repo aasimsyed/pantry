@@ -3,10 +3,11 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ActivityIndicator, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { DesignSystem, getDesignSystem } from '../utils/designSystem';
+import { getDesignSystem } from '../utils/designSystem';
+import { useDesignSystem } from '../hooks/useDesignSystem';
 
 // Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -30,7 +31,7 @@ const Stack = createNativeStackNavigator();
 
 function MainTabs() {
   const { isDark } = useTheme();
-  const ds = getDesignSystem(isDark);
+  const ds = useDesignSystem();
 
   return (
     <Tab.Navigator
@@ -50,7 +51,7 @@ function MainTabs() {
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: isDark ? 0.3 : 0.1,
           shadowRadius: 12,
-          height: 85,
+          minHeight: 85,
           paddingBottom: 24,
           paddingTop: 12,
           marginBottom: 8,
@@ -58,7 +59,7 @@ function MainTabs() {
           marginHorizontal: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 13,
+          fontSize: ds.typography.label.fontSize,
           fontWeight: '600',
           marginTop: 4,
         },

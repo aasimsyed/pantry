@@ -82,61 +82,41 @@ const darkColors = {
   freezer: '#818CF8', // Brighter indigo
 };
 
-export const getDesignSystem = (isDark: boolean = false) => {
+/** Clamp font scale for WCAG 1.4.4 Resize Text; avoids extreme sizes. */
+const FONT_SCALE_MIN = 0.8;
+const FONT_SCALE_MAX = 2.5;
+
+function scaleTypography<T extends { fontSize: number; lineHeight: number }>(
+  spec: T,
+  fontScale: number
+): T {
+  const scale = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, fontScale));
+  return {
+    ...spec,
+    fontSize: Math.round(spec.fontSize * scale),
+    lineHeight: Math.round(spec.lineHeight * scale),
+  };
+}
+
+export const getDesignSystem = (isDark: boolean = false, fontScale: number = 1) => {
+  const baseTypography = {
+    display: { fontSize: 36, fontWeight: '700' as const, letterSpacing: -0.5, lineHeight: 44 },
+    headline: { fontSize: 28, fontWeight: '600' as const, letterSpacing: -0.3, lineHeight: 36 },
+    title: { fontSize: 20, fontWeight: '600' as const, letterSpacing: -0.2, lineHeight: 28 },
+    body: { fontSize: 16, fontWeight: '400' as const, letterSpacing: 0, lineHeight: 24 },
+    caption: { fontSize: 14, fontWeight: '400' as const, letterSpacing: 0.1, lineHeight: 20 },
+    label: { fontSize: 14, fontWeight: '500' as const, letterSpacing: 0.2, lineHeight: 20 },
+  };
+  const typography = Object.fromEntries(
+    Object.entries(baseTypography).map(([k, v]) => [k, scaleTypography(v, fontScale)])
+  ) as typeof baseTypography;
+
   return {
   // Color Palette - Modern, sophisticated
   colors: isDark ? darkColors : lightColors,
 
-  // Typography - Modern, readable hierarchy
-  typography: {
-    // Display - Large, bold, impactful
-    display: {
-      fontSize: 36,
-      fontWeight: '700' as const,
-      letterSpacing: -0.5,
-      lineHeight: 44,
-    },
-    
-    // Headline - Section titles
-    headline: {
-      fontSize: 28,
-      fontWeight: '600' as const,
-      letterSpacing: -0.3,
-      lineHeight: 36,
-    },
-    
-    // Title - Card titles, important text
-    title: {
-      fontSize: 20,
-      fontWeight: '600' as const,
-      letterSpacing: -0.2,
-      lineHeight: 28,
-    },
-    
-    // Body - Main content
-    body: {
-      fontSize: 16,
-      fontWeight: '400' as const,
-      letterSpacing: 0,
-      lineHeight: 24,
-    },
-    
-    // Caption - Small text, metadata
-    caption: {
-      fontSize: 14,
-      fontWeight: '400' as const,
-      letterSpacing: 0.1,
-      lineHeight: 20,
-    },
-    
-    // Label - Form labels, buttons
-    label: {
-      fontSize: 14,
-      fontWeight: '500' as const,
-      letterSpacing: 0.2,
-      lineHeight: 20,
-    },
-  },
+  // Typography - Modern, readable hierarchy (scaled by fontScale for Dynamic Type)
+  typography,
 
   // Spacing - 8px grid system
   spacing: {
@@ -235,13 +215,14 @@ export const createGradient = (colors: string[]) => ({
 // Legacy export for backward compatibility (uses light theme)
 export const DesignSystem = getDesignSystem(false);
 
-// Helper for text styles (theme-aware)
+// Helper for text styles (theme-aware; pass fontScale for Dynamic Type)
 export const getTextStyle = (
-  variant: keyof typeof DesignSystem.typography, 
+  variant: keyof typeof DesignSystem.typography,
   color?: string,
-  isDark: boolean = false
+  isDark: boolean = false,
+  fontScale: number = 1
 ) => {
-  const ds = getDesignSystem(isDark);
+  const ds = getDesignSystem(isDark, fontScale);
   return {
     ...ds.typography[variant],
     color: color || ds.colors.textPrimary,

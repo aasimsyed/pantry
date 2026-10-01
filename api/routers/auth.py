@@ -81,13 +81,13 @@ def delete_account(
     try:
         # Log security event
         log_security_event(
-            "account_deletion",
+            db=db,
+            event_type="account_deletion",
             user_id=user_id,
-            email=user_email,
             ip_address=client_ip,
             user_agent=user_agent,
-            success=True,
-            details={"reason": "user_requested"},
+            details={"email": user_email, "success": True, "reason": "user_requested"},
+            severity="info",
         )
         
         # Delete user (CASCADE will automatically delete all related records:
@@ -115,13 +115,13 @@ def delete_account(
             str(e),
         )
         log_security_event(
-            "account_deletion",
+            db=db,
+            event_type="account_deletion",
             user_id=user_id,
-            email=user_email,
             ip_address=client_ip,
             user_agent=user_agent,
-            success=False,
-            details={"error": str(e)},
+            details={"email": user_email, "success": False, "error": str(e)},
+            severity="error",
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

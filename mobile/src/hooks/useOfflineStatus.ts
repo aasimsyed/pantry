@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import NetInfo from '@react-native-community/netinfo';
+import { NativeModules } from 'react-native';
 
 /** Message to show when user tries a critical action while offline */
 export const OFFLINE_ACTION_MESSAGE =
@@ -8,12 +8,19 @@ export const OFFLINE_ACTION_MESSAGE =
 /**
  * Hook to track online/offline status using NetInfo (proactive) and API client (reactive).
  * Use isOnline before critical actions (save, delete) and show OFFLINE_ACTION_MESSAGE if false.
+ * If the native module is not linked (e.g. build before netinfo was added), we never load netinfo
+ * and assume online so the app does not crash.
  */
 export function useOfflineStatus() {
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
+    if (!NativeModules.RNCNetInfo) return;
+
+    const NetInfo = require('@react-native-community/netinfo').default;
+    if (!NetInfo) return;
+
     const applyState = (connected: boolean) => {
       setIsOnline((prev) => {
         if (!connected && prev) setWasOffline(true);
@@ -22,21 +29,21 @@ export function useOfflineStatus() {
       });
     };
 
-    // Proactive: NetInfo (know we're offline before any request)
     const unsubscribe = NetInfo.addEventListener((state) => {
-      // isInternetReachable can be null (unknown); treat as online unless explicitly false
       const connected =
         state.isConnected === true &&
         (state.isInternetReachable === true || state.isInternetReachable === null);
       applyState(connected);
     });
 
-    NetInfo.fetch().then((state) => {
-      const connected =
-        state.isConnected === true &&
-        (state.isInternetReachable === true || state.isInternetReachable === null);
-      applyState(connected);
-    });
+    NetInfo.fetch()
+      .then((state) => {
+        const connected =
+          state.isConnected === true &&
+          (state.isInternetReachable === true || state.isInternetReachable === null);
+        applyState(connected);
+      })
+      .catch(() => {});
 
     return () => unsubscribe();
   }, []);
