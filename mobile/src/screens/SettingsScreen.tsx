@@ -871,7 +871,7 @@ export default function SettingsScreen() {
               right={(props) => <List.Icon {...props} icon="open-in-new" color={ds.colors.textTertiary} />}
               onPress={() => {
                 const url = Constants.expoConfig?.extra?.supportUrl as string | undefined;
-                Linking.openURL(url || 'https://smartpantry.app/support').catch(() => {});
+                Linking.openURL(url || 'https://smartpantryai.app/support').catch(() => {});
               }}
               titleStyle={{ color: ds.colors.textPrimary, fontSize: 15, fontWeight: '500' }}
               descriptionStyle={{ color: ds.colors.textSecondary, fontSize: 13 }}

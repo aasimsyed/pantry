@@ -162,7 +162,7 @@ export default function AppNavigator() {
       };
 
   const linking = {
-    prefixes: ['smartpantry://', 'https://smartpantry.app'],
+    prefixes: ['smartpantry://', 'https://smartpantryai.app'],
     config: {
       screens: {
         ResetPassword: 'reset-password',

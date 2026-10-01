@@ -83,13 +83,7 @@ export default async function handler(req, res) {
 
 ## URLs
 
-After deployment, update these in your app:
+Production: `https://smartpantryai.app` (Vercel project `smart-pantry-support`; domain registered and DNS hosted on Vercel). `/support` redirects to `/`.
 
-- `mobile/app.json`: `supportUrl: "https://support.smartpantryai.com"`
+- `mobile/app.json`: `supportUrl: "https://smartpantryai.app/support"`
 - App Store Connect: Support URL field
-
-## Custom Domain
-
-1. Add domain in Vercel dashboard
-2. Update DNS with Vercel's records
-3. SSL is automatic
