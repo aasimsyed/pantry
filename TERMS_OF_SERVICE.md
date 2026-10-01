@@ -1,6 +1,6 @@
 # Terms of Service for Smart Pantry AI
 
-**Last Updated:** January 25, 2026
+**Last Updated:** October 1, 2026
 
 ## 1. Acceptance of Terms
 
@@ -86,6 +86,7 @@ We use the following third-party services:
 - **Open Food Facts / UPCitemdb**: Barcode product lookup
 - **Sentry**: Error tracking and monitoring
 - **Google Cloud Platform**: Hosting and infrastructure
+- **Apple / RevenueCat**: Subscription purchases and status
 
 Your use of these services through our App is subject to their respective terms of service.
 
@@ -105,7 +106,7 @@ TO THE MAXIMUM EXTENT PERMITTED BY LAW:
 - We are not liable for any indirect, incidental, or consequential damages
 - We are not liable for food poisoning, allergic reactions, or health issues
 - We are not liable for data loss, though we take reasonable precautions
-- Our total liability shall not exceed the amount you paid us (currently $0)
+- Our total liability shall not exceed the amount you paid us in the 12 months before the claim
 
 ## 10. Food Safety Disclaimer
 
@@ -137,15 +138,29 @@ We may modify these Terms at any time. We will notify you of material changes by
 
 Continued use after changes constitutes acceptance of the new Terms.
 
-## 14. Subscription and Payments
+## 14. Subscriptions and Payments
 
-**Current Status:** The App is currently free to use.
+### 14.1 Free and Premium Plans
+- The App offers a free plan with a limited daily allowance of AI features (recipe generation and label scanning)
+- Smart Pantry AI Premium is an optional auto-renewing subscription with a higher daily AI allowance
+- Daily allowances reset at midnight UTC and may be adjusted to prevent abuse
 
-**Future Paid Features:**
-- If we introduce paid features, pricing will be clearly displayed
-- Subscriptions auto-renew unless canceled
-- Refunds subject to App Store policies
-- We reserve the right to change pricing with notice
+### 14.2 Billing and Renewal
+- Premium costs $4.99 per month in the US, or the local price shown in the App Store before purchase
+- Payment is charged to your Apple ID account when you confirm the purchase
+- Your subscription renews automatically unless canceled at least 24 hours before the end of the current period
+- Your account is charged for renewal within 24 hours before the end of the current period
+- Manage or cancel anytime in your device Settings: tap your name, then Subscriptions
+- If you cancel, you keep Premium until the end of the period you paid for
+
+### 14.3 Refunds
+All payments are processed by Apple. Refund requests are handled by Apple under its policies at https://reportaproblem.apple.com.
+
+### 14.4 Existing Customers
+If you bought the App as a paid download, Premium is included at no additional charge. If it doesn't appear, tap Restore Purchases in Settings.
+
+### 14.5 Price Changes
+We may change subscription prices. Apple will notify you in advance as required, and you can cancel before a new price applies.
 
 ## 15. Geographic Restrictions
 
@@ -153,7 +168,7 @@ The App is primarily intended for users in the United States. If you access from
 
 ## 16. DMCA and Copyright
 
-If you believe your copyright has been infringed, contact us at **aasim.ss@gmail.com** with:
+If you believe your copyright has been infringed, contact us at **support@smartpantryai.app** with:
 - Description of the copyrighted work
 - Location of infringing material
 - Your contact information
@@ -186,7 +201,7 @@ These Terms, along with the Privacy Policy, constitute the entire agreement betw
 
 For questions about these Terms, contact:
 
-**Email:** aasim.ss@gmail.com  
+**Email:** support@smartpantryai.app  
 **Website:** https://github.com/aasimsyed/pantry
 
 ---

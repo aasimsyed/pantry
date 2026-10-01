@@ -37,7 +37,7 @@ document.getElementById('contactForm').addEventListener('submit', async (e) => {
     }
   } catch (error) {
     formStatus.className = 'form-status error';
-    formStatus.textContent = 'Failed to send message. Please try again or email us directly at aasim.ss@gmail.com';
+    formStatus.textContent = 'Failed to send message. Please try again or email us directly at support@smartpantryai.app';
   } finally {
     submitButton.disabled = false;
     submitButton.textContent = 'Send Message';

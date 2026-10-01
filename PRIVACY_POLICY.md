@@ -98,7 +98,7 @@ You have the right to:
 - Export your data
 - Opt-out of analytics tracking
 
-To exercise these rights, contact us at **aasim.ss@gmail.com**
+To exercise these rights, contact us at **support@smartpantryai.app**
 
 ## Children's Privacy
 
@@ -128,7 +128,7 @@ We MAY share data:
 
 If you have questions about this Privacy Policy, please contact:
 
-**Email:** aasim.ss@gmail.com  
+**Email:** support@smartpantryai.app  
 **Website:** https://github.com/aasimsyed/pantry
 
 ## Consent

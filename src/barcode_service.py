@@ -64,7 +64,7 @@ class BarcodeService:
         """Initialize the barcode service."""
         # Configure Open Food Facts API client
         self.api = openfoodfacts.API(
-            user_agent="SmartPantry/1.4.0 (aasim.ss@gmail.com)",
+            user_agent="SmartPantry/1.4.0 (support@smartpantryai.app)",
             country="world",  # Use world database for better product coverage
             flavor="off",  # Open Food Facts
         )
