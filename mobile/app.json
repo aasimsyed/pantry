@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aasimsyed.smartpantry",
-      "buildNumber": "125",
+      "buildNumber": "126",
       "deploymentTarget": "15.5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -51,7 +51,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.aasimsyed.smartpantry",
-      "versionCode": 107,
+      "versionCode": 108,
       "intentFilters": [
         {
           "action": "VIEW",
