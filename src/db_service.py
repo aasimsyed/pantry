@@ -1708,23 +1708,21 @@ class PantryService:
         ai_provider: Optional[str] = None,
         ai_model: Optional[str] = None
     ) -> UserSettings:
-        """Update user settings.
-        
+        """Replace user settings; None resets a field to the system default.
+
         Args:
             user_id: User ID
             ai_provider: AI provider ("openai" or "anthropic")
             ai_model: AI model name (e.g., "gpt-6-luna", "claude-sonnet-5-5")
-            
+
         Returns:
             Updated UserSettings object
         """
         from datetime import datetime
         settings = self.get_user_settings(user_id)
-        
-        if ai_provider is not None:
-            settings.ai_provider = ai_provider
-        if ai_model is not None:
-            settings.ai_model = ai_model
+
+        settings.ai_provider = ai_provider
+        settings.ai_model = ai_model
         
         settings.updated_at = datetime.utcnow()
         self.session.add(settings)

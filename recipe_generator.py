@@ -382,9 +382,8 @@ class RecipeGenerator:
         backend = self.analyzer._get_backend()
         
         # Call AI model directly based on backend type
-        # Use lower max_tokens for faster response to avoid HTTP gateway timeout
-        # Recipes don't need 2000 tokens - 1500 is sufficient for quality recipes
-        recipe_max_tokens = min(1500, backend.config.max_tokens)  # Cap at 1500 for speed
+        # Claude Sonnet 5.5 recipes run ~2400 tokens; a lower cap truncates the JSON
+        recipe_max_tokens = 3000
         
         model_used = None  # Track which model was actually used
         
