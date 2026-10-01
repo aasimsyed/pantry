@@ -8,6 +8,10 @@ on:
   # Only run on pushes, not PRs (secrets not available from forks)
   workflow_dispatch:  # Allow manual trigger
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   PROJECT_ID: pantry-manager-416004
   SERVICE_NAME: pantry-api

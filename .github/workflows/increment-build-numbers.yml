@@ -11,6 +11,10 @@ on:
       - '.github/workflows/increment-build-numbers.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   increment-build-numbers:
     runs-on: ubuntu-latest

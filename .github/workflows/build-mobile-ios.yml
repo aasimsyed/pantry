@@ -25,6 +25,10 @@ on:
         required: false
         type: string
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-submit:
     name: Build iOS (Xcode) and Submit to TestFlight
