@@ -66,11 +66,11 @@ def test_anthropic():
         client = Anthropic(api_key=api_key)
         print("   🔄 Sending test request to Claude...")
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-5-5",
             max_tokens=100,
             messages=[{"role": "user", "content": "Say 'Hello from Claude!' and nothing else."}],
         )
-        response = message.content[0].text
+        response = "".join(b.text for b in message.content if b.type == "text")
         print(f"   ✅ Claude API working!")
         print(f"   📝 Response: \"{response}\"")
         print(f"   📊 Model: {message.model}")
@@ -106,8 +106,9 @@ def test_openai():
         client = OpenAI(api_key=api_key)
         print("   🔄 Sending test request to GPT...")
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            max_tokens=100,
+            model="gpt-6-luna",
+            max_completion_tokens=100,
+            reasoning_effort="none",
             messages=[{"role": "user", "content": "Say 'Hello from GPT!' and nothing else."}],
         )
         print(f"   ✅ OpenAI API working!")
@@ -148,11 +149,11 @@ Return JSON with: product_name, brand, category, expiration_date, key_attributes
 Return ONLY the JSON, no other text."""
 
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-5-5",
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
         )
-        response_text = message.content[0].text.strip()
+        response_text = "".join(b.text for b in message.content if b.type == "text").strip()
         if response_text.startswith("```"):
             parts = response_text.split("```")
             response_text = parts[1]

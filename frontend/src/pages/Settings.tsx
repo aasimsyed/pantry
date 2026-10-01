@@ -10,17 +10,11 @@ interface UserSettings {
 
 const AI_MODELS = {
   openai: [
-    { value: 'gpt-5', label: 'GPT-5 (Latest & Best)' },
-    { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
-    { value: 'gpt-4', label: 'GPT-4 Classic' },
-    { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+    { value: 'gpt-6-luna', label: 'GPT-6 Luna (Fast, default)' },
+    { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol (Higher quality)' },
   ],
   anthropic: [
-    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Latest)' },
-    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+    { value: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5' },
   ],
 };
 
@@ -126,7 +120,7 @@ export default function Settings() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-2">AI Model Preferences</h2>
         <p className="text-gray-600 mb-6">
-          Choose which AI model to use for recipe generation. GPT-5 offers the best quality and reasoning, GPT-4o provides excellent balance, while Claude models excel at creative recipes.
+          Choose which AI model to use for recipe generation. GPT-6 Luna is fast and cheap. GPT-6.1 Sol and Claude Sonnet 5.5 cost more and write stronger recipes.
         </p>
 
         <div className="mb-4">

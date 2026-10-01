@@ -37,22 +37,16 @@ interface UserSettings {
 
 const AI_MODELS: Record<string, Array<{ value: string; label: string }>> = {
   openai: [
-    { value: 'gpt-5', label: 'GPT-5 (Latest & Best)' },
-    { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
-    { value: 'gpt-4', label: 'GPT-4 Classic' },
-    { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+    { value: 'gpt-6-luna', label: 'GPT-6 Luna (Fast, default)' },
+    { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol (Higher quality)' },
   ],
   anthropic: [
-    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (Latest)' },
-    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+    { value: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5' },
   ],
 };
 
 /** Fallback when API doesn't return default_ai_* (old backend). */
-const DEFAULT_AI_FALLBACK = { provider: 'openai', modelLabel: 'GPT-4 Turbo' };
+const DEFAULT_AI_FALLBACK = { provider: 'openai', modelLabel: 'GPT-6 Luna' };
 
 function getDefaultAiLabel(settings: UserSettings | null): string {
   const provider = settings?.default_ai_provider ?? DEFAULT_AI_FALLBACK.provider;

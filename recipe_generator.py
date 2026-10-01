@@ -29,7 +29,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Union
 
-from src.ai_analyzer import AIConfig, create_ai_analyzer
+from src.ai_analyzer import (
+    AIConfig,
+    claude_message_kwargs,
+    claude_text,
+    create_ai_analyzer,
+    openai_completion_kwargs,
+)
 
 
 class RecipeGenerator:
@@ -384,30 +390,14 @@ class RecipeGenerator:
         
         if backend.__class__.__name__ == 'OpenAIBackend':
             model_used = backend.config.model
-            # Newer OpenAI models (GPT-4o, GPT-4 Classic, GPT-5, etc.) require max_completion_tokens instead of max_tokens
-            # Check if model name suggests it's a newer model
-            model_name = backend.config.model.lower()
-            # Models that use max_completion_tokens: gpt-4o, gpt-4 (classic), gpt-5, o1, o3, and newer
-            use_max_completion_tokens = any(x in model_name for x in ['gpt-4o', 'gpt-4-', 'gpt-5', 'o1', 'o3']) or model_name == 'gpt-4'
-            
             api_params = {
                 "model": backend.config.model,
                 "messages": [
                     {"role": "system", "content": "You are a creative chef and flavor scientist. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
+                **openai_completion_kwargs(backend.config.model, recipe_max_tokens, 0.7),
             }
-            
-            # GPT-5 and o1/o3 models don't support temperature parameter
-            # Only use temperature for models that support it
-            if not any(x in model_name for x in ['gpt-5', 'o1', 'o3']):
-                api_params["temperature"] = 0.7  # More creative for recipes
-            
-            # Use the appropriate parameter based on model
-            if use_max_completion_tokens:
-                api_params["max_completion_tokens"] = recipe_max_tokens
-            else:
-                api_params["max_tokens"] = recipe_max_tokens
             
             response = backend.client.chat.completions.create(**api_params)
             raw = response.choices[0].message.content
@@ -436,7 +426,7 @@ class RecipeGenerator:
             # Skip fallback if user explicitly selected a model to save time
             if not (backend.config.model and "claude" in backend.config.model):
                 # Only add fallback if no user model specified
-                models_to_try.append("claude-3-sonnet-20240229")  # Fast, reliable model
+                models_to_try.append("claude-sonnet-5-5")
             
             last_error = None
             messages = [{"role": "user", "content": prompt}]
@@ -445,12 +435,10 @@ class RecipeGenerator:
                 try:
                     self.analyzer.logger.info(f"Trying Claude model: {model_name}")
                     message = backend.client.messages.create(
-                        model=model_name,
-                        max_tokens=recipe_max_tokens,
-                        temperature=0.7,  # More creative for recipes
+                        **claude_message_kwargs(model_name, recipe_max_tokens, 0.7),
                         messages=messages
                     )
-                    content = message.content[0].text.strip()
+                    content = claude_text(message)
                     model_used = model_name  # Track which model succeeded
                     self.analyzer.logger.info(f"Successfully used Claude model: {model_name}")
                     break  # Success, exit loop

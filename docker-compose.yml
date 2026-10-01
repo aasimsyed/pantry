@@ -11,7 +11,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - AI_PROVIDER=${AI_PROVIDER:-openai}
-      - AI_MODEL=${AI_MODEL:-gpt-4-turbo-preview}
+      - AI_MODEL=${AI_MODEL:-gpt-6-luna}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       - db

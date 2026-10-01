@@ -29,6 +29,7 @@ Example:
 import hashlib
 import json
 import logging
+import re
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -61,7 +62,7 @@ class AIConfig:
     
     # Provider settings
     provider: str = "openai"  # "openai" or "anthropic"
-    model: str = "gpt-4-turbo-preview"
+    model: str = "gpt-6-luna"
     
     # API credentials
     openai_api_key: Optional[str] = None
@@ -304,6 +305,51 @@ Return ONLY the JSON, no other text, no markdown code blocks."""
         return prompt
 
 
+def openai_completion_kwargs(model: str, max_tokens: int, temperature: Optional[float]) -> Dict[str, Any]:
+    """Chat Completions params for the configured OpenAI model.
+
+    GPT-6 rejects temperature unless reasoning_effort is none. Luna supports none.
+    Astra and GPT-6.1 Sol do not, so those requests use low effort and no temperature.
+    """
+    name = (model or "").lower()
+    uses_completion_tokens = name == "gpt-4" or any(
+        token in name for token in ("gpt-4o", "gpt-5", "gpt-6", "o1", "o3")
+    )
+    forces_reasoning = any(token in name for token in ("gpt-5", "o1", "o3", "gpt-6-astra", "gpt-6.1"))
+    params: Dict[str, Any] = (
+        {"max_completion_tokens": max_tokens} if uses_completion_tokens else {"max_tokens": max_tokens}
+    )
+    if forces_reasoning:
+        params["reasoning_effort"] = "low"
+        return params
+    if "gpt-6" in name:
+        params["reasoning_effort"] = "none"
+    if temperature is not None:
+        params["temperature"] = temperature
+    return params
+
+
+def claude_message_kwargs(model: str, max_tokens: int, temperature: Optional[float]) -> Dict[str, Any]:
+    """Messages API params for the configured Claude model.
+
+    Claude 5-generation models return 400 on a non-default temperature and think
+    by default, so those requests drop temperature and ask for low effort.
+    """
+    params: Dict[str, Any] = {"model": model, "max_tokens": max_tokens}
+    if re.search(r"claude-(sonnet|opus|fable)-5", (model or "").lower()):
+        params["extra_body"] = {"output_config": {"effort": "low"}}
+    elif temperature is not None:
+        params["temperature"] = temperature
+    return params
+
+
+def claude_text(message: Any) -> str:
+    """Join text blocks; thinking blocks may come first."""
+    return "".join(
+        block.text for block in message.content if getattr(block, "type", None) == "text"
+    ).strip()
+
+
 # ============================================================================
 # OpenAI Backend
 # ============================================================================
@@ -349,32 +395,17 @@ class OpenAIBackend(AIBackend):
         try:
             self.logger.debug(f"Calling OpenAI API with model {self.config.model}")
             
-            # Use max_completion_tokens for newer models, max_tokens for older ones
-            # Newer models (GPT-4o, GPT-5.2, etc.) require max_completion_tokens
             api_params = {
                 "model": self.config.model,
                 "messages": [
                     {"role": "system", "content": "You are a product information extraction expert. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                "temperature": self.config.temperature,
+                **openai_completion_kwargs(
+                    self.config.model, self.config.max_tokens, self.config.temperature
+                ),
             }
-            
-            # Try max_completion_tokens first (for newer models), fallback to max_tokens
-            try:
-                response = self.client.chat.completions.create(
-                    **api_params,
-                    max_completion_tokens=self.config.max_tokens,
-                )
-            except Exception as e:
-                # Fallback to max_tokens for older models
-                if "max_completion_tokens" in str(e) or "unsupported" in str(e).lower():
-                    response = self.client.chat.completions.create(
-                        **api_params,
-                        max_tokens=self.config.max_tokens,
-                    )
-                else:
-                    raise
+            response = self.client.chat.completions.create(**api_params)
             
             # Parse response
             content = response.choices[0].message.content.strip()
@@ -447,15 +478,13 @@ class ClaudeBackend(AIBackend):
         try:
             self.logger.debug(f"Calling Claude API with model {self.config.model}")
             
+            model = self.config.model if "claude" in self.config.model else "claude-sonnet-5-5"
             message = self.client.messages.create(
-                model=self.config.model if "claude" in self.config.model else "claude-sonnet-4-20250514",
-                max_tokens=self.config.max_tokens,
-                temperature=self.config.temperature,
+                **claude_message_kwargs(model, self.config.max_tokens, self.config.temperature),
                 messages=[{"role": "user", "content": prompt}]
             )
             
-            # Parse response
-            content = message.content[0].text.strip()
+            content = claude_text(message)
             
             # Remove markdown code blocks if present
             if content.startswith("```"):

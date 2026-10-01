@@ -33,7 +33,9 @@ from src.ai_analyzer import (
     OpenAIBackend,
     PRODUCT_CATEGORIES,
     ProductData,
+    claude_message_kwargs,
     create_ai_analyzer,
+    openai_completion_kwargs,
 )
 
 
@@ -118,11 +120,39 @@ def test_ai_config_creation():
     config = AIConfig()
     
     assert config.provider == "openai"
-    assert config.model == "gpt-4-turbo-preview"
+    assert config.model == "gpt-6-luna"
     assert config.temperature == 0.0
     assert config.max_tokens == 2000
     assert config.min_confidence == 0.7
     assert config.cache_enabled is True
+
+
+def test_openai_completion_kwargs_by_model():
+    """GPT-6 Luna keeps temperature via reasoning_effort none. Sol cannot."""
+    luna = openai_completion_kwargs("gpt-6-luna", 1500, 0.7)
+    assert luna["max_completion_tokens"] == 1500
+    assert luna["reasoning_effort"] == "none"
+    assert luna["temperature"] == 0.7
+
+    sol = openai_completion_kwargs("gpt-6.1-sol", 1500, 0.7)
+    assert sol["reasoning_effort"] == "low"
+    assert "temperature" not in sol
+
+    turbo = openai_completion_kwargs("gpt-4-turbo-preview", 1500, 0.0)
+    assert turbo["max_tokens"] == 1500
+    assert turbo["temperature"] == 0.0
+    assert "reasoning_effort" not in turbo
+
+
+def test_claude_message_kwargs_by_model():
+    """Claude 5 models reject temperature. Older models keep it."""
+    sonnet = claude_message_kwargs("claude-sonnet-5-5", 1500, 0.7)
+    assert "temperature" not in sonnet
+    assert sonnet["extra_body"] == {"output_config": {"effort": "low"}}
+
+    legacy = claude_message_kwargs("claude-sonnet-4-20250514", 1500, 0.7)
+    assert legacy["temperature"] == 0.7
+    assert "extra_body" not in legacy
 
 
 def test_ai_config_validation():
@@ -294,8 +324,7 @@ def test_claude_extraction(mock_anthropic_class, config: AIConfig, mock_claude_r
     
     # Mock response
     mock_message = Mock()
-    mock_message.content = [Mock()]
-    mock_message.content[0].text = json.dumps(mock_claude_response)
+    mock_message.content = [Mock(type="thinking"), Mock(type="text", text=json.dumps(mock_claude_response))]
     mock_message.usage.input_tokens = 200
     mock_message.usage.output_tokens = 300
     mock_client.messages.create.return_value = mock_message

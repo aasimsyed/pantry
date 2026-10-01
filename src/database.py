@@ -778,7 +778,7 @@ class SavedRecipe(Base):
     tags = Column(Text, nullable=True)  # JSON: List of tag strings
     
     # AI metadata
-    ai_model = Column(String(100), nullable=True)  # AI model used to generate recipe (e.g., "gpt-4o", "claude-3-opus-20240229")
+    ai_model = Column(String(100), nullable=True)  # AI model used to generate recipe (e.g., "gpt-6-luna", "claude-sonnet-5-5")
     flavor_pairings = Column(Text, nullable=True)  # JSON: List of flavor pairing objects {ingredients, compounds, effect}
     
     # Timestamps
@@ -1206,7 +1206,7 @@ class UserSettings(Base):
     
     # AI preferences
     ai_provider = Column(String(50), nullable=True)  # "openai" or "anthropic"
-    ai_model = Column(String(100), nullable=True)  # e.g., "gpt-4o", "claude-sonnet-4-20250514"
+    ai_model = Column(String(100), nullable=True)  # e.g., "gpt-6-luna", "claude-sonnet-5-5"
     
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

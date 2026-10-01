@@ -107,7 +107,7 @@ class Settings(BaseSettings):
     # AI
     # -------------------------------------------------------------------------
     ai_provider: str = "openai"
-    ai_model: str = "gpt-4-turbo-preview"
+    ai_model: str = "gpt-6-luna"
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
     ai_temperature: float = 0.0
