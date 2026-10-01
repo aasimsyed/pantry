@@ -238,10 +238,13 @@ if [ "$UPLOAD_SUCCESS" = true ]; then
   echo "   https://appstoreconnect.apple.com/apps/6755445323/testflight/ios"
 else
   echo ""
-  echo "  Upload skipped. To submit manually:"
+  echo "  Upload failed or skipped. To submit manually:"
   echo "    1. Open Transporter (Mac App Store)"
   echo "    2. Drag: $IPA_PATH"
   echo "    3. Click Deliver"
+  echo ""
+  echo "📱 Archive: $ARCHIVE_PATH"
+  exit 1
 fi
 
 echo ""

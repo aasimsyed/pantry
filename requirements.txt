@@ -16,7 +16,7 @@ openfoodfacts>=0.1.3  # Open Food Facts API client
 aiohttp>=3.9.0  # Async HTTP client for API calls
 
 # Database
-SQLAlchemy>=2.0.0  # ORM for database operations
+SQLAlchemy>=2.0.0,<2.1  # ORM; 2.1 defaults postgresql:// to psycopg3 (not installed)
 alembic>=1.12.0  # Database migrations
 psycopg2-binary>=2.9.0  # PostgreSQL adapter (optional, for production)
 
