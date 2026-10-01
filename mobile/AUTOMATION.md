@@ -30,38 +30,49 @@ cd mobile
 
 ### Option 2: GitHub Actions CI/CD (Recommended for Automated Deployments)
 
-**Automated GitHub Actions workflow** that builds and submits on push to `main`/`master`:
+**Workflow:** `.github/workflows/build-mobile-ios.yml`
+
+A push to `main` or `master` that changes `mobile/**` (or the workflow file) builds the app with Xcode on a GitHub macOS runner and uploads the IPA to TestFlight with `altool`. No EAS and no `EXPO_TOKEN`.
 
 **Trigger:**
-- Automatically triggers on pushes to `main`/`master` branches when `mobile/` files change
-- Can also be triggered manually via GitHub Actions UI
+- Push to `main` or `master` when files under `mobile/` change
+- Manual run: GitHub → Actions → **Build and Deploy iOS App** → **Run workflow** (optional custom build number)
 
-**Setup required:**
+**Secrets** (repo → Settings → Secrets and variables → Actions). Setup steps: `.github/ios-code-signing-secrets.md`.
 
-1. **Get Expo Token:**
-   ```bash
-   eas login
-   eas whoami
-   # Get your Expo token from: https://expo.dev/accounts/aasimsyed/settings/access-tokens
-   ```
+| Secret | Purpose |
+|--------|---------|
+| `APPLE_ID` | Apple ID email for the `altool` upload |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password from [appleid.apple.com](https://appleid.apple.com) |
+| `BUILD_CERTIFICATE_BASE64` | Apple Distribution `.p12`, base64-encoded |
+| `P12_PASSWORD` | Password for that `.p12` |
+| `BUILD_PROVISION_PROFILE_BASE64` | App Store provisioning profile, base64-encoded |
+| `KEYCHAIN_PASSWORD` | Password for the temporary keychain on the runner |
 
-2. **Add GitHub Secret:**
-   - Go to: `https://github.com/YOUR_USERNAME/pantry/settings/secrets/actions`
-   - Add secret: `EXPO_TOKEN` with your Expo access token
+Optional: `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`.
 
-3. **Push to trigger:**
-   ```bash
-   git add mobile/
-   git commit -m "Update mobile app"
-   git push origin main
-   ```
+**Push to trigger:**
+
+```bash
+git add mobile/
+git commit -m "Update mobile app"
+git push origin main
+```
+
+Do not put `[skip ci]` in the commit message. That phrase skips the iOS workflow.
+
+**What happens:**
+1. The local pre-push hook bumps `mobile/app.json` (`buildNumber` and `versionCode`) and amends the commit.
+2. The runner imports the certificate and profile, then runs `mobile/build-ios.sh` (prebuild, archive, export, upload).
+3. **Auto-Increment Build Numbers** bumps `app.json` again and commits with `[skip ci]`, so it does not start a second build. Run `git pull` afterwards so local matches remote.
+
+Watch the run under Actions. A green run means Apple accepted the upload. The build shows in TestFlight in about 10-30 minutes: https://appstoreconnect.apple.com/apps/6755445323/testflight/ios
 
 **Features:**
-- ✅ Fully automated (runs on push)
-- ✅ No local setup needed
-- ✅ Builds in cloud (GitHub Actions runners)
-- ✅ Auto-submits to TestFlight
-- ✅ Optional manual trigger with custom build number
+- Fully automated on push
+- Builds on GitHub macOS runners with your signing secrets
+- Uploads to TestFlight with `altool`
+- Manual trigger with a custom build number
 
 ---
 
@@ -100,9 +111,9 @@ This automatically increments the build number each time you build, so you never
 ### TestFlight Submission
 
 Automatic submission is handled by:
-- **Local script**: Runs `eas submit --platform ios --non-interactive --latest` after build
-- **GitHub Actions**: Runs submit command after build completes
-- **Configuration**: Uses `eas.json` submit settings (ASC App ID: 6755445323)
+- **Local script** (`build-and-deploy-ios.sh`): Runs `eas submit --platform ios --non-interactive --latest` after the EAS build
+- **GitHub Actions** (`.github/workflows/build-mobile-ios.yml`): `mobile/build-ios.sh` uploads the IPA with `altool` using `APPLE_ID` and `APPLE_APP_SPECIFIC_PASSWORD`
+- **App Store Connect app**: ASC App ID 6755445323
 
 ---
 
@@ -216,9 +227,10 @@ If you get "You've already submitted this build", the build number is already in
 
 ### GitHub Actions Fails
 
-- Check that `EXPO_TOKEN` secret is set correctly
-- Verify token has necessary permissions
-- Check workflow logs in GitHub Actions
+- Open the failed run under Actions and read the **Build and upload to TestFlight** step
+- Signing errors (exit 65): the distribution certificate or App Store profile expired. Re-export both and update `BUILD_CERTIFICATE_BASE64`, `P12_PASSWORD`, and `BUILD_PROVISION_PROFILE_BASE64`. See `.github/ios-code-signing-secrets.md`
+- Upload error `Sign in with the app-specific password`: `APPLE_APP_SPECIFIC_PASSWORD` is stale. Create a new one at [appleid.apple.com](https://appleid.apple.com) and update the secret
+- "You've already submitted this build": pull latest `main` first. The pre-push hook and the auto-increment workflow both bump `buildNumber`
 
 ### Submission Fails
 
