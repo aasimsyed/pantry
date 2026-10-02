@@ -156,10 +156,7 @@ Continued use after changes constitutes acceptance of the new Terms.
 ### 14.3 Refunds
 All payments are processed by Apple. Refund requests are handled by Apple under its policies at https://reportaproblem.apple.com.
 
-### 14.4 Existing Customers
-If you bought the App as a paid download, Premium is included at no additional charge. If it doesn't appear, tap Restore Purchases in Settings.
-
-### 14.5 Price Changes
+### 14.4 Price Changes
 We may change subscription prices. Apple will notify you in advance as required, and you can cancel before a new price applies.
 
 ## 15. Geographic Restrictions
