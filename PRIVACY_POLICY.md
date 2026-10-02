@@ -1,6 +1,6 @@
 # Privacy Policy for Smart Pantry AI
 
-**Last Updated:** January 27, 2026
+**Last Updated:** October 1, 2026
 
 ## Introduction
 
@@ -18,6 +18,12 @@ Smart Pantry AI ("we", "our", or "us") is committed to protecting your privacy. 
 - Product image filenames (metadata only - actual photos are not stored)
 - Recipes you save or generate
 - User preferences and settings
+- Daily AI feature usage, to apply your plan's daily allowance
+
+### Subscription Information
+- Your plan, subscription status and purchase history (product, purchase and renewal dates) from Apple
+- Your original App Store download version, to include Premium for customers who bought the app
+- We never receive your payment card or billing details; Apple processes all payments
 
 ### Camera and Photo Library
 - We access your camera to scan barcodes and product labels
@@ -63,6 +69,11 @@ We use the following third-party services:
 ### Error Tracking
 - **Sentry** - For error monitoring and crash reporting
 - Usage: Error logs and diagnostic information
+
+### Subscriptions
+- **RevenueCat** - For managing in-app subscriptions and purchases
+- Usage: Your account ID and App Store purchase receipts are sent to RevenueCat to verify purchases and determine your plan
+- Privacy: RevenueCat processes this data according to their privacy policy (https://www.revenuecat.com/privacy)
 
 ### Shopping Integration
 - **Instacart** - For shopping list and ingredient purchasing
@@ -120,7 +131,7 @@ We do NOT:
 - Use your data for marketing purposes without consent
 
 We MAY share data:
-- With service providers who help us operate the app (cloud hosting, AI services)
+- With service providers who help us operate the app (cloud hosting, AI services, subscription management)
 - When required by law or to protect our legal rights
 - In connection with a business transfer (merger, acquisition)
 
