@@ -155,6 +155,19 @@ class TestIsPremium:
         user.role = "admin"
         assert subscription_service.is_premium(user) is True
 
+    @pytest.mark.parametrize("role", ["user", "admin"])
+    def test_test_account_needs_subscription(self, user, monkeypatch, subscription_service, settings, role):
+        monkeypatch.setattr(settings, "freemium_first_build", None)
+        monkeypatch.setattr(settings, "free_tier_test_emails", "other@example.com, A@Example.com")
+        monkeypatch.setattr(subscription_service, "_cache", {})
+        user.role = role
+        paid_build = {"entitlements": {}, "original_application_version": "120"}
+        monkeypatch.setattr(subscription_service, "_fetch_subscriber", Mock(return_value=paid_build))
+        assert subscription_service.is_premium(user) is False
+        subscribed = {"entitlements": {settings.revenuecat_entitlement_id: {"expires_date": None}}}
+        monkeypatch.setattr(subscription_service, "_fetch_subscriber", Mock(return_value=subscribed))
+        assert subscription_service.is_premium(user, refresh=True) is True
+
     def test_lookup_is_cached_and_refreshable(self, user, monkeypatch, subscription_service, settings):
         fetch = Mock(return_value={"entitlements": {}})
         monkeypatch.setattr(settings, "freemium_first_build", 130)

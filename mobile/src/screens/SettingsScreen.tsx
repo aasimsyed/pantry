@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import apiClient from '../api/client';
 import { getUseCloudOcr, setUseCloudOcr } from '../services/ocrService';
 import {
+  hasActiveSubscription,
   manageSubscription,
   presentPaywall,
   purchasesAvailable,
@@ -91,12 +92,15 @@ export default function SettingsScreen() {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [useCloudOcr, setUseCloudOcrState] = useState(false);
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
   const ds = getDesignSystem(isDark);
 
   const runPurchaseAction = async (action: () => Promise<unknown>) => {
     try {
       await action();
-      setAiUsage(await apiClient.getAiUsage());
+      const [usage, active] = await Promise.all([apiClient.getAiUsage(), hasActiveSubscription()]);
+      setAiUsage(usage);
+      setSubscribed(active);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Could not reach the App Store');
     }
@@ -131,7 +135,12 @@ export default function SettingsScreen() {
       setSettings(data);
       const recovery = await apiClient.getRecoveryQuestions().catch(() => null);
       if (recovery) setRecoveryData(recovery);
-      setAiUsage(await apiClient.getAiUsage().catch(() => null));
+      const [usage, active] = await Promise.all([
+        apiClient.getAiUsage().catch(() => null),
+        hasActiveSubscription(),
+      ]);
+      setAiUsage(usage);
+      setSubscribed(active);
       const [available, enabled, cloudOcr] = await Promise.all([
         apiClient.isBiometricAvailable(),
         apiClient.getBiometricEnabled(),
@@ -397,7 +406,7 @@ export default function SettingsScreen() {
                   accessibilityHint="Double tap to see subscription options"
                 />
               )}
-              {purchasesAvailable && aiUsage.tier === 'premium' && (
+              {subscribed && (
                 <List.Item
                   title="Manage Subscription"
                   left={(props) => <List.Icon {...props} icon="cog" color={ds.colors.primary} />}

@@ -132,6 +132,8 @@ class Settings(BaseSettings):
     revenuecat_cache_ttl: int = 300
     # First iOS build number sold as freemium; unset keeps every user on premium
     freemium_first_build: Optional[int] = None
+    # Comma-separated emails treated as new freemium users (premium only via subscription), for testing purchases
+    free_tier_test_emails: str = ""
 
     # -------------------------------------------------------------------------
     # OCR

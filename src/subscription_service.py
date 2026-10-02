@@ -46,14 +46,16 @@ def _fetch_subscriber(user_id: int) -> dict[str, Any]:
 
 def is_premium(user: User, refresh: bool = False) -> bool:
     """Whether the user gets the premium AI allowance."""
-    if settings.freemium_first_build is None or user.role == "admin":
+    test_account = user.email.lower() in {e.strip().lower() for e in settings.free_tier_test_emails.split(",")}
+    if not test_account and (settings.freemium_first_build is None or user.role == "admin"):
         return True
     now = time.monotonic()
     cached = _cache.get(user.id)
     if cached and not refresh and cached[0] > now:
         return cached[1]
     try:
-        premium = subscriber_is_premium(_fetch_subscriber(user.id), settings.freemium_first_build)
+        first_build = 0 if test_account else settings.freemium_first_build
+        premium = subscriber_is_premium(_fetch_subscriber(user.id), first_build)
     except Exception as e:
         # Fail open so a RevenueCat outage never locks out paying users; the premium cap still bounds spend
         logger.warning("RevenueCat lookup failed for user %s: %s", user.id, e)
